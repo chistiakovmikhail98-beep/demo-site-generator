@@ -1288,6 +1288,98 @@ fastify.delete<{ Params: { id: string; imageId: string } }>(
   }
 );
 
+// === ЛИДЫ (заявки с демо-сайтов) ===
+
+// Создать новый лид
+fastify.post<{
+  Body: {
+    name: string;
+    phone: string;
+    messenger?: string;
+    studio_name: string;
+    studio_phone?: string;
+    source_url?: string;
+  }
+}>('/api/leads', async (request, reply) => {
+  try {
+    const { name, phone, messenger, studio_name, studio_phone, source_url } = request.body;
+
+    if (!name || !phone || !studio_name) {
+      return reply.status(400).send({ error: 'name, phone и studio_name обязательны' });
+    }
+
+    if (!USE_SUPABASE) {
+      return reply.status(500).send({ error: 'Supabase не настроен' });
+    }
+
+    const lead = await supabaseService.createLead({
+      name,
+      phone,
+      messenger,
+      studio_name,
+      studio_phone,
+      source_url,
+    });
+
+    console.log(`📩 Новый лид: ${name} (${phone}) для студии "${studio_name}"`);
+
+    return { success: true, lead };
+  } catch (error) {
+    console.error('Ошибка создания лида:', error);
+    return reply.status(500).send({
+      error: error instanceof Error ? error.message : 'Ошибка создания заявки',
+    });
+  }
+});
+
+// Получить все лиды (для CRM)
+fastify.get<{ Querystring: { limit?: string } }>('/api/leads', async (request) => {
+  if (!USE_SUPABASE) {
+    return { leads: [], error: 'Supabase не настроен' };
+  }
+
+  try {
+    const limit = parseInt(request.query.limit || '100', 10);
+    const leads = await supabaseService.getLeads(limit);
+    return { leads };
+  } catch (error) {
+    console.error('Ошибка получения лидов:', error);
+    return { leads: [], error: 'Ошибка получения заявок' };
+  }
+});
+
+// Обновить статус лида
+fastify.patch<{
+  Params: { id: string };
+  Body: { status?: string; notes?: string }
+}>('/api/leads/:id', async (request, reply) => {
+  if (!USE_SUPABASE) {
+    return reply.status(500).send({ error: 'Supabase не настроен' });
+  }
+
+  try {
+    const { id } = request.params;
+    const updates: Record<string, unknown> = {};
+
+    if (request.body.status) {
+      updates.status = request.body.status;
+    }
+    if (request.body.notes !== undefined) {
+      updates.notes = request.body.notes;
+    }
+
+    const lead = await supabaseService.updateLead(id, updates);
+    console.log(`📝 Лид ${id} обновлён: status=${request.body.status}`);
+
+    return { success: true, lead };
+  } catch (error) {
+    console.error('Ошибка обновления лида:', error);
+    return reply.status(500).send({
+      error: error instanceof Error ? error.message : 'Ошибка обновления заявки',
+    });
+  }
+});
+
 // Фоновый процесс генерации
 async function processProject(projectId: string): Promise<void> {
   try {
@@ -1377,6 +1469,19 @@ async function processProject(projectId: string): Promise<void> {
     });
   }
 }
+
+// Диагностика окружения (без раскрытия значений)
+fastify.get('/api/diagnostics', async () => {
+  return {
+    vercelToken: !!process.env.VERCEL_TOKEN,
+    vercelTokenLength: process.env.VERCEL_TOKEN?.length || 0,
+    customDomain: process.env.CUSTOM_DOMAIN || null,
+    railwayEnv: !!process.env.RAILWAY_ENVIRONMENT,
+    supabaseConfigured: !!process.env.SUPABASE_URL && !!process.env.SUPABASE_SERVICE_KEY,
+    nodeVersion: process.version,
+    platform: process.platform,
+  };
+});
 
 // Запуск сервера
 const PORT = parseInt(process.env.PORT || '3001', 10);
