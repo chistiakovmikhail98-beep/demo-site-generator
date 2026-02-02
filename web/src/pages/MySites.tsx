@@ -57,9 +57,11 @@ interface ProjectCRM {
   mailingStatus?: MailingStatus; // Статус рассылки
   notes: string;          // Заметки
   admins?: AdminContact[]; // Контакты админов из ВК
+  vkGroupUrl?: string;    // Ссылка на сообщество ВК
 }
 
 const STORAGE_KEY = 'demo_sites_crm';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export default function MySites() {
   const navigate = useNavigate();
@@ -77,7 +79,7 @@ export default function MySites() {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('/api/projects');
+      const response = await fetch(`${API_URL}/api/projects`);
       const data = await response.json();
       setProjects(data);
     } catch (error) {
@@ -156,7 +158,7 @@ export default function MySites() {
     if (!confirm(`Удалить проект "${project.name}"?`)) return;
 
     try {
-      await fetch(`/api/projects/${project.id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/api/projects/${project.id}`, { method: 'DELETE' });
       setProjects(prev => prev.filter(p => p.id !== project.id));
       // Удаляем CRM данные
       const newCrm = { ...crmData };
@@ -170,7 +172,7 @@ export default function MySites() {
   // Перегенерация
   const handleRegenerate = async (project: Project) => {
     try {
-      await fetch(`/api/projects/${project.id}/regenerate`, { method: 'POST' });
+      await fetch(`${API_URL}/api/projects/${project.id}/regenerate`, { method: 'POST' });
       fetchProjects();
     } catch (error) {
       console.error('Ошибка перегенерации:', error);

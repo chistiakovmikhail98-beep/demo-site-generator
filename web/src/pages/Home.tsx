@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, X, Sparkles, Plus, ExternalLink, CheckCircle, DollarSign, Layers, Loader2, Clock, AlertCircle, Trash2, Clipboard, FileUp, Link2, Eye, Check } from 'lucide-react';
+import { Upload, X, Sparkles, Plus, ExternalLink, CheckCircle, DollarSign, Layers, Loader2, Clock, AlertCircle, Trash2, Clipboard, FileUp, Link2, Eye, Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface QueuedSite {
   id: string;
@@ -12,16 +12,18 @@ interface QueuedSite {
   createdAt: number;
 }
 
-// Типы фото для AI
-type PhotoType = 'hero' | 'trainer' | 'atmosphere' | 'gallery' | 'logo' | 'result';
+// Типы фото для AI (должны совпадать с PhotoBlockType на бэкенде)
+type PhotoType = 'hero' | 'instructors' | 'atmosphere' | 'gallery' | 'stories' | 'director' | 'directions' | 'advantages';
 
 const PHOTO_TYPES: Array<{ value: PhotoType; label: string; description: string }> = [
   { value: 'hero', label: 'Главная', description: 'Для шапки сайта' },
-  { value: 'trainer', label: 'Тренер', description: 'Фото тренера/инструктора' },
+  { value: 'instructors', label: 'Тренер', description: 'Фото тренера/инструктора' },
   { value: 'atmosphere', label: 'Атмосфера', description: 'Интерьер, зал' },
   { value: 'gallery', label: 'Галерея', description: 'Общие фото' },
-  { value: 'result', label: 'Результат', description: 'До/после, достижения' },
-  { value: 'logo', label: 'Логотип', description: 'Лого студии' },
+  { value: 'stories', label: 'До/После', description: 'Результаты, трансформация' },
+  { value: 'director', label: 'Директор', description: 'Основатель/руководитель' },
+  { value: 'directions', label: 'Направления', description: 'Фото занятий' },
+  { value: 'advantages', label: 'Преимущества', description: 'Особенности студии' },
 ];
 
 // Фото с подписью
@@ -141,10 +143,15 @@ interface BatchEntry {
   preview?: PreviewData;
   previewLoading?: boolean;
   previewConfirmed?: boolean;
+  previewCollapsed?: boolean;
   // Полный конфиг от AI (для создания без повторного вызова)
   fullConfig?: unknown;
   // Контакты админов (из ВК)
   admins?: AdminContact[];
+  // Ссылка на сообщество ВК (для CRM)
+  vkGroupUrl?: string;
+  // URL аватарки группы (для логотипа)
+  avatarUrl?: string;
 }
 
 type ColorSchemeKey = 'red' | 'purple' | 'blue' | 'green' | 'orange' | 'pink';
@@ -508,9 +515,15 @@ export default function Home() {
         return;
       }
 
-      // Вставляем полученный текст и админов в карточку
+      // Вставляем полученный текст, админов и ссылку на группу в карточку
       setBatchEntries(prev => prev.map((e, i) =>
-        i === entryIndex ? { ...e, text: data.rawText, admins: data.admins || [] } : e
+        i === entryIndex ? {
+          ...e,
+          text: data.rawText,
+          admins: data.admins || [],
+          vkGroupUrl: vkUrl, // Сохраняем ссылку на сообщество для CRM
+          avatarUrl: data.avatarUrl, // URL аватарки для логотипа
+        } : e
       ));
       setShowVkInput(null);
       setVkUrl('');
@@ -601,6 +614,82 @@ export default function Home() {
     }));
   };
 
+  // Обновить элемент в массиве превью (directions, pricing, etc.)
+  const updatePreviewArrayItem = (
+    entryIndex: number,
+    field: string,
+    itemIndex: number,
+    itemField: string,
+    value: unknown
+  ) => {
+    setBatchEntries(prev => prev.map((e, i) => {
+      if (i !== entryIndex || !e.preview) return e;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const preview = e.preview as any;
+      const arr = preview[field] as Array<Record<string, unknown>> | undefined;
+      if (!arr) return e;
+      const newArr = arr.map((item, idx) =>
+        idx === itemIndex ? { ...item, [itemField]: value } : item
+      );
+      const updatedPreview = { ...e.preview, [field]: newArr };
+      // Обновляем fullConfig
+      let updatedFullConfig = e.fullConfig;
+      if (e.fullConfig && typeof e.fullConfig === 'object') {
+        const fc = e.fullConfig as Record<string, unknown>;
+        updatedFullConfig = {
+          ...fc,
+          sections: { ...(fc.sections as Record<string, unknown> || {}), [field]: newArr }
+        };
+      }
+      return { ...e, preview: updatedPreview, fullConfig: updatedFullConfig };
+    }));
+  };
+
+  // Удалить элемент из массива превью
+  const removePreviewArrayItem = (entryIndex: number, field: string, itemIndex: number) => {
+    setBatchEntries(prev => prev.map((e, i) => {
+      if (i !== entryIndex || !e.preview) return e;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const preview = e.preview as any;
+      const arr = preview[field] as Array<Record<string, unknown>> | undefined;
+      if (!arr) return e;
+      const newArr = arr.filter((_, idx) => idx !== itemIndex);
+      const updatedPreview = { ...e.preview, [field]: newArr };
+      // Обновляем fullConfig
+      let updatedFullConfig = e.fullConfig;
+      if (e.fullConfig && typeof e.fullConfig === 'object') {
+        const fc = e.fullConfig as Record<string, unknown>;
+        updatedFullConfig = {
+          ...fc,
+          sections: { ...(fc.sections as Record<string, unknown> || {}), [field]: newArr }
+        };
+      }
+      return { ...e, preview: updatedPreview, fullConfig: updatedFullConfig };
+    }));
+  };
+
+  // Добавить элемент в массив превью
+  const addPreviewArrayItem = (entryIndex: number, field: string, newItem: Record<string, unknown>) => {
+    setBatchEntries(prev => prev.map((e, i) => {
+      if (i !== entryIndex || !e.preview) return e;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const preview = e.preview as any;
+      const arr = (preview[field] as Array<Record<string, unknown>>) || [];
+      const newArr = [...arr, newItem];
+      const updatedPreview = { ...e.preview, [field]: newArr };
+      // Обновляем fullConfig
+      let updatedFullConfig = e.fullConfig;
+      if (e.fullConfig && typeof e.fullConfig === 'object') {
+        const fc = e.fullConfig as Record<string, unknown>;
+        updatedFullConfig = {
+          ...fc,
+          sections: { ...(fc.sections as Record<string, unknown> || {}), [field]: newArr }
+        };
+      }
+      return { ...e, preview: updatedPreview, fullConfig: updatedFullConfig };
+    }));
+  };
+
   // Подтвердить превью и разрешить генерацию
   const handleConfirmPreview = (entryIndex: number) => {
     setBatchEntries(prev => prev.map((e, i) =>
@@ -661,6 +750,21 @@ export default function Home() {
           text: '#ffffff'
         }));
 
+        // Передаём fullConfig из превью чтобы избежать повторного вызова AI
+        if (entry.fullConfig) {
+          // Если есть аватарка ВК — используем как логотип!
+          const configToSend = entry.avatarUrl
+            ? {
+                ...entry.fullConfig as Record<string, unknown>,
+                brand: {
+                  ...(entry.fullConfig as Record<string, unknown>).brand as Record<string, unknown>,
+                  logo: entry.avatarUrl
+                }
+              }
+            : entry.fullConfig;
+          formData.append('fullConfig', JSON.stringify(configToSend));
+        }
+
         if (entry.photos.length > 0) {
           const photoMeta = entry.photos.map(p => ({
             type: p.type,
@@ -686,8 +790,8 @@ export default function Home() {
             createdAt: Date.now(),
           }]);
 
-          // Сохраняем админов в CRM localStorage
-          if (entry.admins && entry.admins.length > 0) {
+          // Сохраняем данные в CRM localStorage (админы + ссылка на сообщество)
+          if (entry.admins?.length || entry.vkGroupUrl) {
             try {
               const crmKey = 'demo_sites_crm';
               const existingCrm = JSON.parse(localStorage.getItem(crmKey) || '{}');
@@ -696,12 +800,13 @@ export default function Home() {
                 customLink: '',
                 mailingDone: false,
                 notes: '',
-                admins: entry.admins,
+                admins: entry.admins || [],
+                vkGroupUrl: entry.vkGroupUrl || '', // Ссылка на сообщество ВК
               };
               localStorage.setItem(crmKey, JSON.stringify(existingCrm));
-              console.log(`📋 Сохранено ${entry.admins.length} админов в CRM для проекта ${data.id}`);
+              console.log(`📋 CRM: ${entry.admins?.length || 0} админов, группа: ${entry.vkGroupUrl || 'нет'}`);
             } catch (e) {
-              console.error('Ошибка сохранения админов в CRM:', e);
+              console.error('Ошибка сохранения в CRM:', e);
             }
           }
 
@@ -1015,6 +1120,15 @@ export default function Home() {
                     <div className="bg-white rounded-2xl border-2 border-indigo-200 shadow-lg">
                           {/* КНОПКА СОЗДАТЬ — СВЕРХУ STICKY */}
                           <div className="sticky top-0 z-10 bg-gradient-to-r from-green-500 to-emerald-500 px-5 py-3 flex items-center justify-between">
+                            {/* Кнопка свернуть/развернуть */}
+                            <button
+                              type="button"
+                              onClick={() => updateBatchEntry(index, 'previewCollapsed', !entry.previewCollapsed)}
+                              className="text-white/70 hover:text-white p-2 hover:bg-white/10 rounded-lg mr-2"
+                              title={entry.previewCollapsed ? 'Развернуть' : 'Свернуть'}
+                            >
+                              {entry.previewCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+                            </button>
                             {!entry.previewConfirmed ? (
                               <button
                                 type="button"
@@ -1040,6 +1154,9 @@ export default function Home() {
                             </button>
                           </div>
 
+                          {/* Контент превью — сворачиваемый */}
+                          {!entry.previewCollapsed && (
+                          <>
                           {/* Шапка с названием — РЕДАКТИРУЕМАЯ */}
                           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-4 text-white">
                             <input
@@ -1070,36 +1187,53 @@ export default function Home() {
                           </div>
 
                           <div className="p-5 space-y-5">
-                            {/* НАПРАВЛЕНИЯ — подробно */}
-                            {entry.preview.directions && entry.preview.directions.length > 0 && (
+                            {/* НАПРАВЛЕНИЯ — редактируемые */}
+                            {entry.preview.directions && (
                               <div>
-                                <h5 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                  <span className="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs">📚</span>
-                                  Направления ({entry.preview.directions.length})
+                                <h5 className="text-sm font-bold text-gray-800 mb-3 flex items-center justify-between">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs">📚</span>
+                                    Направления ({entry.preview.directions.length})
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => addPreviewArrayItem(index, 'directions', { title: 'Новое направление', description: '' })}
+                                    className="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded-lg hover:bg-indigo-200"
+                                  >
+                                    + Добавить
+                                  </button>
                                 </h5>
                                 <div className="grid gap-2">
                                   {entry.preview.directions.map((dir, i) => (
-                                    <div key={i} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                                      <div className="font-semibold text-gray-900 text-sm">{dir.title}</div>
-                                      {dir.description && (
-                                        <p className="text-xs text-gray-600 mt-1">{dir.description}</p>
-                                      )}
-                                      {dir.tags && dir.tags.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-2">
-                                          {dir.tags.map((tag, j) => (
-                                            <span key={j} className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs">
-                                              {tag}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
+                                    <div key={i} className="bg-gray-50 rounded-xl p-3 border border-gray-100 relative group">
+                                      <button
+                                        type="button"
+                                        onClick={() => removePreviewArrayItem(index, 'directions', i)}
+                                        className="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Удалить"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                      <input
+                                        type="text"
+                                        value={dir.title}
+                                        onChange={(e) => updatePreviewArrayItem(index, 'directions', i, 'title', e.target.value)}
+                                        className="font-semibold text-gray-900 text-sm bg-transparent border-b border-transparent hover:border-gray-300 focus:border-indigo-500 outline-none w-full pr-6"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={dir.description || ''}
+                                        onChange={(e) => updatePreviewArrayItem(index, 'directions', i, 'description', e.target.value)}
+                                        placeholder="Описание..."
+                                        className="text-xs text-gray-600 mt-1 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-indigo-500 outline-none w-full"
+                                      />
                                     </div>
                                   ))}
                                 </div>
                               </div>
                             )}
 
-                            {/* ТАРИФЫ — подробно */}
+                            {/* ТАРИФЫ — редактируемые */}
                             {entry.preview.pricing && entry.preview.pricing.length > 0 && (
                               <div>
                                 <h5 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -1109,18 +1243,32 @@ export default function Home() {
                                 <div className="grid grid-cols-2 gap-2">
                                   {entry.preview.pricing.map((price, i) => (
                                     <div key={i} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                                      <div className="font-semibold text-gray-900 text-sm">{price.name}</div>
-                                      <div className="text-lg font-bold text-green-600 mt-1">{price.price}</div>
-                                      {price.period && (
-                                        <div className="text-xs text-gray-500">{price.period}</div>
-                                      )}
+                                      <input
+                                        type="text"
+                                        value={price.name}
+                                        onChange={(e) => updatePreviewArrayItem(index, 'pricing', i, 'name', e.target.value)}
+                                        className="font-semibold text-gray-900 text-sm bg-transparent border-b border-transparent hover:border-gray-300 focus:border-green-500 outline-none w-full"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={price.price}
+                                        onChange={(e) => updatePreviewArrayItem(index, 'pricing', i, 'price', e.target.value)}
+                                        className="text-lg font-bold text-green-600 mt-1 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-green-500 outline-none w-full"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={price.period || ''}
+                                        onChange={(e) => updatePreviewArrayItem(index, 'pricing', i, 'period', e.target.value)}
+                                        placeholder="за занятие / в месяц"
+                                        className="text-xs text-gray-500 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-green-500 outline-none w-full"
+                                      />
                                     </div>
                                   ))}
                                 </div>
                               </div>
                             )}
 
-                            {/* ЭТАПЫ ПРОГРЕССА — подробно */}
+                            {/* ЭТАПЫ ПРОГРЕССА — редактируемые */}
                             {entry.preview.calculatorStages && entry.preview.calculatorStages.length > 0 && (
                               <div>
                                 <h5 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -1134,25 +1282,26 @@ export default function Home() {
                                         <span className="w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
                                           {i + 1}
                                         </span>
-                                        <span className="font-semibold text-gray-900 text-sm">{stage.status}</span>
+                                        <input
+                                          type="text"
+                                          value={stage.status}
+                                          onChange={(e) => updatePreviewArrayItem(index, 'calculatorStages', i, 'status', e.target.value)}
+                                          className="font-semibold text-gray-900 text-sm bg-transparent border-b border-transparent hover:border-gray-300 focus:border-purple-500 outline-none flex-1"
+                                        />
                                       </div>
-                                      <p className="text-xs text-gray-600 mt-2 ml-8">{stage.description}</p>
-                                      {stage.tags && stage.tags.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-2 ml-8">
-                                          {stage.tags.map((tag, j) => (
-                                            <span key={j} className="px-2 py-0.5 bg-white text-purple-600 rounded text-xs border border-purple-200">
-                                              {tag}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
+                                      <input
+                                        type="text"
+                                        value={stage.description}
+                                        onChange={(e) => updatePreviewArrayItem(index, 'calculatorStages', i, 'description', e.target.value)}
+                                        className="text-xs text-gray-600 mt-2 ml-8 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-purple-500 outline-none w-[calc(100%-2rem)]"
+                                      />
                                     </div>
                                   ))}
                                 </div>
                               </div>
                             )}
 
-                            {/* FAQ — подробно с ответами */}
+                            {/* FAQ — редактируемые */}
                             {entry.preview.faq && entry.preview.faq.length > 0 && (
                               <div>
                                 <h5 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -1162,15 +1311,25 @@ export default function Home() {
                                 <div className="space-y-2">
                                   {entry.preview.faq.map((item, i) => (
                                     <div key={i} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                                      <div className="font-semibold text-gray-900 text-sm">{item.question}</div>
-                                      <p className="text-xs text-gray-600 mt-1">{item.answer}</p>
+                                      <input
+                                        type="text"
+                                        value={item.question}
+                                        onChange={(e) => updatePreviewArrayItem(index, 'faq', i, 'question', e.target.value)}
+                                        className="font-semibold text-gray-900 text-sm bg-transparent border-b border-transparent hover:border-gray-300 focus:border-amber-500 outline-none w-full"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={item.answer}
+                                        onChange={(e) => updatePreviewArrayItem(index, 'faq', i, 'answer', e.target.value)}
+                                        className="text-xs text-gray-600 mt-1 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-amber-500 outline-none w-full"
+                                      />
                                     </div>
                                   ))}
                                 </div>
                               </div>
                             )}
 
-                            {/* ОТЗЫВЫ */}
+                            {/* ОТЗЫВЫ — редактируемые */}
                             {entry.preview.reviews && entry.preview.reviews.length > 0 && (
                               <div>
                                 <h5 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -1178,27 +1337,37 @@ export default function Home() {
                                   Отзывы ({entry.preview.reviews.length})
                                 </h5>
                                 <div className="space-y-2">
-                                  {entry.preview.reviews.slice(0, 3).map((review, i) => (
+                                  {entry.preview.reviews.map((review, i) => (
                                     <div key={i} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
                                       <div className="flex items-center gap-2">
-                                        <span className="font-semibold text-gray-900 text-sm">{review.name}</span>
-                                        {review.source && (
-                                          <span className="text-xs text-gray-400">• {review.source}</span>
-                                        )}
+                                        <input
+                                          type="text"
+                                          value={review.name}
+                                          onChange={(e) => updatePreviewArrayItem(index, 'reviews', i, 'name', e.target.value)}
+                                          className="font-semibold text-gray-900 text-sm bg-transparent border-b border-transparent hover:border-gray-300 focus:border-pink-500 outline-none"
+                                        />
+                                        <span className="text-xs text-gray-400">•</span>
+                                        <input
+                                          type="text"
+                                          value={review.source || ''}
+                                          onChange={(e) => updatePreviewArrayItem(index, 'reviews', i, 'source', e.target.value)}
+                                          placeholder="Источник"
+                                          className="text-xs text-gray-400 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-pink-500 outline-none w-20"
+                                        />
                                       </div>
-                                      <p className="text-xs text-gray-600 mt-1 line-clamp-2">{review.text}</p>
+                                      <textarea
+                                        value={review.text}
+                                        onChange={(e) => updatePreviewArrayItem(index, 'reviews', i, 'text', e.target.value)}
+                                        rows={2}
+                                        className="text-xs text-gray-600 mt-1 bg-transparent border border-transparent hover:border-gray-300 focus:border-pink-500 outline-none w-full resize-none rounded"
+                                      />
                                     </div>
                                   ))}
-                                  {entry.preview.reviews.length > 3 && (
-                                    <div className="text-xs text-gray-500 text-center">
-                                      + ещё {entry.preview.reviews.length - 3} отзывов
-                                    </div>
-                                  )}
                                 </div>
                               </div>
                             )}
 
-                            {/* ИНСТРУКТОРЫ */}
+                            {/* ИНСТРУКТОРЫ — редактируемые */}
                             {entry.preview.instructors && entry.preview.instructors.length > 0 && (
                               <div>
                                 <h5 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -1208,45 +1377,73 @@ export default function Home() {
                                 <div className="grid grid-cols-2 gap-2">
                                   {entry.preview.instructors.map((inst, i) => (
                                     <div key={i} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                                      <div className="font-semibold text-gray-900 text-sm">{inst.name}</div>
-                                      {inst.experience && (
-                                        <div className="text-xs text-gray-500">{inst.experience}</div>
-                                      )}
-                                      {inst.specialties && inst.specialties.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                          {inst.specialties.slice(0, 2).map((s, j) => (
-                                            <span key={j} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-xs">
-                                              {s}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
+                                      <input
+                                        type="text"
+                                        value={inst.name}
+                                        onChange={(e) => updatePreviewArrayItem(index, 'instructors', i, 'name', e.target.value)}
+                                        className="font-semibold text-gray-900 text-sm bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none w-full"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={inst.experience || ''}
+                                        onChange={(e) => updatePreviewArrayItem(index, 'instructors', i, 'experience', e.target.value)}
+                                        placeholder="Опыт работы"
+                                        className="text-xs text-gray-500 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none w-full"
+                                      />
                                     </div>
                                   ))}
                                 </div>
                               </div>
                             )}
 
-                            {/* КОНТАКТЫ */}
+                            {/* КОНТАКТЫ — редактируемые */}
                             {entry.preview.contacts && (
                               <div>
                                 <h5 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                                   <span className="w-6 h-6 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-xs">📞</span>
                                   Контакты
                                 </h5>
-                                <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 grid grid-cols-2 gap-2 text-xs">
-                                  {entry.preview.contacts.phone && (
-                                    <div><span className="text-gray-500">Телефон:</span> <span className="text-gray-900">{entry.preview.contacts.phone}</span></div>
-                                  )}
-                                  {entry.preview.contacts.address && (
-                                    <div><span className="text-gray-500">Адрес:</span> <span className="text-gray-900">{entry.preview.contacts.address}</span></div>
-                                  )}
-                                  {entry.preview.contacts.vk && (
-                                    <div><span className="text-gray-500">VK:</span> <span className="text-gray-900 truncate">{entry.preview.contacts.vk}</span></div>
-                                  )}
-                                  {entry.preview.contacts.telegram && (
-                                    <div><span className="text-gray-500">Telegram:</span> <span className="text-gray-900">{entry.preview.contacts.telegram}</span></div>
-                                  )}
+                                <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 space-y-2 text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-gray-500 w-16">Телефон:</span>
+                                    <input
+                                      type="text"
+                                      value={entry.preview.contacts.phone || ''}
+                                      onChange={(e) => updatePreviewData(index, 'contacts', { ...entry.preview?.contacts, phone: e.target.value })}
+                                      placeholder="+7 (XXX) XXX-XX-XX"
+                                      className="text-gray-900 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-teal-500 outline-none flex-1"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-gray-500 w-16">Адрес:</span>
+                                    <input
+                                      type="text"
+                                      value={entry.preview.contacts.address || ''}
+                                      onChange={(e) => updatePreviewData(index, 'contacts', { ...entry.preview?.contacts, address: e.target.value })}
+                                      placeholder="Город, улица, дом"
+                                      className="text-gray-900 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-teal-500 outline-none flex-1"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-gray-500 w-16">VK:</span>
+                                    <input
+                                      type="text"
+                                      value={entry.preview.contacts.vk || ''}
+                                      onChange={(e) => updatePreviewData(index, 'contacts', { ...entry.preview?.contacts, vk: e.target.value })}
+                                      placeholder="vk.com/group"
+                                      className="text-gray-900 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-teal-500 outline-none flex-1"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-gray-500 w-16">Telegram:</span>
+                                    <input
+                                      type="text"
+                                      value={entry.preview.contacts.telegram || ''}
+                                      onChange={(e) => updatePreviewData(index, 'contacts', { ...entry.preview?.contacts, telegram: e.target.value })}
+                                      placeholder="@username"
+                                      className="text-gray-900 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-teal-500 outline-none flex-1"
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             )}
@@ -1280,6 +1477,8 @@ export default function Home() {
                               ) : null;
                             })()}
                           </div>
+                          </>
+                          )}
 
                         </div>
                   )}

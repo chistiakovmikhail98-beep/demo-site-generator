@@ -9,6 +9,8 @@ interface StatusData {
   error?: string;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 const STEPS = [
   { key: 'pending', label: 'В очереди', icon: '📋' },
   { key: 'processing', label: 'AI анализирует данные', icon: '🤖' },
@@ -29,7 +31,7 @@ export default function Status() {
     if (!id) return;
     setIsRegenerating(true);
     try {
-      const response = await fetch(`/api/projects/${id}/regenerate`, { method: 'POST' });
+      const response = await fetch(`${API_URL}/api/projects/${id}/regenerate`, { method: 'POST' });
       if (response.ok) {
         setStatus(prev => prev ? { ...prev, status: 'pending', deployedUrl: undefined, error: undefined } : null);
       }
@@ -45,7 +47,7 @@ export default function Status() {
     if (!id || !confirm('Удалить этот проект?')) return;
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+      const response = await fetch(`${API_URL}/api/projects/${id}`, { method: 'DELETE' });
       if (response.ok) {
         window.location.href = '/';
       }
@@ -61,7 +63,7 @@ export default function Status() {
 
     const pollStatus = async () => {
       try {
-        const response = await fetch(`/api/status/${id}`);
+        const response = await fetch(`${API_URL}/api/status/${id}`);
         if (!response.ok) {
           throw new Error('Проект не найден');
         }
