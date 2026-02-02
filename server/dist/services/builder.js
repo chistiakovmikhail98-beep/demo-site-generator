@@ -342,6 +342,18 @@ async function updateIndexHtml(buildDir, config) {
         background: ${colorScheme.primary};
       }`;
     });
+    // Добавляем стили для radar chart градиента и других динамических элементов
+    const radarStyles = `
+      /* Radar chart gradient */
+      .radar-gradient-start { stop-color: ${colorScheme.primary}; stop-opacity: 0.8; }
+      .radar-gradient-end { stop-color: ${colorScheme.accent}; stop-opacity: 0.4; }
+      .radar-chart svg { filter: drop-shadow(0 0 25px ${colorScheme.primary}40); }
+      /* Stroke and fill using primary color */
+      .stroke-primary { stroke: ${colorScheme.primary}; }
+      .fill-primary { fill: ${colorScheme.primary}; }
+  `;
+    // Вставляем стили перед закрывающим </style>
+    html = html.replace(/<\/style>/i, `${radarStyles}\n    </style>`);
     await fs.writeFile(indexPath, html);
 }
 function getDefaultCalculatorStages(niche) {

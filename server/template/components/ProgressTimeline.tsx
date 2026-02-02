@@ -1,64 +1,45 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Activity, Zap, Move, Star, Heart, Shield } from 'lucide-react';
+import { SECTION_TITLES, CALCULATOR_STAGES } from '../constants';
 
-const STAGES = [
-  {
-    id: 'start',
-    title: 'Облегчение',
-    description: 'Первые шаги: снимаем острые мышечные зажимы, работаем с дыханием и разгружаем нервную систему.',
-    bullets: [
-      'Диагностика паттернов движения',
-      'Освоение диафрагмального дыхания',
-      'Снятие первого уровня зажимов'
-    ],
-    timelineLabel: '1 НЕД.',
-    stats: { artistry: 10, technique: 20, confidence: 30, plasticity: 25 }
-  },
-  {
-    id: '2weeks',
-    title: 'Мобильность',
-    description: 'Возвращаем суставам их естественную амплитуду. Тело становится более легким и послушным.',
-    bullets: [
-      'Работа с фасциями',
-      'Улучшение подвижности позвоночника',
-      'Раскрытие грудного отдела'
-    ],
-    timelineLabel: '4 НЕД.',
-    stats: { artistry: 30, technique: 45, confidence: 55, plasticity: 60 }
-  },
-  {
-    id: '4weeks',
-    title: 'Сила и Статика',
-    description: 'Укрепляем глубокий мышечный корсет. Формируем навык держать осанку без усилий.',
-    bullets: [
-      'Стабилизация таза и лопаток',
-      'Укрепление мышц кора',
-      'Правильная статика шеи'
-    ],
-    timelineLabel: '8 НЕД.',
-    stats: { artistry: 60, technique: 75, confidence: 80, plasticity: 75 }
-  },
-  {
-    id: '8weeks',
-    title: 'Новая жизнь',
-    description: 'Здоровое движение становится привычкой. Вы забываете о болях и живете полноценно.',
-    bullets: [
-      'Устойчивый навык осанки',
-      'Высокий уровень энергии',
-      'Жизнь без ограничений и боли'
-    ],
-    timelineLabel: 'ПОЛГОДА',
-    stats: { artistry: 95, technique: 90, confidence: 100, plasticity: 95 }
-  }
+// Таймлайн лейблы для 4 этапов
+const TIMELINE_LABELS = ['1 НЕД.', '4 НЕД.', '8 НЕД.', 'ПОЛГОДА'];
+
+// Прогресс stats для визуализации графика (4 этапа)
+const PROGRESS_STATS = [
+  { artistry: 10, technique: 20, confidence: 30, plasticity: 25 },
+  { artistry: 30, technique: 45, confidence: 55, plasticity: 60 },
+  { artistry: 60, technique: 75, confidence: 80, plasticity: 75 },
+  { artistry: 95, technique: 90, confidence: 100, plasticity: 95 },
 ];
 
-// Custom Graphic Component: Health Radar
+// Конвертируем CALCULATOR_STAGES из constants в формат для визуализации
+const STAGES = (CALCULATOR_STAGES && CALCULATOR_STAGES.length >= 4)
+  ? CALCULATOR_STAGES.slice(0, 4).map((stage, i) => ({
+      id: `stage-${i}`,
+      title: stage.status || `Этап ${i + 1}`,
+      description: stage.description || '',
+      bullets: stage.tags || [],
+      timelineLabel: TIMELINE_LABELS[i] || `${(i + 1) * 2} НЕД.`,
+      stats: PROGRESS_STATS[i] || PROGRESS_STATS[0],
+    }))
+  : [
+      // Fallback если CALCULATOR_STAGES пустой
+      { id: 'start', title: 'Начало', description: 'Первые шаги к результату', bullets: ['Знакомство', 'Диагностика', 'Первые занятия'], timelineLabel: '1 НЕД.', stats: PROGRESS_STATS[0] },
+      { id: 'progress', title: 'Прогресс', description: 'Видимые изменения', bullets: ['Улучшение техники', 'Рост выносливости', 'Первые результаты'], timelineLabel: '4 НЕД.', stats: PROGRESS_STATS[1] },
+      { id: 'growth', title: 'Рост', description: 'Уверенное развитие', bullets: ['Закрепление навыков', 'Повышение уровня', 'Новые цели'], timelineLabel: '8 НЕД.', stats: PROGRESS_STATS[2] },
+      { id: 'mastery', title: 'Мастерство', description: 'Устойчивый результат', bullets: ['Стабильный прогресс', 'Высокий уровень', 'Новый образ жизни'], timelineLabel: 'ПОЛГОДА', stats: PROGRESS_STATS[3] },
+    ];
+
+// Метки для ромба — универсальные показатели развития
+const RADAR_LABELS = ['Техника', 'Сила', 'Гибкость', 'Выносливость'];
+
+// Custom Graphic Component: Health Radar с динамическими цветами
 const ArtistGrowthViz: React.FC<{ activeIndex: number }> = ({ activeIndex }) => {
   const stats = STAGES[activeIndex].stats;
-  
+
   const size = 400;
   const center = size / 2;
-  // Уменьшили радиус со 140/125 до 110, чтобы текст меток (особенно "Осанка" слева) не обрезался
   const radius = 110;
 
   const getPoint = (value: number, angle: number) => {
@@ -68,61 +49,65 @@ const ArtistGrowthViz: React.FC<{ activeIndex: number }> = ({ activeIndex }) => 
     return `${x},${y}`;
   };
 
-  const angleArtistry = -Math.PI / 2; // Mobility
-  const angleTechnique = 0; // Strength
-  const angleConfidence = Math.PI / 2; // Energy
-  const anglePlasticity = Math.PI; // Alignment
+  const angles = [-Math.PI / 2, 0, Math.PI / 2, Math.PI];
 
   const points = [
-    getPoint(stats.artistry, angleArtistry),
-    getPoint(stats.technique, angleTechnique),
-    getPoint(stats.confidence, angleConfidence),
-    getPoint(stats.plasticity, anglePlasticity)
+    getPoint(stats.artistry, angles[0]),
+    getPoint(stats.technique, angles[1]),
+    getPoint(stats.confidence, angles[2]),
+    getPoint(stats.plasticity, angles[3])
   ].join(' ');
 
   const circles = [30, 60, 90, 110];
 
+  // Позиции меток для SVG
+  const labelPositions = [
+    { x: center, y: center - radius - 15, anchor: 'middle' },
+    { x: center + radius + 15, y: center + 4, anchor: 'start' },
+    { x: center, y: center + radius + 20, anchor: 'middle' },
+    { x: center - radius - 15, y: center + 4, anchor: 'end' },
+  ];
+
   return (
-    <div className="w-full h-full bg-[#0c0c0f] relative overflow-hidden flex flex-col items-center justify-center">
+    <div className="w-full h-full bg-background relative overflow-hidden flex flex-col items-center justify-center">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[400px] bg-primary/10 blur-[80px] pointer-events-none"></div>
-        <div className="absolute inset-0 z-0 opacity-10" 
+        <div className="absolute inset-0 z-0 opacity-10"
              style={{ backgroundImage: 'radial-gradient(circle at center, #27272a 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
         </div>
 
-        <div className="relative z-10 w-full max-w-[320px] md:max-w-[380px] aspect-square">
-            <svg viewBox="0 0 400 400" className="w-full h-full absolute inset-0 drop-shadow-[0_0_25px_rgba(157,23,77,0.4)]">
+        <div className="relative z-10 w-full max-w-[320px] md:max-w-[380px] aspect-square radar-chart">
+            <svg viewBox="0 0 400 400" className="w-full h-full absolute inset-0">
                 <defs>
-                    <linearGradient id="starGradient" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0%" stopColor="#9d174d" stopOpacity="0.8" />
-                        <stop offset="100%" stopColor="#be185d" stopOpacity="0.4" />
+                    <linearGradient id="radarGradient" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" className="radar-gradient-start" />
+                        <stop offset="100%" className="radar-gradient-end" />
                     </linearGradient>
                 </defs>
                 <line x1={center} y1={center-radius} x2={center} y2={center+radius} stroke="#333" strokeWidth="1" />
                 <line x1={center-radius} y1={center} x2={center+radius} y2={center} stroke="#333" strokeWidth="1" />
                 {circles.map((r, i) => (<circle key={i} cx={center} cy={center} r={r} fill="none" stroke="#333" strokeWidth="1" strokeDasharray="4 4" className="opacity-30" />))}
-                <polygon points={points} fill="url(#starGradient)" stroke="#9d174d" strokeWidth="2" className="transition-all duration-1000 ease-out" />
-                <text x={center} y={center - radius - 15} textAnchor="middle" fill="#9d174d" fontSize="10" fontWeight="bold" className="uppercase tracking-widest">Мобильность</text>
-                <text x={center + radius + 15} y={center + 4} textAnchor="start" fill="#9d174d" fontSize="10" fontWeight="bold" className="uppercase tracking-widest">Сила</text>
-                <text x={center} y={center + radius + 20} textAnchor="middle" fill="#9d174d" fontSize="10" fontWeight="bold" className="uppercase tracking-widest">Энергия</text>
-                <text x={center - radius - 15} y={center + 4} textAnchor="end" fill="#9d174d" fontSize="10" fontWeight="bold" className="uppercase tracking-widest">Осанка</text>
+                <polygon points={points} fill="url(#radarGradient)" className="stroke-primary transition-all duration-1000 ease-out" strokeWidth="2" />
+                {RADAR_LABELS.map((label, i) => (
+                  <text key={i} x={labelPositions[i].x} y={labelPositions[i].y} textAnchor={labelPositions[i].anchor as 'start' | 'middle' | 'end'} className="fill-primary text-[10px] font-bold uppercase tracking-widest">{label}</text>
+                ))}
             </svg>
         </div>
 
         <div className="absolute bottom-6 left-6 right-6 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            {['Мобильность', 'Сила', 'Энергия', 'Осанка'].map((label, i) => (
+            {RADAR_LABELS.map((label, i) => (
                 <div key={i} className="flex flex-col gap-2">
                     <div className="flex items-center gap-1.5 text-zinc-500 text-[8px] md:text-[10px] font-bold uppercase tracking-widest">
                         <span>{label}</span>
                     </div>
                     <div className="h-1 bg-zinc-900 rounded-full overflow-hidden border border-white/5">
-                        <div className="h-full bg-primary transition-all duration-1000 shadow-[0_0_10px_#9d174d]" style={{ width: `${Object.values(stats)[i]}%` }}></div>
+                        <div className="h-full bg-primary transition-all duration-1000 shadow-glow" style={{ width: `${Object.values(stats)[i]}%` }}></div>
                     </div>
                 </div>
             ))}
         </div>
         <div className="absolute top-6 left-6 flex items-center gap-2 border-l border-white/20 pl-3">
              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
-             <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">ДИНАМИКА ЗДОРОВЬЯ</span>
+             <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">ДИНАМИКА РАЗВИТИЯ</span>
         </div>
     </div>
   );
@@ -157,8 +142,8 @@ const ProgressTimeline: React.FC = () => {
                 <div className="w-full h-full bg-surface border border-zinc-800/50 md:rounded-[3.5rem] shadow-2xl relative overflow-hidden flex flex-col">
                     <div className="hidden lg:flex justify-between items-center p-12 pb-0 relative z-20">
                          <div>
-                            <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic">Как меняется тело</h2>
-                            <p className="text-zinc-500 text-sm font-bold uppercase tracking-widest mt-1">Трансформация через системный подход</p>
+                            <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic">{SECTION_TITLES?.calculator?.title || 'Как меняется тело'}</h2>
+                            <p className="text-zinc-500 text-sm font-bold uppercase tracking-widest mt-1">{SECTION_TITLES?.calculator?.subtitle || 'Трансформация через системный подход'}</p>
                          </div>
                          <div className="relative w-[45%]">
                             <div className="absolute top-[8px] left-0 w-full h-px bg-zinc-800"></div>
@@ -166,7 +151,7 @@ const ProgressTimeline: React.FC = () => {
                             <div className="relative flex justify-between">
                                 {STAGES.map((s, i) => (
                                     <div key={i} className="flex flex-col items-center gap-4">
-                                        <div className={`w-4 h-4 rounded-full border-2 transition-all duration-500 z-10 ${i <= activeIndex ? 'bg-primary border-primary shadow-[0_0_15px_#9d174d]' : 'bg-zinc-900 border-zinc-700'}`}></div>
+                                        <div className={`w-4 h-4 rounded-full border-2 transition-all duration-500 z-10 ${i <= activeIndex ? 'bg-primary border-primary shadow-glow' : 'bg-zinc-900 border-zinc-700'}`}></div>
                                         <span className={`text-[10px] font-black uppercase tracking-tighter transition-colors duration-300 ${i === activeIndex ? 'text-white' : 'text-zinc-700'}`}>{s.timelineLabel}</span>
                                     </div>
                                 ))}
@@ -175,7 +160,7 @@ const ProgressTimeline: React.FC = () => {
                     </div>
                     <div className="lg:hidden p-6 z-30 bg-surface border-b border-zinc-800/50">
                          <h2 className="text-xl font-black text-white uppercase tracking-tighter italic mb-3">ПУТЬ К ЗДОРОВЬЮ</h2>
-                         <div className="flex gap-1">{STAGES.map((_, i) => (<div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= activeIndex ? 'bg-primary shadow-[0_0_5px_#9d174d]' : 'bg-zinc-800'}`}></div>))}</div>
+                         <div className="flex gap-1">{STAGES.map((_, i) => (<div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= activeIndex ? 'bg-primary shadow-glow' : 'bg-zinc-800'}`}></div>))}</div>
                     </div>
                     <div className="flex-grow relative z-10 overflow-hidden flex flex-col lg:flex-row">
                         <div className="w-full h-[55%] lg:w-7/12 lg:h-full lg:order-2 lg:p-12 p-4">

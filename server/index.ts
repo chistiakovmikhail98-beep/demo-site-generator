@@ -1250,6 +1250,13 @@ async function processProject(projectId: string): Promise<void> {
       // Используем конфиг из превью — БЕЗ вызова AI!
       console.log(`✅ Используем кешированный конфиг из превью для ${projectId}`);
       siteConfig = project.siteConfig;
+
+      // ВАЖНО: применяем colorScheme из проекта к кешированному конфигу!
+      if (project.colorScheme) {
+        siteConfig.sections = siteConfig.sections || {};
+        siteConfig.sections.colorScheme = project.colorScheme;
+        console.log(`🎨 Применены цвета из превью: primary=${project.colorScheme.primary}, accent=${project.colorScheme.accent}`);
+      }
     } else {
       // Конфиг не был передан — генерируем через AI
       console.log(`🤖 Генерируем конфиг через AI для ${projectId}...`);
