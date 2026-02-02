@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import type { SiteConfig, Niche, ColorScheme, AIModel, UploadedFile } from '../types.js';
+import { saveTokenStats } from './supabase.js';
 
 // Маппинг моделей на OpenRouter ID
 const MODEL_MAP: Record<AIModel, string> = {
@@ -41,7 +42,7 @@ export const tokenStats = {
 // Активная модель для текущего запроса (устанавливается перед вызовом)
 let currentPricing = PRICING_MAP['gpt4o-mini'];
 
-function trackUsage(usage: OpenAI.CompletionUsage | undefined, projectId?: string): TokenUsage {
+function trackUsage(usage: OpenAI.CompletionUsage | undefined, projectId?: string, modelName?: string): TokenUsage {
   if (!usage) {
     return { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCost: 0 };
   }
@@ -54,14 +55,14 @@ function trackUsage(usage: OpenAI.CompletionUsage | undefined, projectId?: strin
     (promptTokens / 1_000_000) * currentPricing.input +
     (completionTokens / 1_000_000) * currentPricing.output;
 
-  // Обновляем глобальную статистику
+  // Обновляем глобальную статистику (in-memory, сбрасывается при рестарте)
   tokenStats.total.promptTokens += promptTokens;
   tokenStats.total.completionTokens += completionTokens;
   tokenStats.total.totalTokens += totalTokens;
   tokenStats.total.estimatedCost += estimatedCost;
   tokenStats.requests++;
 
-  // Сохраняем для проекта
+  // Сохраняем для проекта (in-memory)
   if (projectId) {
     const existing = tokenStats.byProject.get(projectId) || {
       promptTokens: 0,
@@ -76,6 +77,12 @@ function trackUsage(usage: OpenAI.CompletionUsage | undefined, projectId?: strin
       estimatedCost: existing.estimatedCost + estimatedCost,
     });
   }
+
+  // 💾 Сохраняем в Supabase (постоянное хранение по дням)
+  const model = modelName || 'unknown';
+  saveTokenStats(model, promptTokens, completionTokens, estimatedCost).catch(err => {
+    console.error('⚠️ Не удалось сохранить статистику в БД:', err);
+  });
 
   console.log(`💰 Токены: ${promptTokens} in + ${completionTokens} out = ${totalTokens} | ~$${estimatedCost.toFixed(4)}`);
 
@@ -129,19 +136,31 @@ export async function generateSiteConfig(input: GenerateInput): Promise<SiteConf
   const messages: OpenAI.ChatCompletionMessageParam[] = [];
 
   // Системный промпт
-  const systemPrompt = `Ты — эксперт по созданию сайтов для фитнес-студий, студий растяжки и танцевальных студий.
+  const systemPrompt = `Ты — ЛУЧШИЙ копирайтер и маркетолог для фитнес-индустрии. Твоя задача — создать ПРОДАЮЩИЙ, УНИКАЛЬНЫЙ контент.
 
 Ниша: ${getNicheDescription(niche)}
 
-КРИТИЧЕСКИ ВАЖНО:
+🔥 КРИТИЧЕСКИ ВАЖНО — УНИКАЛЬНОСТЬ:
 - Генерируй контент на РУССКОМ языке
-- Текст должен быть продающим, профессиональным
-- ВСЁ должно соответствовать нише "${niche}" — направления, FAQ, преимущества, возражения
-- Если НЕТ информации о человеке (имя директора/инструктора) — используй placeholder "Имя Фамилия" (НЕ выдумывай конкретные имена!)
-- Если НЕТ конкретных данных — оставь поля пустыми или используй generic текст
-- Используй placeholder изображения из unsplash.com
+- КАЖДЫЙ сайт должен быть УНИКАЛЬНЫМ! НЕ используй шаблонные фразы типа "Добро пожаловать", "Мы рады"
+- heroTitle должен быть КРЕАТИВНЫМ и ЦЕПЛЯЮЩИМ — используй боли/желания клиента
+- heroSubtitle — яркий акцент, 2-4 слова, вызывающие эмоции
+- heroDescription — короткий, продающий текст БЕЗ клише
 
-КОНТЕНТ ПО НИШАМ:
+💡 ПРИМЕРЫ ХОРОШИХ heroTitle (для вдохновения):
+- "Твоё тело. Твои правила." (фитнес)
+- "Раскрой свою пластику" (танцы)
+- "Гибкость без боли" (растяжка)
+- "Сила в спокойствии" (йога)
+
+⚡ СТИЛЬ ТЕКСТОВ:
+- Короткие предложения. Без воды.
+- Глаголы в повелительном наклонении: "Приходи", "Попробуй", "Почувствуй"
+- Используй цифры и факты где возможно
+- Преимущества формулируй как РЕЗУЛЬТАТЫ для клиента
+- Если НЕТ информации о человеке — используй placeholder "Имя Фамилия" (НЕ выдумывай!)
+
+🎯 КОНТЕНТ ПО НИШЕ "${niche}":
 ${getNicheGuidelines(niche)}
 
 Формат ответа — ТОЛЬКО валидный JSON без markdown-обёртки.`;
@@ -175,9 +194,9 @@ ${getNicheGuidelines(niche)}
     "tagline": "Короткий слоган 3-6 слов",
     "niche": "${niche}",
     "city": "Город из названия/описания/адреса (например: Оренбург, Москва, СПб). ОБЯЗАТЕЛЬНО извлеки город если он есть в тексте!",
-    "heroTitle": "Заголовок для главного экрана (название или короткая фраза)",
-    "heroSubtitle": "Подзаголовок (2-4 слова, выделяется цветом)",
-    "heroDescription": "Описание для главного экрана (1-2 предложения)",
+    "heroTitle": "КРЕАТИВНЫЙ заголовок 3-7 слов. НЕ 'Добро пожаловать'! Используй боль/желание клиента",
+    "heroSubtitle": "Яркий акцент 2-4 слова с эмоцией (например: 'Твоя сила', 'Без границ', 'Начни сегодня')",
+    "heroDescription": "1-2 коротких предложения БЕЗ клише. Конкретика и результат для клиента",
     "heroImage": "https://placehold.co/800x600/1a1a1a/666666?text=Фото+студии",
     "heroQuote": "Вдохновляющая цитата для главного экрана (или пустая строка)"
   },
@@ -302,35 +321,17 @@ ${getNicheGuidelines(niche)}
     ],
     "calculatorStages": [
       {
-        "status": "Этап 1 (1 неделя)",
-        "description": "Описание что происходит на первом этапе для ниши ${niche}",
-        "tags": ["Результат1", "Результат2", "Результат3"],
-        "achievement": "Главный результат первого этапа"
-      },
-      {
-        "status": "Этап 2 (1 месяц)",
-        "description": "Описание что происходит на втором этапе",
-        "tags": ["Прогресс1", "Прогресс2", "Прогресс3"],
-        "achievement": "Главный результат второго этапа"
-      },
-      {
-        "status": "Этап 3 (2 месяца)",
-        "description": "Описание что происходит на третьем этапе",
-        "tags": ["Изменение1", "Изменение2", "Изменение3"],
-        "achievement": "Главный результат третьего этапа"
-      },
-      {
-        "status": "Этап 4 (6 месяцев)",
-        "description": "Описание финального этапа трансформации",
-        "tags": ["Мастерство1", "Мастерство2", "Lifestyle"],
-        "achievement": "Финальный результат трансформации"
+        "status": "УНИКАЛЬНОЕ название этапа на основе направлений студии",
+        "description": "Что конкретно происходит с телом — специфика ниши",
+        "tags": ["ТехническийТермин1", "ТехническийТермин2", "ТехническийТермин3"],
+        "achievement": "Измеримый результат (например: '8 базовых элементов')"
       }
     ],
     "sectionTitles": {
       "calculator": {
-        "title": "Как меняется тело",
-        "subtitle": "Трансформация через ${niche === 'dance' ? 'танец' : 'системный подход'}",
-        "buttonText": "Начать путь к здоровью"
+        "title": "УНИКАЛЬНЫЙ заголовок трансформации (НЕ 'Как меняется тело'!)",
+        "subtitle": "Подзаголовок отражающий специфику студии",
+        "buttonText": "Призыв к действию релевантный нише"
       },
       "directions": {
         "title": "{count} направлений",
@@ -364,12 +365,22 @@ ${getNicheGuidelines(niche)}
 - gallery: 6-8 placeholder изображений с описательным текстом (Фото зала, Занятие, Интерьер и т.д.)
 - quiz: 5-7 шагов квиза. Вопросы релевантны нише. managerName: "Имя Фамилия". tips: 5-7 подсказок менеджера
 - atmosphere: 4 шага описания атмосферы студии с placeholder изображениями
-- calculatorStages: ОБЯЗАТЕЛЬНО 4 стадии прогресса РЕЛЕВАНТНЫЕ НИШЕ "${niche}":
-  * Для dance: Раскрепощение → Пластика → Артистизм → Сцена
-  * Для stretching: Снятие зажимов → Мобильность → Глубокая растяжка → Полная гибкость
-  * Для fitness: Адаптация → Прогресс → Трансформация → Мастерство
-  * Для yoga: Присутствие → Баланс → Глубина → Единство
-  * Для wellness: Перезагрузка → Обновление → Расцвет → Гармония
+- calculatorStages: ОБЯЗАТЕЛЬНО 4 УНИКАЛЬНЫЕ стадии прогресса!
+  🔥 КРИТИЧЕСКИ ВАЖНО — НЕ ИСПОЛЬЗОВАТЬ GENERIC НАЗВАНИЯ:
+  ❌ ЗАПРЕЩЕНО: "Этап 1", "Раскрепощение", "Адаптация", "Прогресс", "Трансформация", "Мастерство"
+  ✅ НУЖНО: названия на основе КОНКРЕТНЫХ направлений студии из описания!
+
+  ПРИМЕРЫ ДЛЯ ВДОХНОВЕНИЯ (НЕ КОПИРОВАТЬ!):
+  * Pole dance студия: "Базовые крутки" → "Перевороты" → "Комбинации" → "Хореография на пилоне"
+  * Strip-plastic: "Волна тела" → "Работа с полом" → "Партерная техника" → "Связки и импровизация"
+  * Растяжка: "Активная мобильность" → "Пассивные складки" → "Шпагат -15см" → "Полный шпагат"
+  * Pole + растяжка: "Крутки + гибкость" → "Перевороты + складки" → "Затяжки на пилоне" → "Трюки с растяжкой"
+
+  ТРЕБОВАНИЯ К КАЖДОМУ ЭТАПУ:
+  - status: КРЕАТИВНОЕ название этапа (НЕ "Этап 1"!) — отражает НАВЫК, а не номер
+  - description: что КОНКРЕТНО происходит с телом/навыками (2-3 предложения)
+  - tags: 3 ТЕХНИЧЕСКИХ термина ниши ("Продольный шпагат", а НЕ "Гибкость")
+  - achievement: ИЗМЕРИМЫЙ результат ("Шпагат -10см от пола", "8 базовых элементов")
 - sectionTitles: заголовки для секций калькулятора (title, subtitle, buttonText), направлений (title используй "{count} направлений", subtitle), цен (title, subtitle) — ВСЁ РЕЛЕВАНТНО НИШЕ!
 - directionsTabs: 4-6 табов для фильтрации направлений (key, label, category). Первый всегда { key: "all", label: "Все" }. Остальные по категориям directions
 - ВСЕ изображения: используй placeholder URL формата https://placehold.co/WxH/1a1a1a/666666?text=Описание (с пробелами как +)
@@ -386,11 +397,11 @@ ${getNicheGuidelines(niche)}
     model: modelId,
     messages,
     max_tokens: 8000, // Увеличен лимит для больших ответов
-    temperature: 0.7,
+    temperature: 0.85, // Повышена для креативности и уникальности
   });
 
-  // Трекаем токены
-  trackUsage(response.usage);
+  // Трекаем токены и сохраняем в БД
+  trackUsage(response.usage, undefined, modelId);
 
   const content = response.choices[0]?.message?.content || '';
 
@@ -568,8 +579,8 @@ export async function parseRawText(rawText: string, aiModel: AIModel | string = 
     temperature: 0.3,
   });
 
-  // Трекаем токены
-  trackUsage(response.usage);
+  // Трекаем токены и сохраняем в БД
+  trackUsage(response.usage, undefined, modelId);
 
   const content = response.choices[0]?.message?.content || '';
 

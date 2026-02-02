@@ -15,10 +15,12 @@
     "dotenv": "^17.2.3",
     "fastify": "^4.26.2",
     "nanoid": "^5.0.5",
-    "openai": "^4.28.0"
+    "openai": "^4.28.0",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",
+    "@types/sharp": "^0.31.1",
     "tsx": "^4.7.1",
     "typescript": "^5.3.3"
   }

@@ -3,14 +3,14 @@ const VK_API_VERSION = '5.199';
 // Извлекаем screen_name из ссылки ВК
 function extractGroupId(url) {
     // Поддерживаем форматы:
-    // https://vk.com/groupname
-    // https://vk.com/public123456
-    // https://vk.com/club123456
-    // vk.com/groupname
+    // https://vk.com/groupname или https://vk.ru/groupname
+    // https://vk.com/public123456 или https://vk.ru/public123456
+    // https://vk.com/club123456 или https://vk.ru/club123456
+    // vk.com/groupname или vk.ru/groupname
     const patterns = [
-        /vk\.com\/([a-zA-Z0-9_]+)/,
-        /vk\.com\/public(\d+)/,
-        /vk\.com\/club(\d+)/,
+        /vk\.(?:com|ru)\/([a-zA-Z0-9_]+)/,
+        /vk\.(?:com|ru)\/public(\d+)/,
+        /vk\.(?:com|ru)\/club(\d+)/,
     ];
     for (const pattern of patterns) {
         const match = url.match(pattern);
@@ -31,10 +31,10 @@ export async function parseVKGroup(url) {
         throw new Error('Неверная ссылка на группу ВК');
     }
     console.log(`🔍 Парсинг группы ВК: ${groupId}`);
-    // Получаем информацию о группе
+    // Получаем информацию о группе (включая аватарку)
     const groupResponse = await fetch(`https://api.vk.com/method/groups.getById?` +
         `group_id=${groupId}&` +
-        `fields=description,site,contacts,addresses,phone&` +
+        `fields=description,site,contacts,addresses,phone,photo_200,photo_max_orig&` +
         `access_token=${VK_SERVICE_KEY}&` +
         `v=${VK_API_VERSION}`);
     const groupData = await groupResponse.json();
@@ -128,6 +128,8 @@ export async function parseVKGroup(url) {
     if (contacts.site)
         rawTextParts.push(`Сайт: ${contacts.site}`);
     rawTextParts.push(`ВКонтакте: ${contacts.vk}`);
+    // Получаем аватарку (приоритет: максимальное разрешение > 200px)
+    const avatarUrl = group.photo_max_orig || group.photo_200 || group.photo_100;
     const result = {
         name: group.name,
         description: group.description || '',
@@ -135,7 +137,8 @@ export async function parseVKGroup(url) {
         admins,
         posts: [], // Посты не парсим
         rawText: rawTextParts.join('\n'),
+        avatarUrl, // URL аватарки для логотипа
     };
-    console.log(`✅ Получено: ${group.name} (${admins.length} админов)`);
+    console.log(`✅ Получено: ${group.name} (${admins.length} админов, аватарка: ${avatarUrl ? 'да' : 'нет'})`);
     return result;
 }

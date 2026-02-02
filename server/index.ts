@@ -8,12 +8,13 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
-import type { Project, Niche, ColorScheme, AIModel, FontFamily, UploadedFile, PhotoBlockType } from './types.js';
+import type { Project, Niche, ColorScheme, AIModel, FontFamily, UploadedFile, PhotoBlockType, SiteConfig } from './types.js';
 import { generateSiteConfig, parseRawText, tokenStats } from './services/ai.js';
 import { buildSite } from './services/builder.js';
 import { deployToVercel } from './services/deployer.js';
 import * as supabaseService from './services/supabase.js';
 import { parseVKGroup } from './services/vk.js';
+import sharp from 'sharp';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -300,19 +301,61 @@ fastify.get('/api/queue', async () => {
   };
 });
 
-// Статистика токенов
+// Статистика токенов (текущая сессия)
 fastify.get('/api/tokens', async () => {
   try {
     return {
-      total: tokenStats?.total || { inputTokens: 0, outputTokens: 0, estimatedCost: 0 },
-      requests: tokenStats?.requests || [],
+      total: tokenStats?.total || { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCost: 0 },
+      requests: tokenStats?.requests || 0,
       costFormatted: `$${(tokenStats?.total?.estimatedCost || 0).toFixed(4)}`,
     };
   } catch (error) {
     return {
-      total: { inputTokens: 0, outputTokens: 0, estimatedCost: 0 },
-      requests: [],
+      total: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCost: 0 },
+      requests: 0,
       costFormatted: '$0.0000',
+    };
+  }
+});
+
+// Статистика токенов из БД (постоянная, по дням)
+fastify.get<{ Querystring: { days?: string } }>('/api/tokens/stats', async (request) => {
+  try {
+    const days = parseInt(request.query.days || '30', 10);
+    const stats = await supabaseService.getTokenStatsTotal();
+
+    // Форматируем для удобного отображения
+    return {
+      success: true,
+      summary: {
+        totalTokens: stats.totalTokens,
+        totalCost: stats.totalCost,
+        totalCostFormatted: `$${stats.totalCost.toFixed(4)}`,
+        totalRequests: stats.totalRequests,
+      },
+      byModel: Object.entries(stats.byModel).map(([model, data]) => ({
+        model,
+        tokens: data.tokens,
+        cost: data.cost,
+        costFormatted: `$${data.cost.toFixed(4)}`,
+        requests: data.requests,
+      })),
+      byDay: stats.byDay.slice(0, days).map(day => ({
+        date: day.date,
+        tokens: day.tokens,
+        cost: day.cost,
+        costFormatted: `$${day.cost.toFixed(4)}`,
+        requests: day.requests,
+      })),
+    };
+  } catch (error) {
+    console.error('Ошибка получения статистики токенов:', error);
+    return {
+      success: false,
+      error: 'Не удалось получить статистику',
+      summary: { totalTokens: 0, totalCost: 0, totalCostFormatted: '$0.0000', totalRequests: 0 },
+      byModel: [],
+      byDay: [],
     };
   }
 });
@@ -322,7 +365,7 @@ fastify.post<{ Body: { url: string } }>('/api/parse-vk', async (request, reply) 
   try {
     const { url } = request.body;
 
-    if (!url || !url.includes('vk.com')) {
+    if (!url || (!url.includes('vk.com') && !url.includes('vk.ru'))) {
       return reply.status(400).send({ error: 'Укажите ссылку на группу ВК' });
     }
 
@@ -336,11 +379,167 @@ fastify.post<{ Body: { url: string } }>('/api/parse-vk', async (request, reply) 
       admins: data.admins, // Контакты админов
       postsCount: data.posts.length,
       rawText: data.rawText,
+      avatarUrl: data.avatarUrl, // URL аватарки группы для логотипа
     };
   } catch (error) {
     console.error('Ошибка парсинга ВК:', error);
     return reply.status(500).send({
       error: error instanceof Error ? error.message : 'Ошибка парсинга группы ВК',
+    });
+  }
+});
+
+// Извлечение цветов из изображения (для логотипов VK)
+fastify.post<{ Body: { imageUrl: string } }>('/api/extract-colors', async (request, reply) => {
+  try {
+    const { imageUrl } = request.body;
+
+    if (!imageUrl) {
+      return reply.status(400).send({ error: 'imageUrl is required' });
+    }
+
+    console.log(`🎨 Извлечение цветов из: ${imageUrl}`);
+
+    // Скачиваем изображение
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Используем sharp для получения raw pixel data
+    const { data, info } = await sharp(buffer)
+      .resize(100, 100, { fit: 'cover' }) // Уменьшаем для скорости
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    // RGB → HSL конвертация
+    const rgbToHsl = (r: number, g: number, b: number) => {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h = 0, s = 0;
+      const l = (max + min) / 2;
+
+      if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+          case g: h = ((b - r) / d + 2) / 6; break;
+          case b: h = ((r - g) / d + 4) / 6; break;
+        }
+      }
+      return { h: h * 360, s: s * 100, l: l * 100 };
+    };
+
+    // HSL → RGB конвертация
+    const hslToRgb = (h: number, s: number, l: number) => {
+      h /= 360; s /= 100; l /= 100;
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p: number, q: number, t: number) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+    };
+
+    // RGB → HEX
+    const rgbToHex = (r: number, g: number, b: number) => {
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    };
+
+    // Собираем цвета с их насыщенностью
+    const colorBuckets: Record<string, { h: number; s: number; l: number; count: number; satScore: number }> = {};
+    const channels = info.channels;
+
+    for (let i = 0; i < data.length; i += channels) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const hsl = rgbToHsl(r, g, b);
+
+      // Пропускаем чёрные и белые
+      if (hsl.l < 5 || hsl.l > 95) continue;
+
+      // Квантизируем в HSL пространстве
+      const hBucket = Math.round(hsl.h / 15) * 15;
+      const sBucket = Math.round(hsl.s / 20) * 20;
+      const lBucket = Math.round(hsl.l / 20) * 20;
+      const key = `${hBucket}-${sBucket}-${lBucket}`;
+
+      // Очки за насыщенность
+      const satScore = hsl.s * (hsl.l > 20 && hsl.l < 80 ? 1.5 : 1);
+
+      if (!colorBuckets[key]) {
+        colorBuckets[key] = { h: hBucket, s: sBucket, l: lBucket, count: 0, satScore: 0 };
+      }
+      colorBuckets[key].count++;
+      colorBuckets[key].satScore += satScore;
+    }
+
+    // Сортируем по (частота * насыщенность)
+    const sortedColors = Object.values(colorBuckets)
+      .filter(c => c.s >= 15) // Минимальная насыщенность 15%
+      .sort((a, b) => (b.count * b.satScore) - (a.count * a.satScore));
+
+    console.log(`🎨 Найдено ${sortedColors.length} цветовых кластеров`);
+
+    if (sortedColors.length === 0) {
+      // Фоллбэк — берём любой цвет
+      const fallbackColors = Object.values(colorBuckets).sort((a, b) => b.count - a.count);
+      if (fallbackColors.length > 0) {
+        const c = fallbackColors[0];
+        const rgb = hslToRgb(c.h, Math.max(c.s, 50), Math.min(Math.max(c.l, 40), 60));
+        const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+        console.log(`🎨 Фоллбэк цвет: ${hex}`);
+        return { primary: hex, accent: hex };
+      }
+      return { primary: '#7c3aed', accent: '#a78bfa' }; // Дефолт
+    }
+
+    // Primary: самый частый насыщенный цвет
+    const primaryColor = sortedColors[0];
+    // Бустим насыщенность до минимум 60% для primary
+    const boostedSat = Math.max(primaryColor.s, 60);
+    const boostedL = Math.min(Math.max(primaryColor.l, 35), 55);
+    const primaryRgb = hslToRgb(primaryColor.h, boostedSat, boostedL);
+    const primaryHex = rgbToHex(primaryRgb.r, primaryRgb.g, primaryRgb.b);
+
+    // Accent: более светлая версия или контрастный цвет
+    let accentHex: string;
+    const contrastColor = sortedColors.find(c => Math.abs(c.h - primaryColor.h) > 30);
+    if (contrastColor) {
+      const accentRgb = hslToRgb(contrastColor.h, Math.max(contrastColor.s, 50), Math.min(Math.max(contrastColor.l, 50), 70));
+      accentHex = rgbToHex(accentRgb.r, accentRgb.g, accentRgb.b);
+    } else {
+      // Делаем светлее primary
+      const accentRgb = hslToRgb(primaryColor.h, Math.max(primaryColor.s - 10, 40), Math.min(primaryColor.l + 20, 75));
+      accentHex = rgbToHex(accentRgb.r, accentRgb.g, accentRgb.b);
+    }
+
+    console.log(`🎨 Результат: primary=${primaryHex}, accent=${accentHex}`);
+
+    return { primary: primaryHex, accent: accentHex };
+  } catch (error) {
+    console.error('Ошибка извлечения цветов:', error);
+    return reply.status(500).send({
+      error: error instanceof Error ? error.message : 'Failed to extract colors',
     });
   }
 });
@@ -523,7 +722,16 @@ fastify.post('/api/quick', async (request, reply) => {
   let fontFamily: FontFamily = 'manrope';
   let colorScheme: ColorScheme | undefined;
   let overrideNiche: Niche | null = null; // Ниша переданная вручную
+  let fullConfigJson: string | null = null; // Полный конфиг из превью (чтобы не вызывать AI повторно)
   const uploadedFiles: UploadedFile[] = [];
+
+  // Буферы файлов для загрузки в Supabase Storage (после создания projectId)
+  const pendingFiles: Array<{
+    buffer: Buffer;
+    filename: string;
+    contentType: string;
+    order: number;
+  }> = [];
 
   // Временное хранение metadata для файлов
   const fileMetadata: Map<number, { block?: PhotoBlockType; label?: string }> = new Map();
@@ -550,6 +758,10 @@ fastify.post('/api/quick', async (request, reply) => {
         if (part.fieldname === 'photoMeta') {
           photoMetaJson = part.value as string;
         }
+        // fullConfig из превью — чтобы не вызывать AI повторно
+        if (part.fieldname === 'fullConfig') {
+          fullConfigJson = part.value as string;
+        }
         // Старый формат: files[0].block, files[0].label, files[1].block, etc.
         const blockMatch = part.fieldname.match(/^files\[(\d+)\]\.block$/);
         if (blockMatch) {
@@ -569,18 +781,14 @@ fastify.post('/api/quick', async (request, reply) => {
         const uniqueId = nanoid(10);
         const ext = path.extname(part.filename);
         const filename = `${uniqueId}-${Date.now()}${ext}`;
-        const filepath = path.join(UPLOADS_DIR, filename);
 
         const buffer = await part.toBuffer();
-        await fs.writeFile(filepath, buffer);
 
-        // Получаем metadata для этого файла
-        const meta = fileMetadata.get(fileIndex) || {};
-        uploadedFiles.push({
-          path: filepath,
+        // Сохраняем буфер для последующей загрузки в Supabase Storage
+        pendingFiles.push({
+          buffer,
           filename,
-          block: meta.block || 'gallery', // По умолчанию — галерея
-          label: meta.label,
+          contentType: part.mimetype || 'image/jpeg',
           order: fileIndex,
         });
 
@@ -588,20 +796,7 @@ fastify.post('/api/quick', async (request, reply) => {
       }
     }
 
-    // Если есть photoMeta JSON (новый формат), применяем к загруженным файлам
-    if (photoMetaJson) {
-      try {
-        const photoMeta = JSON.parse(photoMetaJson) as Array<{ type?: string; label?: string }>;
-        uploadedFiles.forEach((file, idx) => {
-          if (photoMeta[idx]) {
-            file.block = (photoMeta[idx].type as PhotoBlockType) || 'gallery';
-            file.label = photoMeta[idx].label;
-          }
-        });
-        console.log(`📷 Применены метаданные к ${uploadedFiles.length} файлам:`,
-          uploadedFiles.map(f => `${f.block}:${f.label || 'без подписи'}`).join(', '));
-      } catch { /* игнорируем невалидный JSON */ }
-    }
+    // photoMeta теперь применяется позже, при загрузке файлов в Storage
   } else {
     // Обычный JSON
     const body = request.body as {
@@ -621,14 +816,83 @@ fastify.post('/api/quick', async (request, reply) => {
   }
 
   try {
-    // AI парсит сырой текст
-    console.log('🔍 Парсинг текста через AI...');
-    console.log(`🤖 Модель: ${aiModel} | Шрифт: ${fontFamily} | Файлов: ${uploadedFiles.length}`);
-    const parsed = await parseRawText(text, aiModel);
-    console.log('✅ Распознано:', parsed.name, '| Ниша:', parsed.niche);
+    // Проверяем, есть ли fullConfig из превью (чтобы не вызывать AI повторно)
+    let parsed: { name: string; niche: Niche; description?: string };
+    let cachedSiteConfig: SiteConfig | null = null;
+
+    if (fullConfigJson) {
+      // Используем конфиг из превью — БЕЗ вызова AI!
+      try {
+        cachedSiteConfig = JSON.parse(fullConfigJson) as SiteConfig;
+        parsed = {
+          name: cachedSiteConfig.brand?.name || 'Студия',
+          niche: cachedSiteConfig.brand?.niche || 'fitness',
+          description: cachedSiteConfig.brand?.tagline,
+        };
+        console.log('✅ Используем конфиг из превью (без AI):', parsed.name, '| Ниша:', parsed.niche);
+      } catch {
+        // Если JSON невалидный — fallback на AI
+        console.log('⚠️ Невалидный fullConfig, вызываем AI...');
+        parsed = await parseRawText(text, aiModel);
+      }
+    } else {
+      // AI парсит сырой текст
+      console.log('🔍 Парсинг текста через AI...');
+      console.log(`🤖 Модель: ${aiModel} | Шрифт: ${fontFamily} | Файлов: ${uploadedFiles.length}`);
+      parsed = await parseRawText(text, aiModel);
+      console.log('✅ Распознано:', parsed.name, '| Ниша:', parsed.niche);
+    }
 
     // Создаём проект
     const projectId = nanoid(10);
+
+    // Применяем photoMeta к pendingFiles
+    let photoMeta: Array<{ type?: string; label?: string }> = [];
+    if (photoMetaJson) {
+      try {
+        photoMeta = JSON.parse(photoMetaJson);
+      } catch { /* игнорируем невалидный JSON */ }
+    }
+
+    // Загружаем файлы в Supabase Storage (или локально) после получения projectId
+    console.log(`📷 Загрузка ${pendingFiles.length} файлов для проекта ${projectId}...`);
+    for (const pending of pendingFiles) {
+      let filePath: string;
+
+      if (USE_SUPABASE) {
+        // Загружаем в Supabase Storage и получаем публичный URL
+        filePath = await supabaseService.uploadImage(
+          projectId,
+          pending.buffer,
+          pending.filename,
+          pending.contentType
+        );
+        console.log(`📷 Загружено в Supabase Storage: ${pending.filename} → ${filePath}`);
+      } else {
+        // Локальное сохранение (fallback)
+        filePath = path.join(UPLOADS_DIR, pending.filename);
+        await fs.writeFile(filePath, pending.buffer);
+        console.log(`📷 Сохранено локально: ${pending.filename}`);
+      }
+
+      // Получаем метаданные для этого файла
+      const meta = fileMetadata.get(pending.order) || {};
+      const photoMetaItem = photoMeta[pending.order] || {};
+
+      uploadedFiles.push({
+        path: filePath,
+        filename: pending.filename,
+        block: (photoMetaItem.type as PhotoBlockType) || meta.block || 'gallery',
+        label: photoMetaItem.label || meta.label,
+        order: pending.order,
+      });
+    }
+
+    if (uploadedFiles.length > 0) {
+      console.log(`📷 Загружено ${uploadedFiles.length} файлов:`,
+        uploadedFiles.map(f => `${f.block}:${f.label || 'без подписи'}`).join(', '));
+    }
+
     const project: Project = {
       id: projectId,
       name: parsed.name,
@@ -639,6 +903,7 @@ fastify.post('/api/quick', async (request, reply) => {
       colorScheme,
       aiModel,
       fontFamily,
+      siteConfig: cachedSiteConfig || undefined, // Конфиг из превью (чтобы не вызывать AI повторно)
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -657,6 +922,8 @@ fastify.post('/api/quick', async (request, reply) => {
         color_scheme: colorScheme as Record<string, string> | undefined,
         ai_model: aiModel,
         font_family: fontFamily,
+        uploaded_files: uploadedFiles.map(f => ({ ...f, order: f.order ?? 0 })),
+        site_config: cachedSiteConfig as unknown as Record<string, unknown> | undefined, // Конфиг из превью
       });
     } else {
       const projects = await loadProjects();
@@ -952,7 +1219,7 @@ async function processProject(projectId: string): Promise<void> {
           name: dbProject.name,
           niche: dbProject.niche as Project['niche'],
           status: dbProject.status,
-          uploadedFiles: [],
+          uploadedFiles: (dbProject.uploaded_files as Project['uploadedFiles']) || [],
           description: dbProject.description,
           colorScheme: dbProject.color_scheme as Project['colorScheme'],
           aiModel: dbProject.ai_model as Project['aiModel'],
@@ -970,21 +1237,31 @@ async function processProject(projectId: string): Promise<void> {
     }
     if (!project) return;
 
-    // Шаг 1: Генерация через AI
+    // Шаг 1: Генерация через AI (или использование кешированного конфига из превью)
     await updateProject(projectId, { status: 'processing' });
 
     const imageFiles = project.uploadedFiles.filter(f =>
       /\.(png|jpg|jpeg|gif|webp)$/i.test(f.path)
     );
 
-    const siteConfig = await generateSiteConfig({
-      name: project.name,
-      niche: project.niche,
-      description: project.description,
-      imageFiles,
-      colorScheme: project.colorScheme,
-      aiModel: project.aiModel,
-    });
+    let siteConfig: SiteConfig;
+
+    if (project.siteConfig) {
+      // Используем конфиг из превью — БЕЗ вызова AI!
+      console.log(`✅ Используем кешированный конфиг из превью для ${projectId}`);
+      siteConfig = project.siteConfig;
+    } else {
+      // Конфиг не был передан — генерируем через AI
+      console.log(`🤖 Генерируем конфиг через AI для ${projectId}...`);
+      siteConfig = await generateSiteConfig({
+        name: project.name,
+        niche: project.niche,
+        description: project.description,
+        imageFiles,
+        colorScheme: project.colorScheme,
+        aiModel: project.aiModel,
+      });
+    }
 
     siteConfig.meta.projectId = projectId;
     await updateProject(projectId, { siteConfig });

@@ -22,6 +22,7 @@ export interface DbProject {
   site_config?: Record<string, unknown>;
   deployed_url?: string;
   error?: string;
+  uploaded_files?: Array<{ path: string; filename: string; block: string; label?: string; order: number }>;
   created_at: string;
   updated_at: string;
 }
@@ -184,4 +185,172 @@ export async function deleteStorageFile(url: string): Promise<void> {
   if (match) {
     await supabase.storage.from('project-images').remove([match[1]]);
   }
+}
+
+/**
+ * Скачивает файл из Storage (работает с приватными bucket)
+ * @param url - публичный URL или путь в storage
+ * @returns Buffer с содержимым файла
+ */
+export async function downloadImage(url: string): Promise<Buffer> {
+  // Извлекаем путь из URL (project-images/projectId/filename)
+  const match = url.match(/project-images\/(.+)$/);
+  if (!match) {
+    throw new Error(`Invalid storage URL: ${url}`);
+  }
+
+  const storagePath = match[1];
+  const { data, error } = await supabase.storage
+    .from('project-images')
+    .download(storagePath);
+
+  if (error) throw error;
+  if (!data) throw new Error('No data returned from storage');
+
+  // Blob to Buffer
+  const arrayBuffer = await data.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+// === Статистика токенов ===
+
+export interface DbTokenStats {
+  id?: string;
+  date: string; // YYYY-MM-DD
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  estimated_cost: number;
+  requests_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
+ * Сохраняет или обновляет статистику токенов за день
+ */
+export async function saveTokenStats(
+  model: string,
+  promptTokens: number,
+  completionTokens: number,
+  estimatedCost: number
+): Promise<void> {
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  try {
+    // Пробуем получить существующую запись за сегодня
+    const { data: existing } = await supabase
+      .from('token_stats')
+      .select('*')
+      .eq('date', today)
+      .eq('model', model)
+      .single();
+
+    if (existing) {
+      // Обновляем существующую запись
+      await supabase
+        .from('token_stats')
+        .update({
+          prompt_tokens: existing.prompt_tokens + promptTokens,
+          completion_tokens: existing.completion_tokens + completionTokens,
+          total_tokens: existing.total_tokens + promptTokens + completionTokens,
+          estimated_cost: existing.estimated_cost + estimatedCost,
+          requests_count: existing.requests_count + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
+    } else {
+      // Создаём новую запись
+      await supabase
+        .from('token_stats')
+        .insert({
+          date: today,
+          model,
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: promptTokens + completionTokens,
+          estimated_cost: estimatedCost,
+          requests_count: 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+    }
+
+    console.log(`📊 Статистика токенов сохранена: ${today} / ${model}`);
+  } catch (error) {
+    console.error('⚠️ Ошибка сохранения статистики токенов:', error);
+    // Не бросаем ошибку — статистика не критична
+  }
+}
+
+/**
+ * Получает статистику токенов за период
+ */
+export async function getTokenStats(days: number = 30): Promise<DbTokenStats[]> {
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  const startDateStr = startDate.toISOString().split('T')[0];
+
+  const { data, error } = await supabase
+    .from('token_stats')
+    .select('*')
+    .gte('date', startDateStr)
+    .order('date', { ascending: false });
+
+  if (error) {
+    console.error('⚠️ Ошибка получения статистики токенов:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+/**
+ * Получает суммарную статистику за всё время
+ */
+export async function getTokenStatsTotal(): Promise<{
+  totalTokens: number;
+  totalCost: number;
+  totalRequests: number;
+  byModel: Record<string, { tokens: number; cost: number; requests: number }>;
+  byDay: Array<{ date: string; tokens: number; cost: number; requests: number }>;
+}> {
+  const stats = await getTokenStats(365); // Год
+
+  const byModel: Record<string, { tokens: number; cost: number; requests: number }> = {};
+  const byDayMap: Record<string, { tokens: number; cost: number; requests: number }> = {};
+
+  let totalTokens = 0;
+  let totalCost = 0;
+  let totalRequests = 0;
+
+  for (const stat of stats) {
+    // Общие
+    totalTokens += stat.total_tokens;
+    totalCost += stat.estimated_cost;
+    totalRequests += stat.requests_count;
+
+    // По модели
+    if (!byModel[stat.model]) {
+      byModel[stat.model] = { tokens: 0, cost: 0, requests: 0 };
+    }
+    byModel[stat.model].tokens += stat.total_tokens;
+    byModel[stat.model].cost += stat.estimated_cost;
+    byModel[stat.model].requests += stat.requests_count;
+
+    // По дню
+    if (!byDayMap[stat.date]) {
+      byDayMap[stat.date] = { tokens: 0, cost: 0, requests: 0 };
+    }
+    byDayMap[stat.date].tokens += stat.total_tokens;
+    byDayMap[stat.date].cost += stat.estimated_cost;
+    byDayMap[stat.date].requests += stat.requests_count;
+  }
+
+  const byDay = Object.entries(byDayMap)
+    .map(([date, data]) => ({ date, ...data }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  return { totalTokens, totalCost, totalRequests, byModel, byDay };
 }

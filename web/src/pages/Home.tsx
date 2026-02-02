@@ -229,6 +229,12 @@ export default function Home() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Массовый импорт ВК ссылок
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkImportText, setBulkImportText] = useState('');
+  const [bulkImportLoading, setBulkImportLoading] = useState(false);
+  const [bulkImportProgress, setBulkImportProgress] = useState({ current: 0, total: 0 });
+
   // Очередь добавленных сайтов (с localStorage)
   const [queuedSites, setQueuedSites] = useState<QueuedSite[]>(() => {
     try {
@@ -325,6 +331,110 @@ export default function Home() {
     setBatchEntries(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Массовый импорт ВК ссылок
+  const handleBulkImport = async () => {
+    const lines = bulkImportText
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && (line.includes('vk.com') || line.includes('vk.ru')));
+
+    if (lines.length === 0) {
+      alert('Не найдено ссылок на ВК. Вставьте ссылки, каждую на новой строке.');
+      return;
+    }
+
+    setBulkImportLoading(true);
+    setBulkImportProgress({ current: 0, total: lines.length });
+
+    const newEntries: BatchEntry[] = [];
+    const colors = ['#7c3aed', '#2563eb', '#dc2626', '#16a34a', '#ea580c', '#db2777'];
+
+    for (let i = 0; i < lines.length; i++) {
+      const vkUrl = lines[i];
+      setBulkImportProgress({ current: i + 1, total: lines.length });
+
+      try {
+        const response = await fetch(`${API_URL}/api/parse-vk`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: vkUrl }),
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+          console.error(`Ошибка парсинга ${vkUrl}:`, data.error);
+          // Добавляем пустую карточку с ссылкой
+          newEntries.push({
+            id: generateId(),
+            text: `Ошибка: ${vkUrl}\n${data.error}`,
+            niche: 'auto' as Niche,
+            primaryColor: colors[i % colors.length],
+            accentColor: '#a78bfa',
+            backgroundColor: '#0c0c0f',
+            fontFamily: 'manrope',
+            aiModel: 'gpt4o-mini',
+            photos: [],
+            expanded: false,
+            submitted: false,
+            vkGroupUrl: vkUrl,
+          });
+          continue;
+        }
+
+        // Извлекаем цвета из аватарки
+        let extractedColors: { primary: string; accent: string } | null = null;
+        if (data.avatarUrl) {
+          extractedColors = await extractColorsFromImage(data.avatarUrl);
+        }
+
+        newEntries.push({
+          id: generateId(),
+          text: data.rawText,
+          niche: 'auto' as Niche,
+          primaryColor: extractedColors?.primary || colors[i % colors.length],
+          accentColor: extractedColors?.accent || '#a78bfa',
+          backgroundColor: '#0c0c0f',
+          fontFamily: 'manrope',
+          aiModel: 'gpt4o-mini',
+          photos: [],
+          expanded: false,
+          submitted: false,
+          admins: data.admins || [],
+          vkGroupUrl: vkUrl,
+          avatarUrl: data.avatarUrl,
+        });
+      } catch (error) {
+        console.error(`Сетевая ошибка для ${vkUrl}:`, error);
+        newEntries.push({
+          id: generateId(),
+          text: `Сетевая ошибка: ${vkUrl}`,
+          niche: 'auto' as Niche,
+          primaryColor: colors[i % colors.length],
+          accentColor: '#a78bfa',
+          backgroundColor: '#0c0c0f',
+          fontFamily: 'manrope',
+          aiModel: 'gpt4o-mini',
+          photos: [],
+          expanded: false,
+          submitted: false,
+          vkGroupUrl: vkUrl,
+        });
+      }
+    }
+
+    // Добавляем все новые карточки (удаляем пустые существующие)
+    setBatchEntries(prev => {
+      const nonEmpty = prev.filter(e => e.text.trim().length > 0 || e.submitted);
+      return [...nonEmpty, ...newEntries];
+    });
+
+    setBulkImportLoading(false);
+    setShowBulkImport(false);
+    setBulkImportText('');
+    alert(`Загружено ${newEntries.length} студий из ${lines.length} ссылок!`);
+  };
+
   // Обновить поле карточки
   const updateBatchEntry = (index: number, field: keyof BatchEntry, value: unknown) => {
     setBatchEntries(prev => prev.map((entry, i) =>
@@ -372,7 +482,33 @@ export default function Home() {
     }));
   };
 
-  // Вставка из буфера обмена (Ctrl+V) для конкретной карточки
+  // Извлечение цветов из изображения через backend API (избегает CORS)
+  const extractColorsFromImage = async (imageUrl: string): Promise<{ primary: string; accent: string } | null> => {
+    try {
+      console.log(`🎨 Извлечение цветов через API: ${imageUrl}`);
+      const response = await fetch(`${API_URL}/api/extract-colors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl }),
+      });
+
+      if (!response.ok) {
+        console.error('🎨 API ошибка:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      if (data.primary && data.accent) {
+        console.log(`🎨 ИЗВЛЕЧЕНЫ ЦВЕТА: primary=${data.primary}, accent=${data.accent}`);
+        return { primary: data.primary, accent: data.accent };
+      }
+      return null;
+    } catch (error) {
+      console.error('🎨 Ошибка извлечения цветов:', error);
+      return null;
+    }
+  };
+
   const handlePasteForBatch = (entryIndex: number, e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -515,6 +651,12 @@ export default function Home() {
         return;
       }
 
+      // Извлекаем цвета из аватарки (асинхронно)
+      let extractedColors: { primary: string; accent: string } | null = null;
+      if (data.avatarUrl) {
+        extractedColors = await extractColorsFromImage(data.avatarUrl);
+      }
+
       // Вставляем полученный текст, админов и ссылку на группу в карточку
       setBatchEntries(prev => prev.map((e, i) =>
         i === entryIndex ? {
@@ -523,6 +665,11 @@ export default function Home() {
           admins: data.admins || [],
           vkGroupUrl: vkUrl, // Сохраняем ссылку на сообщество для CRM
           avatarUrl: data.avatarUrl, // URL аватарки для логотипа
+          // Применяем извлечённые цвета если есть
+          ...(extractedColors ? {
+            primaryColor: extractedColors.primary,
+            accentColor: extractedColors.accent,
+          } : {}),
         } : e
       ));
       setShowVkInput(null);
@@ -1019,7 +1166,95 @@ export default function Home() {
               <FileUp className="w-4 h-4" />
               Импорт JSON
             </button>
+            <button
+              type="button"
+              onClick={() => setShowBulkImport(true)}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg transition font-medium"
+            >
+              <Layers className="w-4 h-4" />
+              Массовая вставка ВК
+            </button>
           </div>
+
+          {/* Модальное окно массовой вставки */}
+          {showBulkImport && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+                <div className="p-6 border-b bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <Layers className="w-6 h-6" />
+                    Массовая вставка ВК ссылок
+                  </h3>
+                  <p className="text-sm opacity-90 mt-1">
+                    Вставьте ссылки на группы ВК, каждую на новой строке (до 50 штук)
+                  </p>
+                </div>
+
+                <div className="p-6">
+                  <textarea
+                    value={bulkImportText}
+                    onChange={(e) => setBulkImportText(e.target.value)}
+                    placeholder={`https://vk.com/studio1\nhttps://vk.com/studio2\nhttps://vk.com/studio3\n...`}
+                    className="w-full h-64 p-4 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none resize-none font-mono text-sm"
+                    disabled={bulkImportLoading}
+                  />
+
+                  {bulkImportLoading && (
+                    <div className="mt-4 bg-indigo-50 rounded-xl p-4">
+                      <div className="flex items-center gap-3">
+                        <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
+                        <span className="font-medium text-indigo-800">
+                          Загрузка {bulkImportProgress.current} из {bulkImportProgress.total}...
+                        </span>
+                      </div>
+                      <div className="mt-2 bg-indigo-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-indigo-600 h-full transition-all duration-300"
+                          style={{ width: `${(bulkImportProgress.current / bulkImportProgress.total) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="text-sm text-gray-500 mt-3">
+                    💡 Поддерживаются: vk.com и vk.ru (groupname, public123, club123)
+                  </div>
+                </div>
+
+                <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowBulkImport(false);
+                      setBulkImportText('');
+                    }}
+                    disabled={bulkImportLoading}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium disabled:opacity-50"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBulkImport}
+                    disabled={bulkImportLoading || !bulkImportText.trim()}
+                    className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {bulkImportLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Загрузка...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        Загрузить студии
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Карточки студий с индивидуальными настройками */}
           <div className="space-y-4">

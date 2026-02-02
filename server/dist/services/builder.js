@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { downloadImage } from './supabase.js';
 const execAsync = promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Путь к шаблону (внутри server/template)
@@ -18,19 +19,39 @@ export async function buildSite(projectId, config, uploadedFiles) {
     await fs.mkdir(buildDir, { recursive: true });
     // Копируем шаблон
     await copyDirectory(TEMPLATE_DIR, buildDir);
-    // Копируем загруженные фото в public/images/ и подставляем URL в конфиг
+    // Копируем/скачиваем загруженные фото в public/images/ и подставляем URL в конфиг
     if (uploadedFiles && uploadedFiles.length > 0) {
         const imagesDir = path.join(buildDir, 'public', 'images');
         await fs.mkdir(imagesDir, { recursive: true });
-        // Копируем все фото
+        // Скачиваем/копируем все фото
         for (const file of uploadedFiles) {
             const destPath = path.join(imagesDir, file.filename);
             try {
-                await fs.copyFile(file.path, destPath);
-                console.log(`📷 Скопировано: ${file.filename} (${file.block})`);
+                // Проверяем, является ли путь URL-ом (Supabase Storage)
+                if (file.path.includes('project-images/')) {
+                    // Скачиваем через Supabase SDK (работает с приватным bucket)
+                    const buffer = await downloadImage(file.path);
+                    await fs.writeFile(destPath, buffer);
+                    console.log(`📷 Скачано из Storage: ${file.filename} (${file.block})`);
+                }
+                else if (file.path.startsWith('http://') || file.path.startsWith('https://')) {
+                    // Другой URL — скачиваем через fetch
+                    const response = await fetch(file.path);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    const buffer = Buffer.from(await response.arrayBuffer());
+                    await fs.writeFile(destPath, buffer);
+                    console.log(`📷 Скачано по URL: ${file.filename} (${file.block})`);
+                }
+                else {
+                    // Локальный файл — копируем
+                    await fs.copyFile(file.path, destPath);
+                    console.log(`📷 Скопировано: ${file.filename} (${file.block})`);
+                }
             }
             catch (err) {
-                console.error(`❌ Ошибка копирования ${file.filename}:`, err);
+                console.error(`❌ Ошибка загрузки ${file.filename}:`, err);
             }
         }
         // Подставляем реальные URL фото в конфиг
