@@ -55,103 +55,93 @@ export async function deployToVercel(
 
   console.log(`🚀 Деплой ${projectId} на Vercel...`);
 
+  // Санитизируем slug для Vercel (lowercase, без пробелов, без спец. символов)
+  const sanitizedSlug = transliterate(slug)  // сначала транслитерируем кириллицу
+    .toLowerCase()
+    .replace(/\s+/g, '-')           // пробелы → дефисы
+    .replace(/[^a-z0-9\-_.]/g, '')  // только буквы, цифры, - _ .
+    .replace(/--+/g, '-')           // убираем двойные дефисы
+    .replace(/^-|-$/g, '')          // убираем дефисы в начале и конце
+    .slice(0, 50);                   // ограничиваем длину
+
+  console.log(`📝 Slug: "${slug}" → "${sanitizedSlug}"`);
+
+  const projectName = `demo-${sanitizedSlug}-${projectId.slice(0, 5).toLowerCase()}`;
+
+  // Создаём vercel.json
+  const vercelConfig = {
+    name: projectName,
+    version: 2,
+    builds: [{ src: '**/*', use: '@vercel/static' }],
+  };
+
+  await fs.writeFile(
+    path.join(buildPath, 'vercel.json'),
+    JSON.stringify(vercelConfig, null, 2)
+  );
+
+  let deployedUrl: string | null = null;
+
+  // Сначала пробуем через CLI
   try {
-    // Используем Vercel CLI для деплоя
-    // Санитизируем slug для Vercel (lowercase, без пробелов, без спец. символов)
-    const sanitizedSlug = transliterate(slug)  // сначала транслитерируем кириллицу
-      .toLowerCase()
-      .replace(/\s+/g, '-')           // пробелы → дефисы
-      .replace(/[^a-z0-9\-_.]/g, '')  // только буквы, цифры, - _ .
-      .replace(/--+/g, '-')           // убираем двойные дефисы
-      .replace(/^-|-$/g, '')          // убираем дефисы в начале и конце
-      .slice(0, 50);                   // ограничиваем длину
-
-    console.log(`📝 Slug: "${slug}" → "${sanitizedSlug}"`);
-
-    const projectName = `demo-${sanitizedSlug}-${projectId.slice(0, 5).toLowerCase()}`;
-
-    // Создаём vercel.json
-    const vercelConfig = {
-      name: projectName,
-      version: 2,
-      builds: [{ src: '**/*', use: '@vercel/static' }],
-    };
-
-    await fs.writeFile(
-      path.join(buildPath, 'vercel.json'),
-      JSON.stringify(vercelConfig, null, 2)
-    );
-
-    // Деплоим через CLI
     const { stdout } = await execAsync(
       `npx vercel deploy --prod --token=${VERCEL_TOKEN} --yes`,
-      { cwd: buildPath }
+      { cwd: buildPath, timeout: 120000 } // 2 минуты таймаут
     );
 
     // Извлекаем URL из вывода
     const urlMatch = stdout.match(/https:\/\/[\w\-]+\.vercel\.app/);
-    let deployedUrl = urlMatch ? urlMatch[0] : await getLatestDeploymentUrl(projectName);
+    deployedUrl = urlMatch ? urlMatch[0] : null;
 
-    console.log(`✅ Деплой успешен: ${deployedUrl}`);
-
-    // Отключаем Deployment Protection для публичного доступа
-    await disableDeploymentProtection(projectName);
-
-    // Если есть кастомный домен — привязываем субдомен
-    // ВАЖНО: используем sanitizedSlug, а не slug, и проверяем что он не пустой
-    if (CUSTOM_DOMAIN && deployedUrl && sanitizedSlug && sanitizedSlug.length >= 3) {
-      const subdomain = `${sanitizedSlug}.${CUSTOM_DOMAIN}`;
-
-      // ЗАЩИТА: не создаём alias на основной домен!
-      if (subdomain === CUSTOM_DOMAIN || subdomain === `.${CUSTOM_DOMAIN}`) {
-        console.warn(`⚠️ Попытка создать alias на основной домен заблокирована!`);
-      } else {
-        const customUrl = await assignCustomDomain(deployedUrl, subdomain);
-        if (customUrl) {
-          console.log(`🌐 Кастомный домен: ${customUrl}`);
-          return customUrl;
-        }
-      }
-    } else if (CUSTOM_DOMAIN && (!sanitizedSlug || sanitizedSlug.length < 3)) {
-      console.warn(`⚠️ Slug слишком короткий ("${sanitizedSlug}"), субдомен не создаётся`);
+    if (deployedUrl) {
+      console.log(`✅ CLI деплой успешен: ${deployedUrl}`);
     }
-
-    return deployedUrl;
-  } catch (error) {
-    console.error('Ошибка деплоя:', error);
-
-    // Fallback: возвращаем URL через API сервера
-    const baseUrl = process.env.API_BASE_URL
-      || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
-      || 'http://localhost:3001';
-    return `${baseUrl}/preview/${projectId}/dist/`;
-  }
-}
-
-async function getLatestDeploymentUrl(projectName: string): Promise<string> {
-  const VERCEL_TOKEN = getVercelToken();
-  try {
-    const response = await fetch(
-      `https://api.vercel.com/v6/deployments?projectId=${projectName}&limit=1`,
-      {
-        headers: {
-          Authorization: `Bearer ${VERCEL_TOKEN}`,
-        },
-      }
-    );
-
-    const data = await response.json();
-    if (data.deployments && data.deployments.length > 0) {
-      return `https://${data.deployments[0].url}`;
-    }
-  } catch (err) {
-    console.error('Ошибка получения URL деплоя:', err);
+  } catch (cliError) {
+    console.warn('⚠️ CLI деплой не сработал, пробуем через API...', cliError);
   }
 
-  return `https://${projectName}.vercel.app`;
+  // Если CLI не сработал — используем Vercel API напрямую
+  if (!deployedUrl) {
+    try {
+      deployedUrl = await deployToVercelAPI(projectId, buildPath, sanitizedSlug);
+      console.log(`✅ API деплой успешен: ${deployedUrl}`);
+    } catch (apiError) {
+      console.error('❌ API деплой тоже не сработал:', apiError);
+
+      // Последний fallback: возвращаем URL через API сервера
+      const baseUrl = process.env.API_BASE_URL
+        || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
+        || 'http://localhost:3001';
+      return `${baseUrl}/preview/${projectId}/dist/`;
+    }
+  }
+
+  // Отключаем Deployment Protection для публичного доступа
+  await disableDeploymentProtection(projectName);
+
+  // Если есть кастомный домен — привязываем субдомен
+  // ВАЖНО: используем sanitizedSlug, а не slug, и проверяем что он не пустой
+  if (CUSTOM_DOMAIN && deployedUrl && sanitizedSlug && sanitizedSlug.length >= 3) {
+    const subdomain = `${sanitizedSlug}.${CUSTOM_DOMAIN}`;
+
+    // ЗАЩИТА: не создаём alias на основной домен!
+    if (subdomain === CUSTOM_DOMAIN || subdomain === `.${CUSTOM_DOMAIN}`) {
+      console.warn(`⚠️ Попытка создать alias на основной домен заблокирована!`);
+    } else {
+      const customUrl = await assignCustomDomain(deployedUrl, subdomain);
+      if (customUrl) {
+        console.log(`🌐 Кастомный домен: ${customUrl}`);
+        return customUrl;
+      }
+    }
+  } else if (CUSTOM_DOMAIN && (!sanitizedSlug || sanitizedSlug.length < 3)) {
+    console.warn(`⚠️ Slug слишком короткий ("${sanitizedSlug}"), субдомен не создаётся`);
+  }
+
+  return deployedUrl;
 }
 
-// Альтернативный метод через Vercel API напрямую (без CLI)
+// Метод через Vercel API напрямую (без CLI)
 export async function deployToVercelAPI(
   projectId: string,
   buildPath: string,
