@@ -16,7 +16,8 @@
     "fastify": "^4.26.2",
     "nanoid": "^5.0.5",
     "openai": "^4.28.0",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "vercel": "^40.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",

@@ -82,12 +82,16 @@ export async function deployToVercel(
 
   let deployedUrl: string | null = null;
 
-  // Сначала пробуем через CLI
+  // Сначала пробуем через CLI (используем локально установленный vercel)
   try {
-    const { stdout } = await execAsync(
-      `npx vercel deploy --prod --token=${VERCEL_TOKEN} --yes`,
-      { cwd: buildPath, timeout: 120000 } // 2 минуты таймаут
+    console.log(`🔧 Запускаем vercel deploy для ${projectId}...`);
+    const { stdout, stderr } = await execAsync(
+      `vercel deploy --prod --token=${VERCEL_TOKEN} --yes`,
+      { cwd: buildPath, timeout: 180000 } // 3 минуты таймаут
     );
+
+    console.log(`📋 Vercel stdout: ${stdout.slice(0, 500)}`);
+    if (stderr) console.log(`📋 Vercel stderr: ${stderr.slice(0, 500)}`);
 
     // Извлекаем URL из вывода
     const urlMatch = stdout.match(/https:\/\/[\w\-]+\.vercel\.app/);
@@ -95,9 +99,12 @@ export async function deployToVercel(
 
     if (deployedUrl) {
       console.log(`✅ CLI деплой успешен: ${deployedUrl}`);
+    } else {
+      console.warn('⚠️ URL не найден в выводе CLI');
     }
-  } catch (cliError) {
-    console.warn('⚠️ CLI деплой не сработал, пробуем через API...', cliError);
+  } catch (cliError: unknown) {
+    const errMsg = cliError instanceof Error ? cliError.message : String(cliError);
+    console.warn('⚠️ CLI деплой не сработал:', errMsg.slice(0, 500));
   }
 
   // Если CLI не сработал — используем Vercel API напрямую
@@ -152,10 +159,16 @@ export async function deployToVercelAPI(
     throw new Error('VERCEL_TOKEN не установлен');
   }
 
+  console.log(`📤 API деплой: собираем файлы из ${buildPath}...`);
+
   // Собираем файлы для загрузки
   const files = await collectFiles(buildPath);
+  console.log(`📤 Собрано ${files.length} файлов`);
+
+  const projectName = `demo-${slug}`;
 
   // Создаём деплоймент
+  console.log(`📤 Отправляем запрос на Vercel API для ${projectName}...`);
   const response = await fetch('https://api.vercel.com/v13/deployments', {
     method: 'POST',
     headers: {
@@ -163,7 +176,7 @@ export async function deployToVercelAPI(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      name: `demo-${slug}`,
+      name: projectName,
       files,
       projectSettings: {
         framework: null, // статический сайт
@@ -174,10 +187,12 @@ export async function deployToVercelAPI(
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Vercel API error: ${error}`);
+    console.error(`❌ API ответ: ${response.status} - ${error.slice(0, 500)}`);
+    throw new Error(`Vercel API error (${response.status}): ${error.slice(0, 300)}`);
   }
 
   const deployment: VercelDeployment = await response.json();
+  console.log(`📤 Deployment создан: ${deployment.id}, URL: ${deployment.url}`);
 
   // Ждём готовности
   let ready = false;
@@ -193,6 +208,8 @@ export async function deployToVercelAPI(
     );
 
     const status: VercelDeployment = await statusRes.json();
+    console.log(`📤 Статус деплоя: ${status.readyState} (попытка ${attempts + 1}/60)`);
+
     if (status.readyState === 'READY') {
       ready = true;
     } else if (status.readyState === 'ERROR') {
@@ -200,6 +217,10 @@ export async function deployToVercelAPI(
     }
 
     attempts++;
+  }
+
+  if (!ready) {
+    throw new Error('Таймаут ожидания деплоя');
   }
 
   return `https://${deployment.url}`;
@@ -301,13 +322,14 @@ async function assignCustomDomain(deploymentUrl: string, subdomain: string): Pro
 
         // На последней попытке пробуем CLI
         if (attempt === maxRetries) {
-          console.log(`🔄 Пробуем через CLI...`);
+          console.log(`🔄 Пробуем alias через CLI...`);
           try {
-            await execAsync(`npx vercel alias ${deploymentUrl} ${subdomain} --token=${VERCEL_TOKEN}`);
+            await execAsync(`vercel alias ${deploymentUrl} ${subdomain} --token=${VERCEL_TOKEN}`, { timeout: 60000 });
             console.log(`✅ Alias создан через CLI`);
             return `https://${subdomain}`;
-          } catch (cliError) {
-            console.error('❌ CLI alias тоже не сработал:', cliError);
+          } catch (cliError: unknown) {
+            const errMsg = cliError instanceof Error ? cliError.message : String(cliError);
+            console.error('❌ CLI alias тоже не сработал:', errMsg.slice(0, 300));
           }
         } else {
           // Ждём перед следующей попыткой
