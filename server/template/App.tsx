@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import DemoBanner from './components/DemoBanner';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import Gallery from './components/Gallery';
@@ -26,7 +27,8 @@ function App() {
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans selection:bg-primary/30 selection:text-white">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans selection:bg-primary/30 selection:text-white pt-10">
+      <DemoBanner />
       <Header />
       <main>
         <Hero />

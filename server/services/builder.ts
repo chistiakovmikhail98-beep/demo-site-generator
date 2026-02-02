@@ -344,7 +344,24 @@ async function updateIndexHtml(buildDir: string, config: SiteConfig): Promise<vo
   );
 
   // Обновляем цветовую схему в tailwind.config
-  const colorScheme = config.sections.colorScheme || getDefaultColorScheme();
+  // Базовая схема из конфига или дефолтная
+  const baseColorScheme = config.sections.colorScheme || getDefaultColorScheme();
+
+  // ВСЕГДА вычисляем адаптивный фон на основе primary цвета
+  // Это гарантирует правильный контраст: светлый primary → светлый фон, тёмный primary → чёрный фон
+  const adaptiveBg = getAdaptiveBackground(baseColorScheme.primary);
+
+  // Финальная цветовая схема с адаптивным фоном
+  const colorScheme = {
+    primary: baseColorScheme.primary,
+    accent: baseColorScheme.accent,
+    // Всегда используем адаптивный фон на основе яркости primary
+    background: adaptiveBg.background,
+    surface: adaptiveBg.surface,
+    text: adaptiveBg.text,
+  };
+
+  console.log(`🎨 Цветовая схема: primary=${colorScheme.primary}, bg=${colorScheme.background} (светлый primary: ${adaptiveBg.text === '#1a1a1a'})`);
 
   // Заменяем tailwind.config с динамическими цветами
   const tailwindConfigRegex = /tailwind\.config\s*=\s*\{[\s\S]*?\}\s*\}\s*<\/script>/;
@@ -379,19 +396,89 @@ async function updateIndexHtml(buildDir: string, config: SiteConfig): Promise<vo
       }`;
   });
 
-  // Добавляем стили для radar chart градиента и других динамических элементов
-  const radarStyles = `
+  // Определяем, светлый ли фон (для адаптации текстовых цветов)
+  const isLightBackground = colorScheme.text === '#1a1a1a';
+
+  // Добавляем CSS переменные и стили для динамических цветов
+  const dynamicStyles = `
+      /* CSS переменные для цветовой схемы */
+      :root {
+        --color-background: ${colorScheme.background};
+        --color-surface: ${colorScheme.surface};
+        --color-primary: ${colorScheme.primary};
+        --color-accent: ${colorScheme.accent};
+        --color-text: ${colorScheme.text};
+      }
+
+      /* Фон страницы */
+      body, html {
+        background-color: ${colorScheme.background} !important;
+      }
+
+      /* Основной цвет текста */
+      body {
+        color: ${colorScheme.text} !important;
+      }
+
+      ${isLightBackground ? `
+      /* === Адаптация для светлого фона === */
+
+      /* Текстовые цвета */
+      .text-white { color: ${colorScheme.text} !important; }
+      .text-zinc-50, .text-zinc-100, .text-zinc-200 { color: #27272a !important; }
+      .text-zinc-300, .text-zinc-400 { color: #52525b !important; }
+      .text-zinc-500 { color: #71717a !important; }
+
+      /* Фоны секций */
+      .bg-zinc-900, .bg-zinc-950 { background-color: ${colorScheme.surface} !important; }
+      .bg-zinc-800 { background-color: #e4e4e7 !important; }
+      .bg-zinc-900\\/90, .bg-zinc-950\\/90 { background-color: ${colorScheme.surface}ee !important; }
+
+      /* Границы */
+      .border-zinc-700, .border-zinc-800 { border-color: #d4d4d8 !important; }
+      .border-white\\/10, .border-white\\/20 { border-color: rgba(0,0,0,0.1) !important; }
+
+      /* Header на светлом фоне */
+      header.bg-transparent { background-color: transparent !important; }
+      header .text-zinc-900 { color: #18181b !important; }
+      header .text-zinc-600, header .text-zinc-400 { color: #52525b !important; }
+
+      /* Карточки и блоки */
+      .bg-black\\/40, .bg-black\\/50 { background-color: rgba(255,255,255,0.7) !important; }
+      .backdrop-blur-md { backdrop-filter: blur(12px); }
+
+      /* Скроллбар */
+      ::-webkit-scrollbar-track { background: ${colorScheme.background}; }
+      ` : ''}
+
       /* Radar chart gradient */
       .radar-gradient-start { stop-color: ${colorScheme.primary}; stop-opacity: 0.8; }
       .radar-gradient-end { stop-color: ${colorScheme.accent}; stop-opacity: 0.4; }
       .radar-chart svg { filter: drop-shadow(0 0 25px ${colorScheme.primary}40); }
+
       /* Stroke and fill using primary color */
       .stroke-primary { stroke: ${colorScheme.primary}; }
       .fill-primary { fill: ${colorScheme.primary}; }
+
+      /* Background classes */
+      .bg-background { background-color: ${colorScheme.background}; }
+      .bg-surface { background-color: ${colorScheme.surface}; }
+      .bg-primary { background-color: ${colorScheme.primary}; }
+      .bg-accent { background-color: ${colorScheme.accent}; }
+
+      /* Text colors */
+      .text-primary { color: ${colorScheme.primary}; }
+      .text-accent { color: ${colorScheme.accent}; }
+
+      /* Border colors */
+      .border-primary { border-color: ${colorScheme.primary}; }
+
+      /* Glow shadow */
+      .shadow-glow { box-shadow: 0 0 20px -5px ${colorScheme.primary}50; }
   `;
 
   // Вставляем стили перед закрывающим </style>
-  html = html.replace(/<\/style>/i, `${radarStyles}\n    </style>`);
+  html = html.replace(/<\/style>/i, `${dynamicStyles}\n    </style>`);
 
   await fs.writeFile(indexPath, html);
 }
@@ -481,6 +568,89 @@ function getDefaultColorScheme() {
     surface: '#18181b',
     text: '#ffffff'
   };
+}
+
+/**
+ * Вычисляет адаптивный фон на основе яркости primary цвета
+ * - Если primary светлый (L > 50) → светлый приглушённый фон на основе primary
+ * - Если primary тёмный → чёрный фон
+ */
+function getAdaptiveBackground(primaryHex: string): { background: string; surface: string; text: string } {
+  // Парсим hex в RGB
+  const hex = primaryHex.replace('#', '');
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+
+  // Конвертируем в HSL
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0;
+  let s = 0;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+
+  const lightness = l * 100;
+
+  // Если primary достаточно светлый (L > 45), используем светлый фон
+  if (lightness > 45) {
+    // Создаём очень светлый приглушённый фон на основе hue primary цвета
+    const bgH = h * 360;
+    const bgS = Math.min(s * 100 * 0.15, 10); // Очень низкая насыщенность
+    const bgL = 96; // Очень светлый
+
+    const surfaceL = 92; // Чуть темнее для surface
+
+    return {
+      background: hslToHex(bgH, bgS, bgL),
+      surface: hslToHex(bgH, bgS, surfaceL),
+      text: '#1a1a1a' // Тёмный текст на светлом фоне
+    };
+  }
+
+  // Тёмный primary → чёрный фон
+  return {
+    background: '#0c0c0f',
+    surface: '#18181b',
+    text: '#ffffff'
+  };
+}
+
+/**
+ * Конвертирует HSL в HEX
+ */
+function hslToHex(h: number, s: number, l: number): string {
+  s /= 100;
+  l /= 100;
+
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c / 2;
+
+  let r = 0, g = 0, b = 0;
+
+  if (h >= 0 && h < 60) { r = c; g = x; b = 0; }
+  else if (h >= 60 && h < 120) { r = x; g = c; b = 0; }
+  else if (h >= 120 && h < 180) { r = 0; g = c; b = x; }
+  else if (h >= 180 && h < 240) { r = 0; g = x; b = c; }
+  else if (h >= 240 && h < 300) { r = x; g = 0; b = c; }
+  else { r = c; g = 0; b = x; }
+
+  const toHex = (n: number) => {
+    const hex = Math.round((n + m) * 255).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
 function getExpertiseByNiche(niche: string): string {

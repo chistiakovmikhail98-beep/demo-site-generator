@@ -13,7 +13,7 @@ import { generateSiteConfig, parseRawText, tokenStats } from './services/ai.js';
 import { buildSite } from './services/builder.js';
 import { deployToVercel } from './services/deployer.js';
 import * as supabaseService from './services/supabase.js';
-import { parseVKGroup } from './services/vk.js';
+import { parseVKGroup, parseVKPhotos } from './services/vk.js';
 import sharp from 'sharp';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -389,6 +389,30 @@ fastify.post<{ Body: { url: string } }>('/api/parse-vk', async (request, reply) 
   }
 });
 
+// Парсинг фотографий из группы ВК
+fastify.post<{ Body: { url: string; limit?: number } }>('/api/parse-vk-photos', async (request, reply) => {
+  try {
+    const { url, limit = 50 } = request.body;
+
+    if (!url || (!url.includes('vk.com') && !url.includes('vk.ru'))) {
+      return reply.status(400).send({ error: 'Укажите ссылку на группу ВК' });
+    }
+
+    const photos = await parseVKPhotos(url, Math.min(limit, 100)); // Максимум 100 фото
+
+    return {
+      success: true,
+      count: photos.length,
+      photos,
+    };
+  } catch (error) {
+    console.error('Ошибка парсинга фото ВК:', error);
+    return reply.status(500).send({
+      error: error instanceof Error ? error.message : 'Ошибка парсинга фото группы ВК',
+    });
+  }
+});
+
 // Извлечение цветов из изображения (для логотипов VK)
 fastify.post<{ Body: { imageUrl: string } }>('/api/extract-colors', async (request, reply) => {
   try {
@@ -737,6 +761,7 @@ fastify.post('/api/quick', async (request, reply) => {
   const fileMetadata: Map<number, { block?: PhotoBlockType; label?: string }> = new Map();
   let fileIndex = 0;
   let photoMetaJson: string | null = null; // Новый формат: JSON массив с type и label
+  let photoUrlsJson: string | null = null; // URL фото из ВК
 
   const contentType = request.headers['content-type'] || '';
 
@@ -757,6 +782,10 @@ fastify.post('/api/quick', async (request, reply) => {
         // Новый формат: photoMeta как JSON массив [{type, label}, ...]
         if (part.fieldname === 'photoMeta') {
           photoMetaJson = part.value as string;
+        }
+        // URL фото из ВК
+        if (part.fieldname === 'photoUrls') {
+          photoUrlsJson = part.value as string;
         }
         // fullConfig из превью — чтобы не вызывать AI повторно
         if (part.fieldname === 'fullConfig') {
@@ -891,6 +920,59 @@ fastify.post('/api/quick', async (request, reply) => {
     if (uploadedFiles.length > 0) {
       console.log(`📷 Загружено ${uploadedFiles.length} файлов:`,
         uploadedFiles.map(f => `${f.block}:${f.label || 'без подписи'}`).join(', '));
+    }
+
+    // Обработка URL фото из ВК
+    if (photoUrlsJson) {
+      try {
+        const urlPhotos: Array<{ url: string; type?: string; label?: string }> = JSON.parse(photoUrlsJson);
+        console.log(`📷 Загрузка ${urlPhotos.length} фото из ВК...`);
+
+        for (let i = 0; i < urlPhotos.length; i++) {
+          const urlPhoto = urlPhotos[i];
+          try {
+            // Скачиваем фото по URL
+            const response = await fetch(urlPhoto.url);
+            if (!response.ok) {
+              console.log(`⚠️ Не удалось скачать фото: ${urlPhoto.url}`);
+              continue;
+            }
+
+            const buffer = Buffer.from(await response.arrayBuffer());
+            const ext = urlPhoto.url.match(/\.(jpg|jpeg|png|webp|gif)/i)?.[0] || '.jpg';
+            const filename = `vk-${nanoid(10)}-${Date.now()}${ext}`;
+
+            let filePath: string;
+            if (USE_SUPABASE) {
+              filePath = await supabaseService.uploadImage(
+                projectId,
+                buffer,
+                filename,
+                `image/${ext.replace('.', '')}`
+              );
+              console.log(`📷 VK фото загружено в Supabase: ${filename}`);
+            } else {
+              filePath = path.join(UPLOADS_DIR, filename);
+              await fs.writeFile(filePath, buffer);
+              console.log(`📷 VK фото сохранено локально: ${filename}`);
+            }
+
+            uploadedFiles.push({
+              path: filePath,
+              filename,
+              block: (urlPhoto.type as PhotoBlockType) || 'gallery',
+              label: urlPhoto.label,
+              order: pendingFiles.length + i,
+            });
+          } catch (err) {
+            console.error(`⚠️ Ошибка загрузки VK фото:`, err);
+          }
+        }
+
+        console.log(`📷 Всего фото после VK: ${uploadedFiles.length}`);
+      } catch (err) {
+        console.error('⚠️ Ошибка парсинга photoUrls:', err);
+      }
     }
 
     const project: Project = {

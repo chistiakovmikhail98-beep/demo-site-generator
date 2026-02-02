@@ -5,6 +5,23 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+// Транслитерация кириллицы в латиницу
+function transliterate(text: string): string {
+  const map: Record<string, string> = {
+    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh',
+    'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
+    'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'ts',
+    'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu',
+    'я': 'ya',
+    'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'Yo', 'Ж': 'Zh',
+    'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N', 'О': 'O',
+    'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F', 'Х': 'H', 'Ц': 'Ts',
+    'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Sch', 'Ъ': '', 'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu',
+    'Я': 'Ya',
+  };
+  return text.split('').map(char => map[char] || char).join('');
+}
+
 // Читаем токен динамически (не при загрузке модуля)
 function getVercelToken(): string {
   return process.env.VERCEL_TOKEN || '';
@@ -14,8 +31,9 @@ const CUSTOM_DOMAIN = process.env.CUSTOM_DOMAIN || '';
 
 // Диагностика при старте
 const token = getVercelToken();
-console.log(`🔐 VERCEL_TOKEN env: "${process.env.VERCEL_TOKEN}"`);
+const customDomainValue = process.env.CUSTOM_DOMAIN || '';
 console.log(`🔐 VERCEL_TOKEN: ${token ? `${token.slice(0, 10)}... (${token.length} символов)` : 'НЕ УСТАНОВЛЕН'}`);
+console.log(`🌐 CUSTOM_DOMAIN: ${customDomainValue || 'НЕ УСТАНОВЛЕН'}`);
 
 interface VercelDeployment {
   id: string;
@@ -40,12 +58,15 @@ export async function deployToVercel(
   try {
     // Используем Vercel CLI для деплоя
     // Санитизируем slug для Vercel (lowercase, без пробелов, без спец. символов)
-    const sanitizedSlug = slug
+    const sanitizedSlug = transliterate(slug)  // сначала транслитерируем кириллицу
       .toLowerCase()
       .replace(/\s+/g, '-')           // пробелы → дефисы
       .replace(/[^a-z0-9\-_.]/g, '')  // только буквы, цифры, - _ .
-      .replace(/---+/g, '-')          // убираем тройные дефисы
+      .replace(/--+/g, '-')           // убираем двойные дефисы
+      .replace(/^-|-$/g, '')          // убираем дефисы в начале и конце
       .slice(0, 50);                   // ограничиваем длину
+
+    console.log(`📝 Slug: "${slug}" → "${sanitizedSlug}"`);
 
     const projectName = `demo-${sanitizedSlug}-${projectId.slice(0, 5).toLowerCase()}`;
 
@@ -77,13 +98,22 @@ export async function deployToVercel(
     await disableDeploymentProtection(projectName);
 
     // Если есть кастомный домен — привязываем субдомен
-    if (CUSTOM_DOMAIN && deployedUrl) {
-      const subdomain = `${slug}.${CUSTOM_DOMAIN}`;
-      const customUrl = await assignCustomDomain(deployedUrl, subdomain);
-      if (customUrl) {
-        console.log(`🌐 Кастомный домен: ${customUrl}`);
-        return customUrl;
+    // ВАЖНО: используем sanitizedSlug, а не slug, и проверяем что он не пустой
+    if (CUSTOM_DOMAIN && deployedUrl && sanitizedSlug && sanitizedSlug.length >= 3) {
+      const subdomain = `${sanitizedSlug}.${CUSTOM_DOMAIN}`;
+
+      // ЗАЩИТА: не создаём alias на основной домен!
+      if (subdomain === CUSTOM_DOMAIN || subdomain === `.${CUSTOM_DOMAIN}`) {
+        console.warn(`⚠️ Попытка создать alias на основной домен заблокирована!`);
+      } else {
+        const customUrl = await assignCustomDomain(deployedUrl, subdomain);
+        if (customUrl) {
+          console.log(`🌐 Кастомный домен: ${customUrl}`);
+          return customUrl;
+        }
       }
+    } else if (CUSTOM_DOMAIN && (!sanitizedSlug || sanitizedSlug.length < 3)) {
+      console.warn(`⚠️ Slug слишком короткий ("${sanitizedSlug}"), субдомен не создаётся`);
     }
 
     return deployedUrl;
@@ -244,48 +274,64 @@ async function disableDeploymentProtection(projectName: string): Promise<void> {
   }
 }
 
-// Привязка кастомного субдомена к деплою
+// Привязка кастомного субдомена к деплою (с retry)
 async function assignCustomDomain(deploymentUrl: string, subdomain: string): Promise<string | null> {
   const VERCEL_TOKEN = getVercelToken();
-  if (!VERCEL_TOKEN) return null;
-
-  try {
-    // Извлекаем deployment ID из URL (например demo-flexbody-abc12.vercel.app)
-    const deploymentHost = deploymentUrl.replace('https://', '').replace('http://', '');
-
-    console.log(`🔗 Привязываем ${subdomain} к ${deploymentHost}...`);
-
-    // Создаём alias через Vercel API
-    const response = await fetch('https://api.vercel.com/v2/deployments/' + encodeURIComponent(deploymentHost) + '/aliases', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${VERCEL_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        alias: subdomain,
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      console.log(`✅ Alias создан:`, data);
-      return `https://${subdomain}`;
-    } else {
-      const error = await response.text();
-      console.error(`⚠️ Ошибка создания alias: ${error}`);
-
-      // Пробуем альтернативный метод через CLI
-      try {
-        await execAsync(`npx vercel alias ${deploymentUrl} ${subdomain} --token=${VERCEL_TOKEN}`);
-        return `https://${subdomain}`;
-      } catch (cliError) {
-        console.error('CLI alias тоже не сработал:', cliError);
-      }
-    }
-  } catch (err) {
-    console.error('Ошибка привязки домена:', err);
+  if (!VERCEL_TOKEN) {
+    console.error('❌ VERCEL_TOKEN не установлен для создания alias');
+    return null;
   }
 
+  const deploymentHost = deploymentUrl.replace('https://', '').replace('http://', '');
+  const maxRetries = 3;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`🔗 Привязываем ${subdomain} к ${deploymentHost}... (попытка ${attempt}/${maxRetries})`);
+
+    try {
+      // Создаём alias через Vercel API
+      const response = await fetch('https://api.vercel.com/v2/deployments/' + encodeURIComponent(deploymentHost) + '/aliases', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${VERCEL_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          alias: subdomain,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`✅ Alias создан:`, data);
+        return `https://${subdomain}`;
+      } else {
+        const error = await response.text();
+        console.error(`⚠️ Попытка ${attempt}: Ошибка API: ${error}`);
+
+        // На последней попытке пробуем CLI
+        if (attempt === maxRetries) {
+          console.log(`🔄 Пробуем через CLI...`);
+          try {
+            await execAsync(`npx vercel alias ${deploymentUrl} ${subdomain} --token=${VERCEL_TOKEN}`);
+            console.log(`✅ Alias создан через CLI`);
+            return `https://${subdomain}`;
+          } catch (cliError) {
+            console.error('❌ CLI alias тоже не сработал:', cliError);
+          }
+        } else {
+          // Ждём перед следующей попыткой
+          await sleep(1000 * attempt);
+        }
+      }
+    } catch (err) {
+      console.error(`⚠️ Попытка ${attempt}: Ошибка сети:`, err);
+      if (attempt < maxRetries) {
+        await sleep(1000 * attempt);
+      }
+    }
+  }
+
+  console.error(`❌ Не удалось создать alias ${subdomain} после ${maxRetries} попыток`);
   return null;
 }

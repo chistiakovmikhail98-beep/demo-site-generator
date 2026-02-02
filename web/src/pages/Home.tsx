@@ -28,10 +28,20 @@ const PHOTO_TYPES: Array<{ value: PhotoType; label: string; description: string 
 
 // Фото с подписью
 interface LabeledPhoto {
-  file: File;
+  file?: File; // Для загруженных файлов
+  url?: string; // Для VK фото (URL напрямую)
   type: PhotoType;
   label: string;
   preview: string;
+}
+
+// Фото из VK
+interface VKPhoto {
+  id: number;
+  url: string;
+  width: number;
+  height: number;
+  text?: string;
 }
 
 // Типы ниш
@@ -629,6 +639,22 @@ export default function Home() {
   const [vkUrl, setVkUrl] = useState('');
   const [showVkInput, setShowVkInput] = useState<number | null>(null);
 
+  // VK фото пикер - теперь с сохранением выбора по категориям
+  const [vkPhotosModal, setVkPhotosModal] = useState<{ entryIndex: number; photos: VKPhoto[] } | null>(null);
+  const [vkPhotosLoading, setVkPhotosLoading] = useState(false);
+  // Выбор фото по категориям: { hero: Set([1,2]), gallery: Set([3,4,5]), ... }
+  const [vkPhotosByCategory, setVkPhotosByCategory] = useState<Record<PhotoType, Set<number>>>({
+    hero: new Set(),
+    instructors: new Set(),
+    atmosphere: new Set(),
+    gallery: new Set(),
+    stories: new Set(),
+    director: new Set(),
+    directions: new Set(),
+    advantages: new Set(),
+  });
+  const [vkPhotoType, setVkPhotoType] = useState<PhotoType>('hero'); // Начинаем с "Главная"
+
   const handleParseVK = async (entryIndex: number) => {
     if (!vkUrl.trim()) {
       alert('Введите ссылку на группу ВК');
@@ -682,6 +708,118 @@ export default function Home() {
     } finally {
       setVkLoading(null);
     }
+  };
+
+  // Загрузить фото из ВК группы
+  const handleLoadVkPhotos = async (entryIndex: number) => {
+    const entry = batchEntries[entryIndex];
+    const vkGroupUrl = entry.vkGroupUrl;
+
+    if (!vkGroupUrl) {
+      alert('Сначала загрузите данные из ВК группы');
+      return;
+    }
+
+    setVkPhotosLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/parse-vk-photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: vkGroupUrl, limit: 50 }),
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+
+      if (data.photos.length === 0) {
+        alert('Фото не найдены в этой группе');
+        return;
+      }
+
+      setVkPhotosModal({ entryIndex, photos: data.photos });
+      // Сбрасываем выбор по всем категориям
+      setVkPhotosByCategory({
+        hero: new Set(),
+        instructors: new Set(),
+        atmosphere: new Set(),
+        gallery: new Set(),
+        stories: new Set(),
+        director: new Set(),
+        directions: new Set(),
+        advantages: new Set(),
+      });
+      setVkPhotoType('hero'); // Начинаем с "Главная"
+    } catch (error) {
+      console.error('Ошибка загрузки фото ВК:', error);
+      alert('Не удалось загрузить фото из ВК');
+    } finally {
+      setVkPhotosLoading(false);
+    }
+  };
+
+  // Добавить ВСЕ выбранные VK фото (из всех категорий) в карточку
+  const handleAddVkPhotos = () => {
+    if (!vkPhotosModal) return;
+
+    const { entryIndex, photos } = vkPhotosModal;
+
+    // Собираем фото из всех категорий
+    const newPhotos: LabeledPhoto[] = [];
+    for (const [category, photoIds] of Object.entries(vkPhotosByCategory)) {
+      const categoryPhotos = photos.filter(p => photoIds.has(p.id));
+      for (const photo of categoryPhotos) {
+        newPhotos.push({
+          url: photo.url,
+          type: category as PhotoType,
+          label: photo.text || '',
+          preview: photo.url,
+        });
+      }
+    }
+
+    if (newPhotos.length === 0) {
+      alert('Выберите хотя бы одно фото');
+      return;
+    }
+
+    setBatchEntries(prev => prev.map((entry, i) =>
+      i === entryIndex ? { ...entry, photos: [...entry.photos, ...newPhotos] } : entry
+    ));
+
+    setVkPhotosModal(null);
+  };
+
+  // Переключить выбор VK фото в текущей категории
+  const toggleVkPhotoSelection = (photoId: number) => {
+    setVkPhotosByCategory(prev => {
+      const currentSet = new Set(prev[vkPhotoType]);
+      if (currentSet.has(photoId)) {
+        currentSet.delete(photoId);
+      } else {
+        currentSet.add(photoId);
+      }
+      return { ...prev, [vkPhotoType]: currentSet };
+    });
+  };
+
+  // Получить общее кол-во выбранных фото по всем категориям
+  const getTotalSelectedVkPhotos = () => {
+    return Object.values(vkPhotosByCategory).reduce((sum, set) => sum + set.size, 0);
+  };
+
+  // Проверить, выбрано ли фото в какой-либо категории
+  const getPhotoCategory = (photoId: number): PhotoType | null => {
+    for (const [category, photoIds] of Object.entries(vkPhotosByCategory)) {
+      if (photoIds.has(photoId)) {
+        return category as PhotoType;
+      }
+    }
+    return null;
   };
 
   // Получить превью от AI (что он понял из текста)
@@ -913,12 +1051,32 @@ export default function Home() {
         }
 
         if (entry.photos.length > 0) {
+          // Разделяем фото на файлы и URL (из ВК)
+          const filePhotos = entry.photos.filter(p => p.file);
+          const urlPhotos = entry.photos.filter(p => p.url && !p.file);
+
           const photoMeta = entry.photos.map(p => ({
             type: p.type,
             label: p.label,
+            url: p.url, // Для VK фото
           }));
           formData.append('photoMeta', JSON.stringify(photoMeta));
-          entry.photos.forEach(photo => formData.append('files', photo.file));
+
+          // Добавляем только файлы
+          filePhotos.forEach(photo => {
+            if (photo.file) {
+              formData.append('files', photo.file);
+            }
+          });
+
+          // URL фото передаём отдельно
+          if (urlPhotos.length > 0) {
+            formData.append('photoUrls', JSON.stringify(urlPhotos.map(p => ({
+              url: p.url,
+              type: p.type,
+              label: p.label,
+            }))));
+          }
         }
 
         const response = await fetch(`${API_URL}/api/quick`, {
@@ -1286,8 +1444,10 @@ export default function Home() {
                         <CheckCircle className="w-6 h-6 text-green-500" />
                       ) : projectStatus?.status === 'failed' ? (
                         <AlertCircle className="w-6 h-6 text-red-500" />
-                      ) : (
+                      ) : projectStatus ? (
                         <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-6 h-6 text-gray-400" />
                       )
                     ) : (
                       <div
@@ -1328,15 +1488,7 @@ export default function Home() {
                         Открыть <ExternalLink className="w-3 h-3" />
                       </a>
                     )}
-                    {!entry.submitted && (
-                      <button
-                        type="button"
-                        onClick={() => toggleBatchExpanded(index)}
-                        className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                      >
-                        {entry.expanded ? 'Свернуть' : 'Настройки'}
-                      </button>
-                    )}
+                    {/* Кнопка сворачивания убрана - настройки всегда открыты */}
                     {batchEntries.length > 1 && (
                       <button
                         type="button"
@@ -1793,8 +1945,8 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* Развёрнутые настройки */}
-                  {entry.expanded && (
+                  {/* Настройки (всегда открыты) */}
+                  {!entry.submitted && (
                     <div className="space-y-4 pt-2 border-t border-gray-100">
                       {/* Цвета */}
                       <div>
@@ -1973,6 +2125,22 @@ export default function Home() {
                               <span className="text-gray-600 text-sm">Загрузить</span>
                             </label>
                           </div>
+                          {/* Кнопка загрузки фото из ВК */}
+                          {entry.vkGroupUrl && (
+                            <button
+                              type="button"
+                              onClick={() => handleLoadVkPhotos(index)}
+                              disabled={vkPhotosLoading}
+                              className="flex-1 flex items-center justify-center gap-2 px-3 py-3 border-2 border-dashed border-blue-300 rounded-xl text-blue-600 hover:bg-blue-50 transition disabled:opacity-50"
+                            >
+                              {vkPhotosLoading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Link2 className="w-4 h-4" />
+                              )}
+                              Фото из ВК
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2043,6 +2211,137 @@ export default function Home() {
           Powered by OpenRouter AI
         </p>
       </div>
+
+      {/* VK Photos Modal */}
+      {vkPhotosModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Фото из ВК</h3>
+                <p className="text-sm text-gray-500">
+                  Выбрано: {getTotalSelectedVkPhotos()} из {vkPhotosModal.photos.length}
+                </p>
+              </div>
+              <button
+                onClick={() => setVkPhotosModal(null)}
+                className="text-gray-400 hover:text-gray-600 p-2"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Photo Type Selector */}
+            <div className="p-4 border-b bg-gray-50">
+              <label className="block text-xs font-medium text-gray-600 mb-2">
+                Категория для выбранных фото:
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {PHOTO_TYPES.map(type => {
+                  const count = vkPhotosByCategory[type.value].size;
+                  return (
+                    <button
+                      key={type.value}
+                      onClick={() => setVkPhotoType(type.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                        vkPhotoType === type.value
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-white text-gray-600 hover:bg-gray-100 border'
+                      }`}
+                    >
+                      {type.label}
+                      {count > 0 && (
+                        <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
+                          vkPhotoType === type.value
+                            ? 'bg-white/20 text-white'
+                            : 'bg-green-500 text-white'
+                        }`}>
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Photos Grid */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                {vkPhotosModal.photos.map(photo => {
+                  const photoCategory = getPhotoCategory(photo.id);
+                  const isSelectedInCurrentCategory = vkPhotosByCategory[vkPhotoType].has(photo.id);
+                  const isSelectedInOtherCategory = photoCategory && photoCategory !== vkPhotoType;
+
+                  return (
+                    <div
+                      key={photo.id}
+                      onClick={() => !isSelectedInOtherCategory && toggleVkPhotoSelection(photo.id)}
+                      className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition ${
+                        isSelectedInCurrentCategory
+                          ? 'border-indigo-600 ring-2 ring-indigo-200'
+                          : isSelectedInOtherCategory
+                          ? 'border-green-500 ring-2 ring-green-200 opacity-60'
+                          : 'border-transparent hover:border-gray-300'
+                      }`}
+                    >
+                      <img
+                        src={photo.url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                      {isSelectedInCurrentCategory && (
+                        <div className="absolute inset-0 bg-indigo-600/30 flex items-center justify-center">
+                          <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center">
+                            <Check className="w-5 h-5 text-white" />
+                          </div>
+                        </div>
+                      )}
+                      {isSelectedInOtherCategory && (
+                        <div className="absolute inset-0 bg-green-600/30 flex items-center justify-center">
+                          <div className="px-2 py-1 bg-green-600 rounded text-white text-[10px] font-bold">
+                            {PHOTO_TYPES.find(t => t.value === photoCategory)?.label}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                <span className="font-medium text-indigo-600">{vkPhotosByCategory[vkPhotoType].size}</span> в этой категории
+                {getTotalSelectedVkPhotos() > 0 && (
+                  <span className="ml-2 text-green-600">
+                    • <span className="font-medium">{getTotalSelectedVkPhotos()}</span> всего
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setVkPhotosModal(null)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleAddVkPhotos}
+                  disabled={getTotalSelectedVkPhotos() === 0}
+                  className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  Добавить ({getTotalSelectedVkPhotos()})
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

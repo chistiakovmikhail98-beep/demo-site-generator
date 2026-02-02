@@ -9,6 +9,10 @@ interface VKGroup {
   description?: string;
   site?: string;
   phone?: string;
+  photo_50?: string;
+  photo_100?: string;
+  photo_200?: string;
+  photo_max_orig?: string; // Максимальное разрешение
   addresses?: {
     is_enabled: boolean;
     main_address?: {
@@ -53,19 +57,20 @@ interface ParsedVKData {
   admins: AdminContact[]; // Контакты админов
   posts: string[];
   rawText: string; // Всё вместе для AI
+  avatarUrl?: string; // URL аватарки группы для логотипа
 }
 
 // Извлекаем screen_name из ссылки ВК
 function extractGroupId(url: string): string | null {
   // Поддерживаем форматы:
-  // https://vk.com/groupname
-  // https://vk.com/public123456
-  // https://vk.com/club123456
-  // vk.com/groupname
+  // https://vk.com/groupname или https://vk.ru/groupname
+  // https://vk.com/public123456 или https://vk.ru/public123456
+  // https://vk.com/club123456 или https://vk.ru/club123456
+  // vk.com/groupname или vk.ru/groupname
   const patterns = [
-    /vk\.com\/([a-zA-Z0-9_]+)/,
-    /vk\.com\/public(\d+)/,
-    /vk\.com\/club(\d+)/,
+    /vk\.(?:com|ru)\/([a-zA-Z0-9_]+)/,
+    /vk\.(?:com|ru)\/public(\d+)/,
+    /vk\.(?:com|ru)\/club(\d+)/,
   ];
 
   for (const pattern of patterns) {
@@ -93,11 +98,11 @@ export async function parseVKGroup(url: string): Promise<ParsedVKData> {
 
   console.log(`🔍 Парсинг группы ВК: ${groupId}`);
 
-  // Получаем информацию о группе
+  // Получаем информацию о группе (включая аватарку)
   const groupResponse = await fetch(
     `https://api.vk.com/method/groups.getById?` +
     `group_id=${groupId}&` +
-    `fields=description,site,contacts,addresses,phone&` +
+    `fields=description,site,contacts,addresses,phone,photo_200,photo_max_orig&` +
     `access_token=${VK_SERVICE_KEY}&` +
     `v=${VK_API_VERSION}`
   );
@@ -205,6 +210,9 @@ export async function parseVKGroup(url: string): Promise<ParsedVKData> {
   if (contacts.site) rawTextParts.push(`Сайт: ${contacts.site}`);
   rawTextParts.push(`ВКонтакте: ${contacts.vk}`);
 
+  // Получаем аватарку (приоритет: максимальное разрешение > 200px)
+  const avatarUrl = group.photo_max_orig || group.photo_200 || group.photo_100;
+
   const result: ParsedVKData = {
     name: group.name,
     description: group.description || '',
@@ -212,9 +220,151 @@ export async function parseVKGroup(url: string): Promise<ParsedVKData> {
     admins,
     posts: [], // Посты не парсим
     rawText: rawTextParts.join('\n'),
+    avatarUrl, // URL аватарки для логотипа
   };
 
-  console.log(`✅ Получено: ${group.name} (${admins.length} админов)`);
+  console.log(`✅ Получено: ${group.name} (${admins.length} админов, аватарка: ${avatarUrl ? 'да' : 'нет'})`);
 
   return result;
+}
+
+// Интерфейс для фото из VK
+export interface VKPhoto {
+  id: number;
+  url: string; // URL максимального размера
+  width: number;
+  height: number;
+  text?: string; // Описание фото
+}
+
+// Парсинг фотографий из галереи группы ВК
+export async function parseVKPhotos(url: string, limit: number = 50): Promise<VKPhoto[]> {
+  const VK_SERVICE_KEY = process.env.VK_SERVICE_KEY;
+
+  if (!VK_SERVICE_KEY) {
+    throw new Error('VK_SERVICE_KEY не установлен');
+  }
+
+  const groupId = extractGroupId(url);
+  if (!groupId) {
+    throw new Error('Неверная ссылка на группу ВК');
+  }
+
+  console.log(`📸 Парсинг фото группы ВК: ${groupId} (лимит: ${limit})`);
+
+  // Сначала получаем числовой ID группы
+  const groupResponse = await fetch(
+    `https://api.vk.com/method/groups.getById?` +
+    `group_id=${groupId}&` +
+    `access_token=${VK_SERVICE_KEY}&` +
+    `v=${VK_API_VERSION}`
+  );
+
+  const groupData = await groupResponse.json();
+  if (groupData.error) {
+    throw new Error(`VK API Error: ${groupData.error.error_msg}`);
+  }
+
+  const group = groupData.response.groups?.[0] || groupData.response?.[0];
+  if (!group) {
+    throw new Error('Группа не найдена');
+  }
+
+  const numericGroupId = group.id;
+
+  // Получаем все фото группы (photos.getAll)
+  const photosResponse = await fetch(
+    `https://api.vk.com/method/photos.getAll?` +
+    `owner_id=-${numericGroupId}&` + // Минус для группы
+    `count=${Math.min(limit, 200)}&` + // VK max 200 за запрос
+    `photo_sizes=1&` + // Получить все размеры
+    `skip_hidden=1&` + // Пропустить скрытые
+    `access_token=${VK_SERVICE_KEY}&` +
+    `v=${VK_API_VERSION}`
+  );
+
+  const photosData = await photosResponse.json();
+
+  if (photosData.error) {
+    console.log(`⚠️ Ошибка photos.getAll: ${photosData.error.error_msg}`);
+    // Пробуем альтернативный метод - фото со стены
+    return await parseWallPhotos(numericGroupId, limit, VK_SERVICE_KEY);
+  }
+
+  const photos: VKPhoto[] = [];
+
+  for (const photo of photosData.response.items || []) {
+    // Находим максимальный размер
+    const sizes = photo.sizes || [];
+    const maxSize = sizes.reduce((max: any, size: any) => {
+      if (!max || (size.width * size.height > max.width * max.height)) {
+        return size;
+      }
+      return max;
+    }, null);
+
+    if (maxSize) {
+      photos.push({
+        id: photo.id,
+        url: maxSize.url,
+        width: maxSize.width,
+        height: maxSize.height,
+        text: photo.text || undefined,
+      });
+    }
+  }
+
+  console.log(`📸 Получено ${photos.length} фото из альбомов`);
+  return photos;
+}
+
+// Альтернативный метод - фото со стены группы
+async function parseWallPhotos(groupId: number, limit: number, token: string): Promise<VKPhoto[]> {
+  console.log(`📰 Пробуем получить фото со стены...`);
+
+  const wallResponse = await fetch(
+    `https://api.vk.com/method/wall.get?` +
+    `owner_id=-${groupId}&` +
+    `count=${Math.min(limit * 2, 100)}&` + // Берём больше постов
+    `access_token=${token}&` +
+    `v=${VK_API_VERSION}`
+  );
+
+  const wallData = await wallResponse.json();
+
+  if (wallData.error) {
+    console.log(`⚠️ Ошибка wall.get: ${wallData.error.error_msg}`);
+    return [];
+  }
+
+  const photos: VKPhoto[] = [];
+
+  for (const post of wallData.response.items || []) {
+    // Ищем фото в аттачментах
+    for (const attachment of post.attachments || []) {
+      if (attachment.type === 'photo' && photos.length < limit) {
+        const photo = attachment.photo;
+        const sizes = photo.sizes || [];
+        const maxSize = sizes.reduce((max: any, size: any) => {
+          if (!max || (size.width * size.height > max.width * max.height)) {
+            return size;
+          }
+          return max;
+        }, null);
+
+        if (maxSize) {
+          photos.push({
+            id: photo.id,
+            url: maxSize.url,
+            width: maxSize.width,
+            height: maxSize.height,
+            text: photo.text || post.text?.slice(0, 100) || undefined,
+          });
+        }
+      }
+    }
+  }
+
+  console.log(`📰 Получено ${photos.length} фото со стены`);
+  return photos;
 }
