@@ -1,9 +1,5 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
 
 // Транслитерация кириллицы в латиницу
 function transliterate(text: string): string {
@@ -82,45 +78,21 @@ export async function deployToVercel(
 
   let deployedUrl: string | null = null;
 
-  // Сначала пробуем через CLI (используем локально установленный vercel)
+  // Пробуем только через API (CLI не работает на Railway)
+  console.log(`🔧 Деплой ${projectId} через Vercel API...`);
+
+  // Используем Vercel API напрямую
   try {
-    console.log(`🔧 Запускаем vercel deploy для ${projectId}...`);
-    const { stdout, stderr } = await execAsync(
-      `vercel deploy --prod --token=${VERCEL_TOKEN} --yes`,
-      { cwd: buildPath, timeout: 180000 } // 3 минуты таймаут
-    );
+    deployedUrl = await deployToVercelAPI(buildPath, sanitizedSlug);
+    console.log(`✅ API деплой успешен: ${deployedUrl}`);
+  } catch (apiError) {
+    console.error('❌ API деплой не сработал:', apiError);
 
-    console.log(`📋 Vercel stdout: ${stdout.slice(0, 500)}`);
-    if (stderr) console.log(`📋 Vercel stderr: ${stderr.slice(0, 500)}`);
-
-    // Извлекаем URL из вывода
-    const urlMatch = stdout.match(/https:\/\/[\w\-]+\.vercel\.app/);
-    deployedUrl = urlMatch ? urlMatch[0] : null;
-
-    if (deployedUrl) {
-      console.log(`✅ CLI деплой успешен: ${deployedUrl}`);
-    } else {
-      console.warn('⚠️ URL не найден в выводе CLI');
-    }
-  } catch (cliError: unknown) {
-    const errMsg = cliError instanceof Error ? cliError.message : String(cliError);
-    console.warn('⚠️ CLI деплой не сработал:', errMsg.slice(0, 500));
-  }
-
-  // Если CLI не сработал — используем Vercel API напрямую
-  if (!deployedUrl) {
-    try {
-      deployedUrl = await deployToVercelAPI(projectId, buildPath, sanitizedSlug);
-      console.log(`✅ API деплой успешен: ${deployedUrl}`);
-    } catch (apiError) {
-      console.error('❌ API деплой тоже не сработал:', apiError);
-
-      // Последний fallback: возвращаем URL через API сервера
-      const baseUrl = process.env.API_BASE_URL
-        || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
-        || 'http://localhost:3001';
-      return `${baseUrl}/preview/${projectId}/dist/`;
-    }
+    // Fallback: возвращаем URL через API сервера
+    const baseUrl = process.env.API_BASE_URL
+      || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
+      || 'http://localhost:3001';
+    return `${baseUrl}/preview/${projectId}/dist/`;
   }
 
   // Отключаем Deployment Protection для публичного доступа
@@ -150,7 +122,6 @@ export async function deployToVercel(
 
 // Метод через Vercel API напрямую (без CLI)
 export async function deployToVercelAPI(
-  projectId: string,
   buildPath: string,
   slug: string
 ): Promise<string> {
@@ -320,18 +291,7 @@ async function assignCustomDomain(deploymentUrl: string, subdomain: string): Pro
         const error = await response.text();
         console.error(`⚠️ Попытка ${attempt}: Ошибка API: ${error}`);
 
-        // На последней попытке пробуем CLI
-        if (attempt === maxRetries) {
-          console.log(`🔄 Пробуем alias через CLI...`);
-          try {
-            await execAsync(`vercel alias ${deploymentUrl} ${subdomain} --token=${VERCEL_TOKEN}`, { timeout: 60000 });
-            console.log(`✅ Alias создан через CLI`);
-            return `https://${subdomain}`;
-          } catch (cliError: unknown) {
-            const errMsg = cliError instanceof Error ? cliError.message : String(cliError);
-            console.error('❌ CLI alias тоже не сработал:', errMsg.slice(0, 300));
-          }
-        } else {
+        if (attempt < maxRetries) {
           // Ждём перед следующей попыткой
           await sleep(1000 * attempt);
         }
