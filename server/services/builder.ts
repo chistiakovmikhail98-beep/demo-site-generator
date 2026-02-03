@@ -115,8 +115,8 @@ export const DIRECTOR_CONFIG = {
   achievements: [${d.achievements.map(a => `'${esc(a)}'`).join(', ')}],
 };
 
-// Показывать Calculator только для fitness/yoga/stretching/wellness (НЕ для dance)
-export const SHOW_CALCULATOR = ${['fitness', 'yoga', 'stretching', 'wellness'].includes(b.niche)};
+// Показывать Calculator для всех ниш (включая dance)
+export const SHOW_CALCULATOR = true;
 
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Направления', href: '#directions' },
