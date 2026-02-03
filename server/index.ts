@@ -1123,45 +1123,83 @@ fastify.put<{ Params: { id: string }; Body: Partial<Project> }>('/api/projects/:
 });
 
 // Повторная генерация проекта
-fastify.post<{ Params: { id: string } }>('/api/projects/:id/regenerate', async (request, reply) => {
-  let project: { id: string; name: string } | null = null;
+fastify.post<{ Params: { id: string }; Querystring: { full?: string } }>(
+  '/api/projects/:id/regenerate',
+  async (request, reply) => {
+    try {
+      const fullRegenerate = request.query.full === 'true';
+      let project: { id: string; name: string; niche: string; description?: string } | null = null;
 
-  if (USE_SUPABASE) {
-    const dbProject = await supabaseService.getProject(request.params.id);
-    if (dbProject) {
-      project = { id: dbProject.id, name: dbProject.name };
-    }
-  } else {
-    const projects = await loadProjects();
-    const found = projects.find(p => p.id === request.params.id);
-    if (found) {
-      project = { id: found.id, name: found.name };
+      if (USE_SUPABASE) {
+        const dbProject = await supabaseService.getProject(request.params.id);
+        if (dbProject) {
+          project = {
+            id: dbProject.id,
+            name: dbProject.name,
+            niche: dbProject.niche,
+            description: dbProject.description,
+          };
+        }
+      } else {
+        const projects = await loadProjects();
+        const found = projects.find(p => p.id === request.params.id);
+        if (found) {
+          project = {
+            id: found.id,
+            name: found.name,
+            niche: found.niche,
+            description: found.description,
+          };
+        }
+      }
+
+      if (!project) {
+        return reply.status(404).send({ error: 'Проект не найден' });
+      }
+
+      // Проверяем минимальные данные для генерации
+      if (!project.name || !project.niche) {
+        return reply.status(400).send({
+          error: 'Недостаточно данных для перегенерации. Нужны name и niche.',
+        });
+      }
+
+      // Сбрасываем статус и запускаем заново
+      // fullRegenerate=true — полная перегенерация через AI
+      // fullRegenerate=false — только пересборка и передеплой (если есть siteConfig)
+      const updates: Partial<Project> = {
+        status: 'pending',
+        deployedUrl: undefined,
+        error: undefined,
+      };
+
+      if (fullRegenerate) {
+        updates.siteConfig = undefined;
+        console.log(`🔄 Полная перегенерация ${project.id} (${project.name})`);
+      } else {
+        console.log(`🔄 Передеплой ${project.id} (${project.name})`);
+      }
+
+      await updateProject(project.id, updates);
+
+      // Запускаем генерацию
+      addToQueue(project.id);
+
+      return {
+        id: project.id,
+        status: 'pending',
+        message: fullRegenerate
+          ? 'Проект добавлен в очередь на полную перегенерацию'
+          : 'Проект добавлен в очередь на передеплой',
+      };
+    } catch (error) {
+      console.error(`❌ Ошибка перегенерации ${request.params.id}:`, error);
+      return reply.status(500).send({
+        error: error instanceof Error ? error.message : 'Ошибка перегенерации',
+      });
     }
   }
-
-  if (!project) {
-    return reply.status(404).send({ error: 'Проект не найден' });
-  }
-
-  // Сбрасываем статус и запускаем заново
-  await updateProject(project.id, {
-    status: 'pending',
-    deployedUrl: undefined,
-    error: undefined,
-    siteConfig: undefined,
-  });
-
-  // Запускаем генерацию
-  addToQueue(project.id);
-
-  console.log(`🔄 Проект ${project.id} (${project.name}) добавлен на перегенерацию`);
-
-  return {
-    id: project.id,
-    status: 'pending',
-    message: 'Проект добавлен в очередь на повторную генерацию',
-  };
-});
+);
 
 // Скачать исходный код проекта (ZIP)
 fastify.get<{ Params: { id: string } }>('/api/projects/:id/download', async (request, reply) => {
@@ -1414,8 +1452,10 @@ async function processProject(projectId: string): Promise<void> {
     // Шаг 1: Генерация через AI (или использование кешированного конфига из превью)
     await updateProject(projectId, { status: 'processing' });
 
-    const imageFiles = project.uploadedFiles.filter(f =>
-      /\.(png|jpg|jpeg|gif|webp)$/i.test(f.path)
+    // Защита от undefined/null uploadedFiles
+    const uploadedFiles = project.uploadedFiles || [];
+    const imageFiles = uploadedFiles.filter(f =>
+      f && f.path && /\.(png|jpg|jpeg|gif|webp)$/i.test(f.path)
     );
 
     let siteConfig: SiteConfig;
@@ -1449,7 +1489,7 @@ async function processProject(projectId: string): Promise<void> {
 
     // Шаг 2: Сборка сайта (с передачей загруженных фото)
     await updateProject(projectId, { status: 'building' });
-    const buildPath = await buildSite(projectId, siteConfig, project.uploadedFiles);
+    const buildPath = await buildSite(projectId, siteConfig, uploadedFiles);
 
     // Шаг 3: Деплой на Vercel
     await updateProject(projectId, { status: 'deploying' });
