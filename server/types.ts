@@ -263,6 +263,16 @@ export interface UploadedFile {
   order?: number;         // Порядок в блоке (для множественных фото)
 }
 
+// Контакт администратора ВК
+export interface VkAdmin {
+  name?: string;
+  phone?: string;
+  email?: string;
+  role?: string;
+  vkUrl?: string;
+  vkId?: number;
+}
+
 // Статус проекта
 export interface Project {
   id: string;
@@ -277,6 +287,9 @@ export interface Project {
   siteConfig?: SiteConfig;
   deployedUrl?: string;
   error?: string;
+  // VK данные для CRM
+  vkGroupUrl?: string;
+  vkAdmins?: VkAdmin[];
   createdAt: string;
   updatedAt: string;
 }

@@ -762,6 +762,9 @@ fastify.post('/api/quick', async (request, reply) => {
   let fileIndex = 0;
   let photoMetaJson: string | null = null; // Новый формат: JSON массив с type и label
   let photoUrlsJson: string | null = null; // URL фото из ВК
+  // VK данные для CRM
+  let vkGroupUrl: string | undefined;
+  let vkAdmins: Array<{ name?: string; phone?: string; email?: string; role?: string; vkUrl?: string; vkId?: number }> | undefined;
 
   const contentType = request.headers['content-type'] || '';
 
@@ -786,6 +789,15 @@ fastify.post('/api/quick', async (request, reply) => {
         // URL фото из ВК
         if (part.fieldname === 'photoUrls') {
           photoUrlsJson = part.value as string;
+        }
+        // VK данные для CRM
+        if (part.fieldname === 'vkGroupUrl') {
+          vkGroupUrl = part.value as string;
+        }
+        if (part.fieldname === 'vkAdmins') {
+          try {
+            vkAdmins = JSON.parse(part.value as string);
+          } catch { /* игнорируем невалидный JSON */ }
         }
         // fullConfig из превью — чтобы не вызывать AI повторно
         if (part.fieldname === 'fullConfig') {
@@ -986,6 +998,9 @@ fastify.post('/api/quick', async (request, reply) => {
       aiModel,
       fontFamily,
       siteConfig: cachedSiteConfig || undefined, // Конфиг из превью (чтобы не вызывать AI повторно)
+      // VK данные для CRM
+      vkGroupUrl,
+      vkAdmins,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -1006,7 +1021,11 @@ fastify.post('/api/quick', async (request, reply) => {
         font_family: fontFamily,
         uploaded_files: uploadedFiles.map(f => ({ ...f, order: f.order ?? 0 })),
         site_config: cachedSiteConfig as unknown as Record<string, unknown> | undefined, // Конфиг из превью
+        // VK данные для CRM
+        vk_group_url: vkGroupUrl,
+        vk_admins: vkAdmins,
       });
+      console.log(`📋 VK данные: группа=${vkGroupUrl || 'нет'}, админов=${vkAdmins?.length || 0}`);
     } else {
       const projects = await loadProjects();
       projects.push(project);

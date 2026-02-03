@@ -16,8 +16,32 @@ import {
   Phone,
   Link,
   Send,
-  Check
+  Check,
+  Inbox,
+  Clock,
+  MessageSquare
 } from 'lucide-react';
+
+// Типы для лидов
+interface Lead {
+  id: string;
+  name: string;
+  phone: string;
+  messenger?: string;
+  studio_name: string;
+  studio_phone?: string;
+  source_url?: string;
+  status: 'new' | 'contacted' | 'converted' | 'rejected';
+  notes?: string;
+  created_at: string;
+}
+
+const LEAD_STATUSES = [
+  { value: 'new', label: 'Новая', color: 'bg-blue-100 text-blue-700' },
+  { value: 'contacted', label: 'Связались', color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'converted', label: 'Конверсия', color: 'bg-green-100 text-green-700' },
+  { value: 'rejected', label: 'Отказ', color: 'bg-red-100 text-red-700' },
+];
 
 interface Project {
   id: string;
@@ -26,6 +50,9 @@ interface Project {
   status: string;
   deployed_url?: string;
   created_at: string;
+  // VK данные из БД
+  vk_group_url?: string;
+  vk_admins?: AdminContact[];
 }
 
 // Контакт администратора
@@ -65,9 +92,12 @@ const API_URL = import.meta.env.VITE_API_URL || '';
 
 export default function MySites() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'sites' | 'leads'>('sites');
   const [projects, setProjects] = useState<Project[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [crmData, setCrmData] = useState<Record<string, ProjectCRM>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingLeads, setIsLoadingLeads] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<ProjectCRM>>({});
 
@@ -76,6 +106,13 @@ export default function MySites() {
     fetchProjects();
     loadCrmData();
   }, []);
+
+  // Загрузка лидов при переключении на вкладку
+  useEffect(() => {
+    if (activeTab === 'leads' && leads.length === 0) {
+      fetchLeads();
+    }
+  }, [activeTab]);
 
   const fetchProjects = async () => {
     try {
@@ -86,6 +123,35 @@ export default function MySites() {
       console.error('Ошибка загрузки проектов:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchLeads = async () => {
+    setIsLoadingLeads(true);
+    try {
+      const response = await fetch(`${API_URL}/api/leads`);
+      const data = await response.json();
+      setLeads(data.leads || []);
+    } catch (error) {
+      console.error('Ошибка загрузки заявок:', error);
+    } finally {
+      setIsLoadingLeads(false);
+    }
+  };
+
+  const updateLeadStatus = async (leadId: string, status: string, notes?: string) => {
+    try {
+      await fetch(`${API_URL}/api/leads/${leadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, notes }),
+      });
+      // Обновляем локально
+      setLeads(prev => prev.map(lead =>
+        lead.id === leadId ? { ...lead, status: status as Lead['status'], notes } : lead
+      ));
+    } catch (error) {
+      console.error('Ошибка обновления заявки:', error);
     }
   };
 
@@ -224,9 +290,6 @@ export default function MySites() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-xl font-bold">Мои сайты</h1>
-            <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-              {projects.length} {projects.length === 1 ? 'проект' : 'проектов'}
-            </span>
           </div>
           <button
             onClick={() => navigate('/')}
@@ -236,10 +299,45 @@ export default function MySites() {
             Новый сайт
           </button>
         </div>
+
+        {/* Tabs */}
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex gap-1 border-b -mb-px">
+            <button
+              onClick={() => setActiveTab('sites')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+                activeTab === 'sites'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <ExternalLink className="w-4 h-4" />
+              Сайты
+              <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">{projects.length}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('leads')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+                activeTab === 'leads'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Inbox className="w-4 h-4" />
+              Заявки
+              {leads.filter(l => l.status === 'new').length > 0 && (
+                <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">
+                  {leads.filter(l => l.status === 'new').length}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {projects.length === 0 ? (
+        {/* === TAB: SITES === */}
+        {activeTab === 'sites' && (projects.length === 0 ? (
           <div className="bg-white rounded-xl p-12 text-center">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Plus className="w-8 h-8 text-gray-400" />
@@ -291,40 +389,44 @@ export default function MySites() {
                           </div>
                         </td>
 
-                        {/* Админы ВК */}
+                        {/* Админы ВК (из БД или localStorage как fallback) */}
                         <td className="px-4 py-3">
-                          {crm.admins && crm.admins.length > 0 ? (
-                            <div className="space-y-1">
-                              {crm.admins.slice(0, 2).map((admin, idx) => (
-                                <div key={idx} className="text-xs">
-                                  {admin.name && (
-                                    <div className="font-medium text-gray-800">{admin.name}</div>
+                          {(() => {
+                            const admins = project.vk_admins || crm.admins;
+                            if (admins && admins.length > 0) {
+                              return (
+                                <div className="space-y-1">
+                                  {admins.slice(0, 2).map((admin, idx) => (
+                                    <div key={idx} className="text-xs">
+                                      {admin.name && (
+                                        <div className="font-medium text-gray-800">{admin.name}</div>
+                                      )}
+                                      {admin.role && (
+                                        <div className="text-gray-400">{admin.role}</div>
+                                      )}
+                                      <div className="flex items-center gap-2 mt-0.5">
+                                        {admin.phone && (
+                                          <a href={`tel:${admin.phone}`} className="text-indigo-600 hover:underline flex items-center gap-0.5">
+                                            <Phone className="w-2.5 h-2.5" />
+                                            {admin.phone}
+                                          </a>
+                                        )}
+                                        {admin.vkUrl && (
+                                          <a href={admin.vkUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                            VK
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {admins.length > 2 && (
+                                    <div className="text-xs text-gray-400">+{admins.length - 2} ещё</div>
                                   )}
-                                  {admin.role && (
-                                    <div className="text-gray-400">{admin.role}</div>
-                                  )}
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    {admin.phone && (
-                                      <a href={`tel:${admin.phone}`} className="text-indigo-600 hover:underline flex items-center gap-0.5">
-                                        <Phone className="w-2.5 h-2.5" />
-                                        {admin.phone}
-                                      </a>
-                                    )}
-                                    {admin.vkUrl && (
-                                      <a href={admin.vkUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                        VK
-                                      </a>
-                                    )}
-                                  </div>
                                 </div>
-                              ))}
-                              {crm.admins.length > 2 && (
-                                <div className="text-xs text-gray-400">+{crm.admins.length - 2} ещё</div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">—</span>
-                          )}
+                              );
+                            }
+                            return <span className="text-gray-400 text-sm">—</span>;
+                          })()}
                         </td>
 
                         {/* Ниша */}
@@ -497,6 +599,142 @@ export default function MySites() {
               </span>
             </div>
           </div>
+        ))}
+
+        {/* === TAB: LEADS === */}
+        {activeTab === 'leads' && (
+          isLoadingLeads ? (
+            <div className="bg-white rounded-xl p-12 text-center">
+              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto" />
+              <p className="text-gray-500 mt-4">Загрузка заявок...</p>
+            </div>
+          ) : leads.length === 0 ? (
+            <div className="bg-white rounded-xl p-12 text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Inbox className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 mb-2">Пока нет заявок</p>
+              <p className="text-sm text-gray-400">Заявки появятся, когда кто-то заполнит форму на демо-сайте</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Дата</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Имя</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Телефон</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Мессенджер</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Студия</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Источник</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {leads.map(lead => (
+                      <tr key={lead.id} className={`hover:bg-gray-50 transition ${lead.status === 'new' ? 'bg-blue-50/50' : ''}`}>
+                        {/* Дата */}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Clock className="w-3 h-3 text-gray-400" />
+                            {new Date(lead.created_at).toLocaleString('ru', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </div>
+                        </td>
+
+                        {/* Имя */}
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-gray-900">{lead.name}</div>
+                        </td>
+
+                        {/* Телефон */}
+                        <td className="px-4 py-3">
+                          <a href={`tel:${lead.phone}`} className="text-indigo-600 hover:underline flex items-center gap-1">
+                            <Phone className="w-3 h-3" />
+                            {lead.phone}
+                          </a>
+                        </td>
+
+                        {/* Мессенджер */}
+                        <td className="px-4 py-3">
+                          {lead.messenger === 'telegram' ? (
+                            <span className="text-sm text-blue-600 flex items-center gap-1">
+                              <MessageSquare className="w-3 h-3" /> Telegram
+                            </span>
+                          ) : lead.messenger === 'whatsapp' ? (
+                            <span className="text-sm text-green-600 flex items-center gap-1">
+                              <MessageSquare className="w-3 h-3" /> WhatsApp
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-sm">—</span>
+                          )}
+                        </td>
+
+                        {/* Студия */}
+                        <td className="px-4 py-3">
+                          <div className="text-sm text-gray-900">{lead.studio_name}</div>
+                          {lead.studio_phone && (
+                            <div className="text-xs text-gray-400">{lead.studio_phone}</div>
+                          )}
+                        </td>
+
+                        {/* Источник */}
+                        <td className="px-4 py-3">
+                          {lead.source_url ? (
+                            <a
+                              href={lead.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:underline text-sm flex items-center gap-1"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              Сайт
+                            </a>
+                          ) : (
+                            <span className="text-gray-400 text-sm">—</span>
+                          )}
+                        </td>
+
+                        {/* Статус */}
+                        <td className="px-4 py-3">
+                          <select
+                            value={lead.status}
+                            onChange={(e) => updateLeadStatus(lead.id, e.target.value)}
+                            className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${
+                              LEAD_STATUSES.find(s => s.value === lead.status)?.color || 'bg-gray-100 text-gray-500'
+                            }`}
+                          >
+                            {LEAD_STATUSES.map(status => (
+                              <option key={status.value} value={status.value}>
+                                {status.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer */}
+              <div className="px-4 py-3 bg-gray-50 border-t flex items-center justify-between text-xs text-gray-500">
+                <span>Всего заявок: {leads.length}</span>
+                <button
+                  onClick={fetchLeads}
+                  className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Обновить
+                </button>
+              </div>
+            </div>
+          )
         )}
       </div>
     </div>

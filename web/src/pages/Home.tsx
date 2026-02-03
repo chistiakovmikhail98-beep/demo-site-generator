@@ -202,6 +202,73 @@ const API_URL = import.meta.env.VITE_API_URL || '';
 // Простой генератор ID
 const generateId = () => Math.random().toString(36).substring(2, 10);
 
+/**
+ * Вычисляет адаптивный фон на основе яркости primary цвета
+ * - Если primary светлый (L > 45) → светлый приглушённый фон
+ * - Если primary тёмный → чёрный фон
+ */
+function getAdaptiveBackground(primaryHex: string): { background: string; surface: string } {
+  const hex = primaryHex.replace('#', '');
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0;
+  let s = 0;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+
+  const lightness = l * 100;
+
+  // Светлый primary → светлый фон
+  if (lightness > 45) {
+    const bgH = h * 360;
+    const bgS = Math.min(s * 100 * 0.15, 10);
+    const bgL = 96;
+    return {
+      background: hslToHex(bgH, bgS, bgL),
+      surface: hslToHex(bgH, bgS, 92),
+    };
+  }
+
+  // Тёмный primary → чёрный фон
+  return {
+    background: '#0c0c0f',
+    surface: '#18181b',
+  };
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  s /= 100;
+  l /= 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h >= 0 && h < 60) { r = c; g = x; b = 0; }
+  else if (h >= 60 && h < 120) { r = x; g = c; b = 0; }
+  else if (h >= 120 && h < 180) { r = 0; g = c; b = x; }
+  else if (h >= 180 && h < 240) { r = 0; g = x; b = c; }
+  else if (h >= 240 && h < 300) { r = x; g = 0; b = c; }
+  else { r = c; g = 0; b = x; }
+  const toHex = (n: number) => {
+    const hex = Math.round((n + m) * 255).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
 export default function Home() {
   const navigate = useNavigate();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -398,13 +465,15 @@ export default function Home() {
           extractedColors = await extractColorsFromImage(data.avatarUrl);
         }
 
+        const entryPrimaryColor = extractedColors?.primary || colors[i % colors.length];
+        const adaptiveBg = getAdaptiveBackground(entryPrimaryColor);
         newEntries.push({
           id: generateId(),
           text: data.rawText,
           niche: 'auto' as Niche,
-          primaryColor: extractedColors?.primary || colors[i % colors.length],
+          primaryColor: entryPrimaryColor,
           accentColor: extractedColors?.accent || '#a78bfa',
-          backgroundColor: '#0c0c0f',
+          backgroundColor: adaptiveBg.background,
           fontFamily: 'manrope',
           aiModel: 'gpt4o-mini',
           photos: [],
@@ -416,13 +485,15 @@ export default function Home() {
         });
       } catch (error) {
         console.error(`Сетевая ошибка для ${vkUrl}:`, error);
+        const errorPrimaryColor = colors[i % colors.length];
+        const errorAdaptiveBg = getAdaptiveBackground(errorPrimaryColor);
         newEntries.push({
           id: generateId(),
           text: `Сетевая ошибка: ${vkUrl}`,
           niche: 'auto' as Niche,
-          primaryColor: colors[i % colors.length],
+          primaryColor: errorPrimaryColor,
           accentColor: '#a78bfa',
-          backgroundColor: '#0c0c0f',
+          backgroundColor: errorAdaptiveBg.background,
           fontFamily: 'manrope',
           aiModel: 'gpt4o-mini',
           photos: [],
@@ -449,6 +520,19 @@ export default function Home() {
   const updateBatchEntry = (index: number, field: keyof BatchEntry, value: unknown) => {
     setBatchEntries(prev => prev.map((entry, i) =>
       i === index ? { ...entry, [field]: value } : entry
+    ));
+  };
+
+  // Обновить primary цвет с автоматическим адаптивным фоном
+  const updatePrimaryColorWithAdaptiveBg = (index: number, primaryColor: string, accentColor?: string) => {
+    const adaptiveBg = getAdaptiveBackground(primaryColor);
+    setBatchEntries(prev => prev.map((entry, i) =>
+      i === index ? {
+        ...entry,
+        primaryColor,
+        ...(accentColor && { accentColor }),
+        backgroundColor: adaptiveBg.background,
+      } : entry
     ));
   };
 
@@ -684,6 +768,8 @@ export default function Home() {
       }
 
       // Вставляем полученный текст, админов и ссылку на группу в карточку
+      // Вычисляем адаптивный фон если есть извлечённые цвета
+      const adaptiveBgForExtracted = extractedColors ? getAdaptiveBackground(extractedColors.primary) : null;
       setBatchEntries(prev => prev.map((e, i) =>
         i === entryIndex ? {
           ...e,
@@ -691,10 +777,11 @@ export default function Home() {
           admins: data.admins || [],
           vkGroupUrl: vkUrl, // Сохраняем ссылку на сообщество для CRM
           avatarUrl: data.avatarUrl, // URL аватарки для логотипа
-          // Применяем извлечённые цвета если есть
-          ...(extractedColors ? {
+          // Применяем извлечённые цвета с адаптивным фоном если есть
+          ...(extractedColors && adaptiveBgForExtracted ? {
             primaryColor: extractedColors.primary,
             accentColor: extractedColors.accent,
+            backgroundColor: adaptiveBgForExtracted.background,
           } : {}),
         } : e
       ));
@@ -1077,6 +1164,14 @@ export default function Home() {
               label: p.label,
             }))));
           }
+        }
+
+        // VK данные для CRM (сохраняются в БД)
+        if (entry.vkGroupUrl) {
+          formData.append('vkGroupUrl', entry.vkGroupUrl);
+        }
+        if (entry.admins && entry.admins.length > 0) {
+          formData.append('vkAdmins', JSON.stringify(entry.admins));
         }
 
         const response = await fetch(`${API_URL}/api/quick`, {
@@ -1957,7 +2052,7 @@ export default function Home() {
                             <input
                               type="color"
                               value={entry.primaryColor}
-                              onChange={e => updateBatchEntry(index, 'primaryColor', e.target.value)}
+                              onChange={e => updatePrimaryColorWithAdaptiveBg(index, e.target.value)}
                               className="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-200"
                             />
                           </div>
@@ -1991,8 +2086,7 @@ export default function Home() {
                               key={scheme.value}
                               type="button"
                               onClick={() => {
-                                updateBatchEntry(index, 'primaryColor', scheme.primary);
-                                updateBatchEntry(index, 'accentColor', scheme.accent);
+                                updatePrimaryColorWithAdaptiveBg(index, scheme.primary, scheme.accent);
                               }}
                               className="w-6 h-6 rounded-full border-2 border-gray-200 hover:border-gray-400 transition"
                               style={{ background: `linear-gradient(135deg, ${scheme.primary}, ${scheme.accent})` }}

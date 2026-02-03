@@ -23,6 +23,9 @@ export interface DbProject {
   deployed_url?: string;
   error?: string;
   uploaded_files?: Array<{ path: string; filename: string; block: string; label?: string; order: number }>;
+  // VK данные для CRM
+  vk_group_url?: string;
+  vk_admins?: Array<{ name?: string; phone?: string; email?: string; role?: string; vkUrl?: string; vkId?: number }>;
   created_at: string;
   updated_at: string;
 }
@@ -353,4 +356,66 @@ export async function getTokenStatsTotal(): Promise<{
     .sort((a, b) => b.date.localeCompare(a.date));
 
   return { totalTokens, totalCost, totalRequests, byModel, byDay };
+}
+
+// === Лиды (заявки с демо-сайтов) ===
+
+export interface DbLead {
+  id?: string;
+  name: string;
+  phone: string;
+  messenger?: string;
+  studio_name: string;
+  studio_phone?: string;
+  source_url?: string;
+  status?: 'new' | 'contacted' | 'converted' | 'rejected';
+  notes?: string;
+  created_at?: string;
+}
+
+/**
+ * Создаёт новый лид (заявку)
+ */
+export async function createLead(lead: Omit<DbLead, 'id' | 'created_at'>): Promise<DbLead> {
+  const { data, error } = await supabase
+    .from('leads')
+    .insert({
+      ...lead,
+      status: 'new',
+      created_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Получает все лиды (для CRM)
+ */
+export async function getLeads(limit: number = 100): Promise<DbLead[]> {
+  const { data, error } = await supabase
+    .from('leads')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * Обновляет статус лида
+ */
+export async function updateLead(id: string, updates: Partial<DbLead>): Promise<DbLead> {
+  const { data, error } = await supabase
+    .from('leads')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 }
