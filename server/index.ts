@@ -25,8 +25,9 @@ const IS_VERCEL = !!process.env.VERCEL;
 const USE_SUPABASE = !!process.env.SUPABASE_URL && !!process.env.SUPABASE_SERVICE_KEY;
 
 // Пути (на Vercel используем /tmp)
+// ВАЖНО: BUILDS_DIR должен совпадать с builder.ts — используем process.cwd()
 const UPLOADS_DIR = IS_VERCEL ? path.join(os.tmpdir(), 'uploads') : path.join(__dirname, 'uploads');
-const BUILDS_DIR = IS_VERCEL ? path.join(os.tmpdir(), 'builds') : path.join(__dirname, 'builds');
+const BUILDS_DIR = IS_VERCEL ? path.join(os.tmpdir(), 'builds') : path.join(process.cwd(), 'builds');
 const PROJECTS_FILE = IS_VERCEL ? path.join(os.tmpdir(), 'projects.json') : path.join(__dirname, 'projects.json');
 
 // Инициализация директорий
@@ -1550,6 +1551,22 @@ export default async function handler(req: Request, res: Response) {
   await fastify.ready();
   fastify.server.emit('request', req, res);
 }
+
+// Graceful shutdown для Railway и других хостингов
+const shutdown = async (signal: string) => {
+  console.log(`\n⚠️ Получен ${signal}, завершаем работу...`);
+  try {
+    await fastify.close();
+    console.log('✅ Сервер корректно остановлен');
+    process.exit(0);
+  } catch (err) {
+    console.error('❌ Ошибка при завершении:', err);
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 // Локальный запуск (не на Vercel)
 if (!IS_VERCEL) {

@@ -12,7 +12,7 @@ import { generateSiteConfig, parseRawText, tokenStats } from './services/ai.js';
 import { buildSite } from './services/builder.js';
 import { deployToVercel } from './services/deployer.js';
 import * as supabaseService from './services/supabase.js';
-import { parseVKGroup } from './services/vk.js';
+import { parseVKGroup, parseVKPhotos } from './services/vk.js';
 import sharp from 'sharp';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fastify = Fastify({ logger: true });
@@ -20,8 +20,9 @@ const fastify = Fastify({ logger: true });
 const IS_VERCEL = !!process.env.VERCEL;
 const USE_SUPABASE = !!process.env.SUPABASE_URL && !!process.env.SUPABASE_SERVICE_KEY;
 // Пути (на Vercel используем /tmp)
+// ВАЖНО: BUILDS_DIR должен совпадать с builder.ts — используем process.cwd()
 const UPLOADS_DIR = IS_VERCEL ? path.join(os.tmpdir(), 'uploads') : path.join(__dirname, 'uploads');
-const BUILDS_DIR = IS_VERCEL ? path.join(os.tmpdir(), 'builds') : path.join(__dirname, 'builds');
+const BUILDS_DIR = IS_VERCEL ? path.join(os.tmpdir(), 'builds') : path.join(process.cwd(), 'builds');
 const PROJECTS_FILE = IS_VERCEL ? path.join(os.tmpdir(), 'projects.json') : path.join(__dirname, 'projects.json');
 // Инициализация директорий
 try {
@@ -367,6 +368,27 @@ fastify.post('/api/parse-vk', async (request, reply) => {
         });
     }
 });
+// Парсинг фотографий из группы ВК
+fastify.post('/api/parse-vk-photos', async (request, reply) => {
+    try {
+        const { url, limit = 50 } = request.body;
+        if (!url || (!url.includes('vk.com') && !url.includes('vk.ru'))) {
+            return reply.status(400).send({ error: 'Укажите ссылку на группу ВК' });
+        }
+        const photos = await parseVKPhotos(url, Math.min(limit, 100)); // Максимум 100 фото
+        return {
+            success: true,
+            count: photos.length,
+            photos,
+        };
+    }
+    catch (error) {
+        console.error('Ошибка парсинга фото ВК:', error);
+        return reply.status(500).send({
+            error: error instanceof Error ? error.message : 'Ошибка парсинга фото группы ВК',
+        });
+    }
+});
 // Извлечение цветов из изображения (для логотипов VK)
 fastify.post('/api/extract-colors', async (request, reply) => {
     try {
@@ -686,6 +708,10 @@ fastify.post('/api/quick', async (request, reply) => {
     const fileMetadata = new Map();
     let fileIndex = 0;
     let photoMetaJson = null; // Новый формат: JSON массив с type и label
+    let photoUrlsJson = null; // URL фото из ВК
+    // VK данные для CRM
+    let vkGroupUrl;
+    let vkAdmins;
     const contentType = request.headers['content-type'] || '';
     // Обработка multipart формы (с файлами)
     if (contentType.includes('multipart/form-data')) {
@@ -709,6 +735,20 @@ fastify.post('/api/quick', async (request, reply) => {
                 // Новый формат: photoMeta как JSON массив [{type, label}, ...]
                 if (part.fieldname === 'photoMeta') {
                     photoMetaJson = part.value;
+                }
+                // URL фото из ВК
+                if (part.fieldname === 'photoUrls') {
+                    photoUrlsJson = part.value;
+                }
+                // VK данные для CRM
+                if (part.fieldname === 'vkGroupUrl') {
+                    vkGroupUrl = part.value;
+                }
+                if (part.fieldname === 'vkAdmins') {
+                    try {
+                        vkAdmins = JSON.parse(part.value);
+                    }
+                    catch { /* игнорируем невалидный JSON */ }
                 }
                 // fullConfig из превью — чтобы не вызывать AI повторно
                 if (part.fieldname === 'fullConfig') {
@@ -825,6 +865,51 @@ fastify.post('/api/quick', async (request, reply) => {
         if (uploadedFiles.length > 0) {
             console.log(`📷 Загружено ${uploadedFiles.length} файлов:`, uploadedFiles.map(f => `${f.block}:${f.label || 'без подписи'}`).join(', '));
         }
+        // Обработка URL фото из ВК
+        if (photoUrlsJson) {
+            try {
+                const urlPhotos = JSON.parse(photoUrlsJson);
+                console.log(`📷 Загрузка ${urlPhotos.length} фото из ВК...`);
+                for (let i = 0; i < urlPhotos.length; i++) {
+                    const urlPhoto = urlPhotos[i];
+                    try {
+                        // Скачиваем фото по URL
+                        const response = await fetch(urlPhoto.url);
+                        if (!response.ok) {
+                            console.log(`⚠️ Не удалось скачать фото: ${urlPhoto.url}`);
+                            continue;
+                        }
+                        const buffer = Buffer.from(await response.arrayBuffer());
+                        const ext = urlPhoto.url.match(/\.(jpg|jpeg|png|webp|gif)/i)?.[0] || '.jpg';
+                        const filename = `vk-${nanoid(10)}-${Date.now()}${ext}`;
+                        let filePath;
+                        if (USE_SUPABASE) {
+                            filePath = await supabaseService.uploadImage(projectId, buffer, filename, `image/${ext.replace('.', '')}`);
+                            console.log(`📷 VK фото загружено в Supabase: ${filename}`);
+                        }
+                        else {
+                            filePath = path.join(UPLOADS_DIR, filename);
+                            await fs.writeFile(filePath, buffer);
+                            console.log(`📷 VK фото сохранено локально: ${filename}`);
+                        }
+                        uploadedFiles.push({
+                            path: filePath,
+                            filename,
+                            block: urlPhoto.type || 'gallery',
+                            label: urlPhoto.label,
+                            order: pendingFiles.length + i,
+                        });
+                    }
+                    catch (err) {
+                        console.error(`⚠️ Ошибка загрузки VK фото:`, err);
+                    }
+                }
+                console.log(`📷 Всего фото после VK: ${uploadedFiles.length}`);
+            }
+            catch (err) {
+                console.error('⚠️ Ошибка парсинга photoUrls:', err);
+            }
+        }
         const project = {
             id: projectId,
             name: parsed.name,
@@ -836,6 +921,9 @@ fastify.post('/api/quick', async (request, reply) => {
             aiModel,
             fontFamily,
             siteConfig: cachedSiteConfig || undefined, // Конфиг из превью (чтобы не вызывать AI повторно)
+            // VK данные для CRM
+            vkGroupUrl,
+            vkAdmins,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         };
@@ -854,7 +942,11 @@ fastify.post('/api/quick', async (request, reply) => {
                 font_family: fontFamily,
                 uploaded_files: uploadedFiles.map(f => ({ ...f, order: f.order ?? 0 })),
                 site_config: cachedSiteConfig, // Конфиг из превью
+                // VK данные для CRM
+                vk_group_url: vkGroupUrl,
+                vk_admins: vkAdmins,
             });
+            console.log(`📋 VK данные: группа=${vkGroupUrl || 'нет'}, админов=${vkAdmins?.length || 0}`);
         }
         else {
             const projects = await loadProjects();
@@ -955,38 +1047,73 @@ fastify.put('/api/projects/:id', async (request, reply) => {
 });
 // Повторная генерация проекта
 fastify.post('/api/projects/:id/regenerate', async (request, reply) => {
-    let project = null;
-    if (USE_SUPABASE) {
-        const dbProject = await supabaseService.getProject(request.params.id);
-        if (dbProject) {
-            project = { id: dbProject.id, name: dbProject.name };
+    try {
+        const fullRegenerate = request.query.full === 'true';
+        let project = null;
+        if (USE_SUPABASE) {
+            const dbProject = await supabaseService.getProject(request.params.id);
+            if (dbProject) {
+                project = {
+                    id: dbProject.id,
+                    name: dbProject.name,
+                    niche: dbProject.niche,
+                    description: dbProject.description,
+                };
+            }
         }
-    }
-    else {
-        const projects = await loadProjects();
-        const found = projects.find(p => p.id === request.params.id);
-        if (found) {
-            project = { id: found.id, name: found.name };
+        else {
+            const projects = await loadProjects();
+            const found = projects.find(p => p.id === request.params.id);
+            if (found) {
+                project = {
+                    id: found.id,
+                    name: found.name,
+                    niche: found.niche,
+                    description: found.description,
+                };
+            }
         }
+        if (!project) {
+            return reply.status(404).send({ error: 'Проект не найден' });
+        }
+        // Проверяем минимальные данные для генерации
+        if (!project.name || !project.niche) {
+            return reply.status(400).send({
+                error: 'Недостаточно данных для перегенерации. Нужны name и niche.',
+            });
+        }
+        // Сбрасываем статус и запускаем заново
+        // fullRegenerate=true — полная перегенерация через AI
+        // fullRegenerate=false — только пересборка и передеплой (если есть siteConfig)
+        const updates = {
+            status: 'pending',
+            deployedUrl: undefined,
+            error: undefined,
+        };
+        if (fullRegenerate) {
+            updates.siteConfig = undefined;
+            console.log(`🔄 Полная перегенерация ${project.id} (${project.name})`);
+        }
+        else {
+            console.log(`🔄 Передеплой ${project.id} (${project.name})`);
+        }
+        await updateProject(project.id, updates);
+        // Запускаем генерацию
+        addToQueue(project.id);
+        return {
+            id: project.id,
+            status: 'pending',
+            message: fullRegenerate
+                ? 'Проект добавлен в очередь на полную перегенерацию'
+                : 'Проект добавлен в очередь на передеплой',
+        };
     }
-    if (!project) {
-        return reply.status(404).send({ error: 'Проект не найден' });
+    catch (error) {
+        console.error(`❌ Ошибка перегенерации ${request.params.id}:`, error);
+        return reply.status(500).send({
+            error: error instanceof Error ? error.message : 'Ошибка перегенерации',
+        });
     }
-    // Сбрасываем статус и запускаем заново
-    await updateProject(project.id, {
-        status: 'pending',
-        deployedUrl: undefined,
-        error: undefined,
-        siteConfig: undefined,
-    });
-    // Запускаем генерацию
-    addToQueue(project.id);
-    console.log(`🔄 Проект ${project.id} (${project.name}) добавлен на перегенерацию`);
-    return {
-        id: project.id,
-        status: 'pending',
-        message: 'Проект добавлен в очередь на повторную генерацию',
-    };
 });
 // Скачать исходный код проекта (ZIP)
 fastify.get('/api/projects/:id/download', async (request, reply) => {
@@ -1093,6 +1220,75 @@ fastify.delete('/api/projects/:id/images/:imageId', async (request, reply) => {
     console.log(`🗑️ Удалена картинка ${imageId} из проекта ${id}`);
     return { success: true };
 });
+// === ЛИДЫ (заявки с демо-сайтов) ===
+// Создать новый лид
+fastify.post('/api/leads', async (request, reply) => {
+    try {
+        const { name, phone, messenger, studio_name, studio_phone, source_url } = request.body;
+        if (!name || !phone || !studio_name) {
+            return reply.status(400).send({ error: 'name, phone и studio_name обязательны' });
+        }
+        if (!USE_SUPABASE) {
+            return reply.status(500).send({ error: 'Supabase не настроен' });
+        }
+        const lead = await supabaseService.createLead({
+            name,
+            phone,
+            messenger,
+            studio_name,
+            studio_phone,
+            source_url,
+        });
+        console.log(`📩 Новый лид: ${name} (${phone}) для студии "${studio_name}"`);
+        return { success: true, lead };
+    }
+    catch (error) {
+        console.error('Ошибка создания лида:', error);
+        return reply.status(500).send({
+            error: error instanceof Error ? error.message : 'Ошибка создания заявки',
+        });
+    }
+});
+// Получить все лиды (для CRM)
+fastify.get('/api/leads', async (request) => {
+    if (!USE_SUPABASE) {
+        return { leads: [], error: 'Supabase не настроен' };
+    }
+    try {
+        const limit = parseInt(request.query.limit || '100', 10);
+        const leads = await supabaseService.getLeads(limit);
+        return { leads };
+    }
+    catch (error) {
+        console.error('Ошибка получения лидов:', error);
+        return { leads: [], error: 'Ошибка получения заявок' };
+    }
+});
+// Обновить статус лида
+fastify.patch('/api/leads/:id', async (request, reply) => {
+    if (!USE_SUPABASE) {
+        return reply.status(500).send({ error: 'Supabase не настроен' });
+    }
+    try {
+        const { id } = request.params;
+        const updates = {};
+        if (request.body.status) {
+            updates.status = request.body.status;
+        }
+        if (request.body.notes !== undefined) {
+            updates.notes = request.body.notes;
+        }
+        const lead = await supabaseService.updateLead(id, updates);
+        console.log(`📝 Лид ${id} обновлён: status=${request.body.status}`);
+        return { success: true, lead };
+    }
+    catch (error) {
+        console.error('Ошибка обновления лида:', error);
+        return reply.status(500).send({
+            error: error instanceof Error ? error.message : 'Ошибка обновления заявки',
+        });
+    }
+});
 // Фоновый процесс генерации
 async function processProject(projectId) {
     try {
@@ -1127,7 +1323,9 @@ async function processProject(projectId) {
             return;
         // Шаг 1: Генерация через AI (или использование кешированного конфига из превью)
         await updateProject(projectId, { status: 'processing' });
-        const imageFiles = project.uploadedFiles.filter(f => /\.(png|jpg|jpeg|gif|webp)$/i.test(f.path));
+        // Защита от undefined/null uploadedFiles
+        const uploadedFiles = project.uploadedFiles || [];
+        const imageFiles = uploadedFiles.filter(f => f && f.path && /\.(png|jpg|jpeg|gif|webp)$/i.test(f.path));
         let siteConfig;
         if (project.siteConfig) {
             // Используем конфиг из превью — БЕЗ вызова AI!
@@ -1156,7 +1354,7 @@ async function processProject(projectId) {
         await updateProject(projectId, { siteConfig });
         // Шаг 2: Сборка сайта (с передачей загруженных фото)
         await updateProject(projectId, { status: 'building' });
-        const buildPath = await buildSite(projectId, siteConfig, project.uploadedFiles);
+        const buildPath = await buildSite(projectId, siteConfig, uploadedFiles);
         // Шаг 3: Деплой на Vercel
         await updateProject(projectId, { status: 'deploying' });
         const deployedUrl = await deployToVercel(projectId, buildPath, siteConfig.meta.slug);
@@ -1174,6 +1372,18 @@ async function processProject(projectId) {
         });
     }
 }
+// Диагностика окружения (без раскрытия значений)
+fastify.get('/api/diagnostics', async () => {
+    return {
+        vercelToken: !!process.env.VERCEL_TOKEN,
+        vercelTokenLength: process.env.VERCEL_TOKEN?.length || 0,
+        customDomain: process.env.CUSTOM_DOMAIN || null,
+        railwayEnv: !!process.env.RAILWAY_ENVIRONMENT,
+        supabaseConfigured: !!process.env.SUPABASE_URL && !!process.env.SUPABASE_SERVICE_KEY,
+        nodeVersion: process.version,
+        platform: process.platform,
+    };
+});
 // Запуск сервера
 const PORT = parseInt(process.env.PORT || '3001', 10);
 // Для Vercel serverless
@@ -1181,6 +1391,21 @@ export default async function handler(req, res) {
     await fastify.ready();
     fastify.server.emit('request', req, res);
 }
+// Graceful shutdown для Railway и других хостингов
+const shutdown = async (signal) => {
+    console.log(`\n⚠️ Получен ${signal}, завершаем работу...`);
+    try {
+        await fastify.close();
+        console.log('✅ Сервер корректно остановлен');
+        process.exit(0);
+    }
+    catch (err) {
+        console.error('❌ Ошибка при завершении:', err);
+        process.exit(1);
+    }
+};
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 // Локальный запуск (не на Vercel)
 if (!IS_VERCEL) {
     try {
