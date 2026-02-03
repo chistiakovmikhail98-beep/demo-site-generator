@@ -1,13 +1,11 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { SiteConfig, UploadedFile, PhotoBlockType } from '../types.js';
-import { downloadImage } from './supabase.js';
+// downloadImage больше не нужен — используем URL напрямую из Supabase CDN
 
 const execAsync = promisify(exec);
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Путь к шаблону (внутри server/template)
 // Используем process.cwd() для Railway — там рабочая директория /app
@@ -31,41 +29,11 @@ export async function buildSite(
   // Копируем шаблон
   await copyDirectory(TEMPLATE_DIR, buildDir);
 
-  // Копируем/скачиваем загруженные фото в public/images/ и подставляем URL в конфиг
+  // Используем URL фото напрямую из Supabase CDN (НЕ скачиваем в билд!)
+  // Это уменьшает размер билда с ~20MB до ~500KB
   if (uploadedFiles && uploadedFiles.length > 0) {
-    const imagesDir = path.join(buildDir, 'public', 'images');
-    await fs.mkdir(imagesDir, { recursive: true });
-
-    // Скачиваем/копируем все фото
-    for (const file of uploadedFiles) {
-      const destPath = path.join(imagesDir, file.filename);
-      try {
-        // Проверяем, является ли путь URL-ом (Supabase Storage)
-        if (file.path.includes('project-images/')) {
-          // Скачиваем через Supabase SDK (работает с приватным bucket)
-          const buffer = await downloadImage(file.path);
-          await fs.writeFile(destPath, buffer);
-          console.log(`📷 Скачано из Storage: ${file.filename} (${file.block})`);
-        } else if (file.path.startsWith('http://') || file.path.startsWith('https://')) {
-          // Другой URL — скачиваем через fetch
-          const response = await fetch(file.path);
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-          const buffer = Buffer.from(await response.arrayBuffer());
-          await fs.writeFile(destPath, buffer);
-          console.log(`📷 Скачано по URL: ${file.filename} (${file.block})`);
-        } else {
-          // Локальный файл — копируем
-          await fs.copyFile(file.path, destPath);
-          console.log(`📷 Скопировано: ${file.filename} (${file.block})`);
-        }
-      } catch (err) {
-        console.error(`❌ Ошибка загрузки ${file.filename}:`, err);
-      }
-    }
-
-    // Подставляем реальные URL фото в конфиг
+    console.log(`📷 Используем ${uploadedFiles.length} фото напрямую из Supabase CDN`);
+    // Подставляем URL фото в конфиг (без скачивания)
     config = applyUploadedPhotos(config, uploadedFiles);
   }
 
@@ -346,22 +314,29 @@ async function updateIndexHtml(buildDir: string, config: SiteConfig): Promise<vo
   // Обновляем цветовую схему в tailwind.config
   // Базовая схема из конфига или дефолтная
   const baseColorScheme = config.sections.colorScheme || getDefaultColorScheme();
+  const defaultScheme = getDefaultColorScheme();
 
-  // ВСЕГДА вычисляем адаптивный фон на основе primary цвета
-  // Это гарантирует правильный контраст: светлый primary → светлый фон, тёмный primary → чёрный фон
+  // Вычисляем адаптивный фон на основе primary цвета
   const adaptiveBg = getAdaptiveBackground(baseColorScheme.primary);
 
-  // Финальная цветовая схема с адаптивным фоном
+  // Проверяем, выбрал ли пользователь фон явно (отличается от дефолтного чёрного)
+  const userExplicitlySetBackground = baseColorScheme.background &&
+    baseColorScheme.background !== defaultScheme.background &&
+    baseColorScheme.background !== '#0c0c0f' &&
+    baseColorScheme.background !== '#0c0c0e';
+
+  // Финальная цветовая схема:
+  // - Если пользователь явно выбрал фон → используем его выбор
+  // - Иначе → используем адаптивный фон
   const colorScheme = {
     primary: baseColorScheme.primary,
     accent: baseColorScheme.accent,
-    // Всегда используем адаптивный фон на основе яркости primary
-    background: adaptiveBg.background,
-    surface: adaptiveBg.surface,
-    text: adaptiveBg.text,
+    background: userExplicitlySetBackground ? baseColorScheme.background : adaptiveBg.background,
+    surface: userExplicitlySetBackground ? (baseColorScheme.surface || adaptiveBg.surface) : adaptiveBg.surface,
+    text: userExplicitlySetBackground ? (baseColorScheme.text || adaptiveBg.text) : adaptiveBg.text,
   };
 
-  console.log(`🎨 Цветовая схема: primary=${colorScheme.primary}, bg=${colorScheme.background} (светлый primary: ${adaptiveBg.text === '#1a1a1a'})`);
+  console.log(`🎨 Цветовая схема: primary=${colorScheme.primary}, bg=${colorScheme.background} (явный выбор: ${userExplicitlySetBackground}, адаптивный: ${adaptiveBg.background})`);
 
   // Заменяем tailwind.config с динамическими цветами
   const tailwindConfigRegex = /tailwind\.config\s*=\s*\{[\s\S]*?\}\s*\}\s*<\/script>/;
@@ -709,8 +684,16 @@ function applyUploadedPhotos(config: SiteConfig, files: UploadedFile[]): SiteCon
     byBlock[block].sort((a, b) => (a.order || 0) - (b.order || 0));
   }
 
-  // Функция для получения URL (абсолютный путь для Vercel)
-  const getUrl = (file: UploadedFile) => `/images/${file.filename}`;
+  // Функция для получения URL — используем Supabase CDN напрямую!
+  const getUrl = (file: UploadedFile) => {
+    // file.path уже содержит публичный Supabase URL
+    // Формат: https://xxx.supabase.co/storage/v1/object/public/project-images/...
+    if (file.path.startsWith('http')) {
+      return file.path; // Публичный URL из Supabase
+    }
+    // Fallback для локальных файлов (старые записи)
+    return `/images/${file.filename}`;
+  };
 
   // === Hero ===
   if (byBlock.hero.length > 0) {
