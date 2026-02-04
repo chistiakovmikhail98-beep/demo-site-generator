@@ -1618,9 +1618,15 @@ async function processProject(projectId: string): Promise<void> {
     await updateProject(projectId, { status: 'building' });
     const buildPath = await buildSite(projectId, siteConfig, uploadedFiles);
 
-    // Шаг 3: Деплой на Vercel
+    // Шаг 3: Деплой на VPS
     await updateProject(projectId, { status: 'deploying' });
-    const deployedUrl = await deployToVercel(projectId, buildPath, siteConfig.meta.slug);
+    const vpsResult = await deployToVPS(projectId, buildPath, siteConfig.meta.slug);
+
+    if (!vpsResult.success) {
+      throw new Error(vpsResult.error || 'Ошибка деплоя на VPS');
+    }
+
+    const deployedUrl = vpsResult.url!;
 
     await updateProject(projectId, {
       status: 'completed',
