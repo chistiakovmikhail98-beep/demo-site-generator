@@ -13,6 +13,7 @@ import { buildSite } from './services/builder.js';
 import { deployToVercel } from './services/deployer.js';
 import * as supabaseService from './services/supabase.js';
 import { parseVKGroup, parseVKPhotos } from './services/vk.js';
+import { notifyNewSite } from './services/telegram.js';
 import sharp from 'sharp';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fastify = Fastify({ logger: true });
@@ -1363,6 +1364,31 @@ async function processProject(projectId) {
             deployedUrl,
         });
         console.log(`✅ Проект ${projectId} успешно создан: ${deployedUrl}`);
+        // Отправляем уведомление в Telegram
+        try {
+            // Получаем VK данные из проекта (могут быть в dbProject или project)
+            let vkGroupUrl;
+            let vkAdmins;
+            if (USE_SUPABASE) {
+                const dbProject = await supabaseService.getProject(projectId);
+                vkGroupUrl = dbProject?.vk_group_url ?? undefined;
+                vkAdmins = dbProject?.vk_admins;
+            }
+            else {
+                vkGroupUrl = project.vkGroupUrl;
+                vkAdmins = project.vkAdmins;
+            }
+            await notifyNewSite({
+                siteName: project.name,
+                siteUrl: deployedUrl,
+                vkGroupUrl: vkGroupUrl || siteConfig.sections?.contacts?.vk || 'Не указана',
+                admins: vkAdmins,
+            });
+        }
+        catch (tgError) {
+            console.error('⚠️ Ошибка отправки в Telegram:', tgError);
+            // Не падаем из-за ошибки Telegram
+        }
     }
     catch (error) {
         console.error(`❌ Ошибка проекта ${projectId}:`, error);
