@@ -11,6 +11,8 @@
  * Стоимость: ~$0.0002 за фото (Claude Haiku Vision через OpenRouter)
  */
 
+import { saveAiCost } from './supabase.js';
+
 // OpenRouter API для Claude Haiku Vision
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -185,11 +187,13 @@ async function analyzePhoto(
  * @param photos - массив URL фото
  * @param niche - ниша бизнеса
  * @param limit - максимум фото для анализа
+ * @param projectId - ID проекта для учёта расходов
  */
 export async function analyzePhotos(
   photos: Array<{ url: string; width?: number; height?: number }>,
   niche: string = 'fitness',
-  limit: number = 25
+  limit: number = 25,
+  projectId?: string
 ): Promise<PhotoAnalysisResult> {
   // Предварительная фильтрация
   const filtered = prefilterPhotos(photos).slice(0, limit);
@@ -238,6 +242,22 @@ export async function analyzePhotos(
   const estimatedCost = (totalTokens / 1000) * 0.0005; // Усреднённая цена
 
   console.log(`✅ Анализ завершён: ${results.length} фото, ~$${estimatedCost.toFixed(4)}`);
+
+  // 💾 Сохраняем расход в ai_costs
+  if (totalTokens > 0) {
+    saveAiCost({
+      project_id: projectId,
+      type: 'photo_analysis',
+      model: VISION_MODEL,
+      input_tokens: Math.round(totalTokens * 0.9), // ~90% input для vision
+      output_tokens: Math.round(totalTokens * 0.1), // ~10% output
+      total_tokens: totalTokens,
+      cost_usd: estimatedCost,
+      description: `Photo analysis: ${results.length} photos`,
+    }).catch(err => {
+      console.error('⚠️ Не удалось сохранить AI cost для фото:', err);
+    });
+  }
 
   return {
     photos: results,

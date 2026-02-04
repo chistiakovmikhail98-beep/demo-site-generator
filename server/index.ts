@@ -468,6 +468,53 @@ fastify.get<{ Querystring: { days?: string } }>('/api/tokens/stats', async (requ
   }
 });
 
+// Статистика AI расходов (детально по проектам)
+fastify.get('/api/ai-costs', async () => {
+  try {
+    const stats = await supabaseService.getAiCostsTotal();
+
+    return {
+      success: true,
+      summary: {
+        totalCostUsd: stats.totalCostUsd,
+        totalCostFormatted: `$${stats.totalCostUsd.toFixed(4)}`,
+        totalTokens: stats.totalTokens,
+      },
+      byType: Object.entries(stats.byType).map(([type, data]) => ({
+        type,
+        cost: data.cost,
+        costFormatted: `$${data.cost.toFixed(4)}`,
+        tokens: data.tokens,
+        count: data.count,
+      })),
+      byModel: Object.entries(stats.byModel).map(([model, data]) => ({
+        model,
+        cost: data.cost,
+        costFormatted: `$${data.cost.toFixed(4)}`,
+        tokens: data.tokens,
+        count: data.count,
+      })),
+      byDay: stats.byDay.slice(0, 30).map(day => ({
+        date: day.date,
+        cost: day.cost,
+        costFormatted: `$${day.cost.toFixed(4)}`,
+        tokens: day.tokens,
+        count: day.count,
+      })),
+    };
+  } catch (error) {
+    console.error('Ошибка получения AI costs:', error);
+    return {
+      success: false,
+      error: 'Не удалось получить статистику AI',
+      summary: { totalCostUsd: 0, totalCostFormatted: '$0.0000', totalTokens: 0 },
+      byType: [],
+      byModel: [],
+      byDay: [],
+    };
+  }
+});
+
 // Парсинг группы ВКонтакте
 fastify.post<{ Body: { url: string } }>('/api/parse-vk', async (request, reply) => {
   try {
@@ -1805,6 +1852,9 @@ queueManager.setProcessor(async (item) => {
   const photos = await parseVKPhotos(item.vk_url, 30); // 30 фото для анализа
   console.log(`📷 Получено ${photos.length} фото`);
 
+  // Генерируем projectId заранее для учёта расходов AI
+  const projectId = nanoid(10);
+
   // 4. AI анализ фото (если включено и есть OPENROUTER_API_KEY)
   let distributedPhotos: {
     hero: Array<{ url: string }>;
@@ -1816,7 +1866,7 @@ queueManager.setProcessor(async (item) => {
   if (item.options?.analyzePhotos !== false && process.env.OPENROUTER_API_KEY && photos.length > 0) {
     try {
       console.log(`🤖 AI анализ фотографий...`);
-      const analysis = await analyzePhotos(photos, item.options?.niche || 'fitness', 25);
+      const analysis = await analyzePhotos(photos, item.options?.niche || 'fitness', 25, projectId);
       distributedPhotos = distributePhotos(analysis.photos);
       console.log(`✅ Фото распределены: hero=${distributedPhotos.hero.length}, ` +
         `gallery=${distributedPhotos.gallery.length}, instructors=${distributedPhotos.instructors.length}`);
@@ -1826,7 +1876,6 @@ queueManager.setProcessor(async (item) => {
   }
 
   // 5. Автоопределение ниши по названию и описанию
-  const projectId = nanoid(10);
   const niche = detectNiche(vkData.name, vkData.description, vkData.posts);
 
   // Сохраняем в Supabase

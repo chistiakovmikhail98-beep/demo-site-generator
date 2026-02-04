@@ -731,3 +731,128 @@ export async function resetStuckProcessingItems(minutesOld: number = 30): Promis
   if (error) throw error;
   return data?.length || 0;
 }
+
+// === AI Costs (детальный учёт расходов по проектам) ===
+
+export interface DbAiCost {
+  id?: string;
+  project_id?: string;
+  type: 'content_generation' | 'photo_analysis' | 'other';
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  description?: string;
+  created_at?: string;
+}
+
+/**
+ * Сохраняет расход AI в таблицу ai_costs
+ * Автоматически обновляет ai_cost_usd в projects через триггер
+ */
+export async function saveAiCost(cost: Omit<DbAiCost, 'id' | 'created_at'>): Promise<DbAiCost> {
+  const { data, error } = await supabase
+    .from('ai_costs')
+    .insert({
+      ...cost,
+      created_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('⚠️ Ошибка сохранения AI cost:', error);
+    throw error;
+  }
+
+  console.log(`💰 AI cost сохранён: $${cost.cost_usd.toFixed(4)} (${cost.type}, ${cost.model})`);
+  return data;
+}
+
+/**
+ * Получает общую статистику AI расходов
+ */
+export async function getAiCostsTotal(): Promise<{
+  totalCostUsd: number;
+  totalTokens: number;
+  byType: Record<string, { cost: number; tokens: number; count: number }>;
+  byModel: Record<string, { cost: number; tokens: number; count: number }>;
+  byDay: Array<{ date: string; cost: number; tokens: number; count: number }>;
+}> {
+  const { data, error } = await supabase
+    .from('ai_costs')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('⚠️ Ошибка получения AI costs:', error);
+    return {
+      totalCostUsd: 0,
+      totalTokens: 0,
+      byType: {},
+      byModel: {},
+      byDay: [],
+    };
+  }
+
+  let totalCostUsd = 0;
+  let totalTokens = 0;
+  const byType: Record<string, { cost: number; tokens: number; count: number }> = {};
+  const byModel: Record<string, { cost: number; tokens: number; count: number }> = {};
+  const byDayMap: Record<string, { cost: number; tokens: number; count: number }> = {};
+
+  for (const item of data || []) {
+    totalCostUsd += Number(item.cost_usd) || 0;
+    totalTokens += item.total_tokens || 0;
+
+    // По типу
+    if (!byType[item.type]) {
+      byType[item.type] = { cost: 0, tokens: 0, count: 0 };
+    }
+    byType[item.type].cost += Number(item.cost_usd) || 0;
+    byType[item.type].tokens += item.total_tokens || 0;
+    byType[item.type].count++;
+
+    // По модели
+    if (!byModel[item.model]) {
+      byModel[item.model] = { cost: 0, tokens: 0, count: 0 };
+    }
+    byModel[item.model].cost += Number(item.cost_usd) || 0;
+    byModel[item.model].tokens += item.total_tokens || 0;
+    byModel[item.model].count++;
+
+    // По дню
+    const date = item.created_at?.split('T')[0] || 'unknown';
+    if (!byDayMap[date]) {
+      byDayMap[date] = { cost: 0, tokens: 0, count: 0 };
+    }
+    byDayMap[date].cost += Number(item.cost_usd) || 0;
+    byDayMap[date].tokens += item.total_tokens || 0;
+    byDayMap[date].count++;
+  }
+
+  const byDay = Object.entries(byDayMap)
+    .map(([date, data]) => ({ date, ...data }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  return { totalCostUsd, totalTokens, byType, byModel, byDay };
+}
+
+/**
+ * Получает расходы по конкретному проекту
+ */
+export async function getProjectAiCosts(projectId: string): Promise<DbAiCost[]> {
+  const { data, error } = await supabase
+    .from('ai_costs')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('⚠️ Ошибка получения AI costs проекта:', error);
+    return [];
+  }
+
+  return data || [];
+}

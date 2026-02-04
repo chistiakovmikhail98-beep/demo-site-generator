@@ -95,6 +95,29 @@ interface QueueStatus {
   };
 }
 
+// Статистика AI расходов
+interface AiCostsStats {
+  summary: {
+    totalCostUsd: number;
+    totalCostFormatted: string;
+    totalTokens: number;
+  };
+  byType: Array<{
+    type: string;
+    cost: number;
+    costFormatted: string;
+    tokens: number;
+    count: number;
+  }>;
+  byDay: Array<{
+    date: string;
+    cost: number;
+    costFormatted: string;
+    tokens: number;
+    count: number;
+  }>;
+}
+
 // Контакт администратора
 interface AdminContact {
   name?: string;
@@ -160,6 +183,9 @@ export default function MySites() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // AI Costs state
+  const [aiCosts, setAiCosts] = useState<AiCostsStats | null>(null);
+
   // Загрузка проектов
   useEffect(() => {
     fetchProjects();
@@ -173,10 +199,11 @@ export default function MySites() {
     }
   }, [activeTab]);
 
-  // Загрузка статуса очереди при переключении на batch
+  // Загрузка статуса очереди и AI costs при переключении на batch
   useEffect(() => {
     if (activeTab === 'batch') {
       fetchQueueStatus();
+      fetchAiCosts();
       // Автообновление каждые 3 секунды
       const interval = setInterval(fetchQueueStatus, 3000);
       return () => clearInterval(interval);
@@ -225,6 +252,18 @@ export default function MySites() {
       setQueueStatus(data);
     } catch (error) {
       console.error('Ошибка загрузки статуса очереди:', error);
+    }
+  };
+
+  const fetchAiCosts = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/ai-costs`);
+      const data = await response.json();
+      if (data.success) {
+        setAiCosts(data);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки AI costs:', error);
     }
   };
 
@@ -1280,12 +1319,73 @@ export default function MySites() {
                 )}
               </div>
 
+              {/* AI Costs - расходы на генерацию */}
+              {aiCosts && (
+                <div className="bg-white rounded-xl shadow-lg p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    💰 Расходы на AI
+                  </h3>
+
+                  {/* Общая сумма */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 mb-4">
+                    <div className="text-3xl font-bold text-green-600">
+                      {aiCosts.summary.totalCostFormatted}
+                    </div>
+                    <div className="text-sm text-green-700">
+                      Всего потрачено ({aiCosts.summary.totalTokens.toLocaleString()} токенов)
+                    </div>
+                  </div>
+
+                  {/* По типу операции */}
+                  {aiCosts.byType.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      <div className="text-sm font-medium text-gray-600">По типу:</div>
+                      {aiCosts.byType.map(item => (
+                        <div key={item.type} className="flex justify-between items-center text-sm">
+                          <span className="text-gray-500">
+                            {item.type === 'content_generation' ? '📝 Генерация контента' :
+                             item.type === 'photo_analysis' ? '📷 Анализ фото' : item.type}
+                          </span>
+                          <span className="font-medium text-gray-700">
+                            {item.costFormatted} <span className="text-gray-400">({item.count})</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Последние дни */}
+                  {aiCosts.byDay.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-gray-600">Последние дни:</div>
+                      {aiCosts.byDay.slice(0, 5).map(day => (
+                        <div key={day.date} className="flex justify-between items-center text-sm">
+                          <span className="text-gray-500">{day.date}</span>
+                          <span className="font-medium text-gray-700">
+                            {day.costFormatted} <span className="text-gray-400">({day.count} запросов)</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Кнопка обновить */}
+                  <button
+                    onClick={fetchAiCosts}
+                    className="mt-4 text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Обновить
+                  </button>
+                </div>
+              )}
+
               {/* Подсказка */}
               <div className="bg-indigo-50 rounded-xl p-4 text-sm text-indigo-700">
                 <p className="font-medium mb-2">Как это работает:</p>
                 <ol className="list-decimal list-inside space-y-1 text-indigo-600">
                   <li>Вставьте ссылки на группы ВК</li>
-                  <li>Выберите нишу</li>
+                  <li>Ниша определяется автоматически</li>
                   <li>Нажмите "Запустить"</li>
                   <li>Система обработает каждую группу</li>
                   <li>Готовые сайты появятся во вкладке "Сайты"</li>
