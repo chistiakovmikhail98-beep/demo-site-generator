@@ -18,7 +18,7 @@ import { notifyNewSite } from './services/telegram.js';
 import { queueManager } from './services/queue.js';
 import { analyzePhotos, distributePhotos } from './services/photo-analyzer.js';
 import { extractColorsFromUrl } from './services/color-extractor.js';
-import { deployToVPS, isVPSConfigured, getVPSConfig } from './services/vps-deployer.js';
+import { deployToVPS, isVPSConfigured, getVPSConfig, checkVPSConnection } from './services/vps-deployer.js';
 import sharp from 'sharp';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1827,6 +1827,29 @@ fastify.get('/api/diagnostics', async () => {
     nodeVersion: process.version,
     platform: process.platform,
   };
+});
+
+// Тест VPS соединения
+fastify.get('/api/test-vps', async () => {
+  const vpsConfig = getVPSConfig();
+  if (!vpsConfig.configured) {
+    return { success: false, error: 'VPS не настроен' };
+  }
+
+  try {
+    const connected = await checkVPSConnection();
+    return {
+      success: connected,
+      config: vpsConfig,
+      message: connected ? 'SSH соединение успешно' : 'Не удалось подключиться по SSH',
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      config: vpsConfig,
+    };
+  }
 });
 
 // Запуск сервера
