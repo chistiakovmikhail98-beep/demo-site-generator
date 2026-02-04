@@ -259,7 +259,6 @@ export default function MySites() {
         body: JSON.stringify({
           vkUrls: urls,
           options: {
-            niche: batchNiche,
             analyzePhotos: true,
             extractColors: true,
           },
@@ -523,7 +522,7 @@ export default function MySites() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-[1600px] mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/')}
@@ -543,7 +542,7 @@ export default function MySites() {
         </div>
 
         {/* Tabs */}
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="max-w-[1600px] mx-auto px-4">
           <div className="flex gap-1 border-b -mb-px">
             <button
               onClick={() => setActiveTab('sites')}
@@ -593,7 +592,7 @@ export default function MySites() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-[1600px] mx-auto px-4 py-6">
         {/* === TAB: SITES === */}
         {activeTab === 'sites' && (projects.length === 0 ? (
           <div className="bg-white rounded-xl p-12 text-center">
@@ -683,7 +682,7 @@ export default function MySites() {
                           />
                         </td>
                         {/* Название */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 min-w-[180px]">
                           <div className="font-medium text-gray-900">{project.name}</div>
                           <div className="text-xs text-gray-400">
                             {new Date(project.created_at).toLocaleDateString('ru')}
@@ -1101,20 +1100,10 @@ export default function MySites() {
                   </p>
                 </div>
 
-                {/* Выбор ниши */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ниша
-                  </label>
-                  <select
-                    value={batchNiche}
-                    onChange={(e) => setBatchNiche(e.target.value)}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    {NICHE_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                {/* Автоопределение ниши */}
+                <div className="bg-green-50 rounded-lg p-3 text-sm text-green-700 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>Ниша определяется автоматически по названию и описанию группы</span>
                 </div>
 
                 {/* Ошибка */}

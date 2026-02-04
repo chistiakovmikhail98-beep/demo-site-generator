@@ -847,6 +847,61 @@ function getNicheLabel(niche: string): string {
   return labels[niche] || niche;
 }
 
+// Автоопределение ниши по названию, описанию и постам
+function detectNiche(name: string, description: string, posts: string[]): Niche {
+  const text = `${name} ${description} ${posts.join(' ')}`.toLowerCase();
+
+  // Ключевые слова для каждой ниши (в порядке приоритета)
+  const nicheKeywords: Array<{ niche: Niche; keywords: string[]; weight: number }> = [
+    {
+      niche: 'dance',
+      keywords: ['танц', 'dance', 'хореограф', 'балет', 'хип-хоп', 'hip-hop', 'contemporary', 'джаз', 'сальса', 'бачата', 'танго', 'вог', 'vogue', 'брейк', 'break', 'pole dance', 'пилон', 'go-go', 'гоу-гоу', 'стрип', 'strip', 'тверк', 'twerk', 'k-pop', 'кпоп', 'waacking', 'вакинг', 'dancehall', 'дэнсхолл', 'контемп', 'реггетон', 'reggaeton'],
+      weight: 0,
+    },
+    {
+      niche: 'stretching',
+      keywords: ['растяж', 'stretch', 'шпагат', 'гибкост', 'стретчинг', 'flexibility', 'split', 'пластик'],
+      weight: 0,
+    },
+    {
+      niche: 'yoga',
+      keywords: ['йог', 'yoga', 'асан', 'медитац', 'пранаям', 'хатха', 'аштанга', 'кундалини', 'виньяса', 'намасте'],
+      weight: 0,
+    },
+    {
+      niche: 'fitness',
+      keywords: ['фитнес', 'fitness', 'тренажер', 'gym', 'спортзал', 'тренировк', 'кроссфит', 'crossfit', 'бодибилдинг', 'силов', 'кардио', 'аэробик', 'zumba', 'зумба', 'пилатес', 'pilates', 'функционал', 'табата', 'hiit'],
+      weight: 0,
+    },
+    {
+      niche: 'wellness',
+      keywords: ['spa', 'спа', 'массаж', 'релакс', 'wellness', 'оздоров', 'детокс', 'обертыван'],
+      weight: 0,
+    },
+  ];
+
+  // Подсчитываем совпадения
+  for (const item of nicheKeywords) {
+    for (const keyword of item.keywords) {
+      if (text.includes(keyword)) {
+        item.weight += 1;
+        // Бонус за совпадение в названии
+        if (name.toLowerCase().includes(keyword)) {
+          item.weight += 3;
+        }
+      }
+    }
+  }
+
+  // Находим нишу с максимальным весом
+  const sorted = nicheKeywords.sort((a, b) => b.weight - a.weight);
+  const detected = sorted[0].weight > 0 ? sorted[0].niche : 'dance'; // По умолчанию танцы
+
+  console.log(`🎯 Автоопределение ниши: "${name}" → ${detected} (веса: ${nicheKeywords.map(n => `${n.niche}:${n.weight}`).join(', ')})`);
+
+  return detected;
+}
+
 // Быстрая генерация из сырого текста — AI сам парсит
 fastify.post('/api/quick', async (request, reply) => {
   let text = '';
@@ -1770,9 +1825,9 @@ queueManager.setProcessor(async (item) => {
     }
   }
 
-  // 5. Создаём проект
+  // 5. Автоопределение ниши по названию и описанию
   const projectId = nanoid(10);
-  const niche = (item.options?.niche as Niche) || 'stretching';
+  const niche = detectNiche(vkData.name, vkData.description, vkData.posts);
 
   // Сохраняем в Supabase
   if (USE_SUPABASE) {
