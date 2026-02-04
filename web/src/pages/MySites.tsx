@@ -19,7 +19,13 @@ import {
   Check,
   Inbox,
   Clock,
-  MessageSquare
+  MessageSquare,
+  Play,
+  Pause,
+  Upload,
+  List,
+  MapPin,
+  Globe
 } from 'lucide-react';
 
 // Типы для лидов
@@ -53,6 +59,40 @@ interface Project {
   // VK данные из БД
   vk_group_url?: string;
   vk_admins?: AdminContact[];
+  vk_contacts?: {
+    phone?: string;
+    email?: string;
+    address?: string;
+    site?: string;
+  };
+}
+
+// Статус batch очереди
+interface BatchStatus {
+  batchId: string;
+  total: number;
+  completed: number;
+  failed: number;
+  pending: number;
+  processing: number;
+  progress: number;
+}
+
+interface QueueStatus {
+  isRunning: boolean;
+  isPaused: boolean;
+  currentItem: {
+    id: string;
+    vkUrl: string;
+    startedAt: string;
+  } | null;
+  stats: {
+    total: number;
+    pending: number;
+    processing: number;
+    completed: number;
+    failed: number;
+  };
 }
 
 // Контакт администратора
@@ -90,16 +130,35 @@ interface ProjectCRM {
 const STORAGE_KEY = 'demo_sites_crm';
 const API_URL = import.meta.env.VITE_API_URL || '';
 
+// Ниши для batch
+const NICHE_OPTIONS = [
+  { value: 'dance', label: 'Танцы' },
+  { value: 'stretching', label: 'Растяжка' },
+  { value: 'fitness', label: 'Фитнес' },
+  { value: 'yoga', label: 'Йога' },
+  { value: 'wellness', label: 'Wellness' },
+];
+
 export default function MySites() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'sites' | 'leads'>('sites');
+  const [activeTab, setActiveTab] = useState<'sites' | 'leads' | 'batch'>('sites');
   const [projects, setProjects] = useState<Project[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [crmData, setCrmData] = useState<Record<string, ProjectCRM>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
+
+  // Batch state
+  const [batchUrls, setBatchUrls] = useState('');
+  const [batchNiche, setBatchNiche] = useState('dance');
+  const [isBatchLoading, setIsBatchLoading] = useState(false);
+  const [batchStatus, setBatchStatus] = useState<BatchStatus | null>(null);
+  const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null);
+  const [batchError, setBatchError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<ProjectCRM>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Загрузка проектов
   useEffect(() => {
@@ -113,6 +172,24 @@ export default function MySites() {
       fetchLeads();
     }
   }, [activeTab]);
+
+  // Загрузка статуса очереди при переключении на batch
+  useEffect(() => {
+    if (activeTab === 'batch') {
+      fetchQueueStatus();
+      // Автообновление каждые 3 секунды
+      const interval = setInterval(fetchQueueStatus, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
+
+  // Автообновление статуса batch
+  useEffect(() => {
+    if (batchStatus && batchStatus.pending > 0) {
+      const interval = setInterval(() => fetchBatchStatus(batchStatus.batchId), 3000);
+      return () => clearInterval(interval);
+    }
+  }, [batchStatus?.batchId, batchStatus?.pending]);
 
   const fetchProjects = async () => {
     try {
@@ -136,6 +213,109 @@ export default function MySites() {
       console.error('Ошибка загрузки заявок:', error);
     } finally {
       setIsLoadingLeads(false);
+    }
+  };
+
+  // === BATCH ФУНКЦИИ ===
+
+  const fetchQueueStatus = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/batch-vk/status`);
+      const data = await response.json();
+      setQueueStatus(data);
+    } catch (error) {
+      console.error('Ошибка загрузки статуса очереди:', error);
+    }
+  };
+
+  const fetchBatchStatus = async (batchId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/batch-vk/${batchId}/status`);
+      const data = await response.json();
+      setBatchStatus(data);
+    } catch (error) {
+      console.error('Ошибка загрузки статуса batch:', error);
+    }
+  };
+
+  const startBatch = async () => {
+    const urls = batchUrls
+      .split('\n')
+      .map(url => url.trim())
+      .filter(url => url.includes('vk.com') || url.includes('vk.ru'));
+
+    if (urls.length === 0) {
+      setBatchError('Введите хотя бы одну ссылку на группу ВК');
+      return;
+    }
+
+    setIsBatchLoading(true);
+    setBatchError(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/batch-vk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vkUrls: urls,
+          options: {
+            niche: batchNiche,
+            analyzePhotos: true,
+            extractColors: true,
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Ошибка запуска batch');
+      }
+
+      setBatchStatus({
+        batchId: data.batchId,
+        total: data.totalItems,
+        completed: 0,
+        failed: 0,
+        pending: data.totalItems,
+        processing: 0,
+        progress: 0,
+      });
+
+      setBatchUrls('');
+    } catch (error) {
+      setBatchError(error instanceof Error ? error.message : 'Ошибка запуска batch');
+    } finally {
+      setIsBatchLoading(false);
+    }
+  };
+
+  const pauseQueue = async () => {
+    try {
+      await fetch(`${API_URL}/api/batch-vk/pause`, { method: 'POST' });
+      fetchQueueStatus();
+    } catch (error) {
+      console.error('Ошибка паузы:', error);
+    }
+  };
+
+  const resumeQueue = async () => {
+    try {
+      await fetch(`${API_URL}/api/batch-vk/resume`, { method: 'POST' });
+      fetchQueueStatus();
+    } catch (error) {
+      console.error('Ошибка возобновления:', error);
+    }
+  };
+
+  const retryFailed = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/batch-vk/retry-failed`, { method: 'POST' });
+      const data = await response.json();
+      alert(`Повторно запущено: ${data.retriedCount} элементов`);
+      fetchQueueStatus();
+    } catch (error) {
+      console.error('Ошибка retry:', error);
     }
   };
 
@@ -230,8 +410,70 @@ export default function MySites() {
       const newCrm = { ...crmData };
       delete newCrm[project.id];
       saveCrmData(newCrm);
+      // Убираем из выбранных
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.delete(project.id);
+        return next;
+      });
     } catch (error) {
       console.error('Ошибка удаления:', error);
+    }
+  };
+
+  // Выбор/снятие выбора проекта
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Выбрать все / снять выбор со всех
+  const toggleSelectAll = () => {
+    if (selectedIds.size === projects.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(projects.map(p => p.id)));
+    }
+  };
+
+  // Массовое удаление
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Удалить ${selectedIds.size} проект(ов)?`)) return;
+
+    setIsDeleting(true);
+    const idsToDelete = Array.from(selectedIds);
+    const newCrm = { ...crmData };
+
+    try {
+      // Удаляем параллельно
+      await Promise.all(
+        idsToDelete.map(id =>
+          fetch(`${API_URL}/api/projects/${id}`, { method: 'DELETE' })
+        )
+      );
+
+      // Обновляем локальное состояние
+      setProjects(prev => prev.filter(p => !selectedIds.has(p.id)));
+
+      // Удаляем CRM данные
+      idsToDelete.forEach(id => delete newCrm[id]);
+      saveCrmData(newCrm);
+
+      // Очищаем выбор
+      setSelectedIds(new Set());
+    } catch (error) {
+      console.error('Ошибка массового удаления:', error);
+      alert('Не удалось удалить некоторые проекты');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -331,6 +573,22 @@ export default function MySites() {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('batch')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+                activeTab === 'batch'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Upload className="w-4 h-4" />
+              Batch VK
+              {queueStatus?.isRunning && (
+                <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full animate-pulse">
+                  {queueStatus.stats.processing > 0 ? 'Работает' : 'Активна'}
+                </span>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -352,13 +610,47 @@ export default function MySites() {
           </div>
         ) : (
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            {/* Панель массовых действий */}
+            {selectedIds.size > 0 && (
+              <div className="bg-indigo-50 border-b border-indigo-100 px-4 py-3 flex items-center justify-between">
+                <span className="text-sm text-indigo-700">
+                  Выбрано: <strong>{selectedIds.size}</strong> из {projects.length}
+                </span>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={isDeleting}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  Удалить выбранные
+                </button>
+              </div>
+            )}
             {/* Таблица */}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
+                    <th className="px-4 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.size === projects.length && projects.length > 0}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Название</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Админы ВК</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <div className="flex items-center gap-1">
+                        <Phone className="w-3 h-3" />
+                        Контакты студии
+                      </div>
+                    </th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Ниша</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Статус</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Ссылка</th>
@@ -380,7 +672,16 @@ export default function MySites() {
                     const isEditing = editingId === project.id;
 
                     return (
-                      <tr key={project.id} className="hover:bg-gray-50 transition">
+                      <tr key={project.id} className={`hover:bg-gray-50 transition ${selectedIds.has(project.id) ? 'bg-indigo-50' : ''}`}>
+                        {/* Чекбокс */}
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(project.id)}
+                            onChange={() => toggleSelect(project.id)}
+                            className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                        </td>
                         {/* Название */}
                         <td className="px-4 py-3">
                           <div className="font-medium text-gray-900">{project.name}</div>
@@ -427,6 +728,42 @@ export default function MySites() {
                             }
                             return <span className="text-gray-400 text-sm">—</span>;
                           })()}
+                        </td>
+
+                        {/* Контакты студии */}
+                        <td className="px-4 py-3">
+                          {project.vk_contacts ? (
+                            <div className="text-xs space-y-0.5">
+                              {project.vk_contacts.phone && (
+                                <a href={`tel:${project.vk_contacts.phone}`} className="text-indigo-600 hover:underline flex items-center gap-1">
+                                  <Phone className="w-2.5 h-2.5" />
+                                  {project.vk_contacts.phone}
+                                </a>
+                              )}
+                              {project.vk_contacts.email && (
+                                <a href={`mailto:${project.vk_contacts.email}`} className="text-indigo-600 hover:underline flex items-center gap-1">
+                                  <Mail className="w-2.5 h-2.5" />
+                                  {project.vk_contacts.email}
+                                </a>
+                              )}
+                              {project.vk_contacts.address && (
+                                <div className="text-gray-500 flex items-center gap-1">
+                                  <MapPin className="w-2.5 h-2.5" />
+                                  <span className="truncate max-w-[120px]" title={project.vk_contacts.address}>
+                                    {project.vk_contacts.address}
+                                  </span>
+                                </div>
+                              )}
+                              {project.vk_contacts.site && (
+                                <a href={project.vk_contacts.site} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
+                                  <Globe className="w-2.5 h-2.5" />
+                                  Сайт
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-sm">—</span>
+                          )}
                         </td>
 
                         {/* Ниша */}
@@ -735,6 +1072,238 @@ export default function MySites() {
               </div>
             </div>
           )
+        )}
+
+        {/* === TAB: BATCH === */}
+        {activeTab === 'batch' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Левая колонка: ввод ссылок */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <List className="w-5 h-5 text-indigo-600" />
+                Массовая загрузка VK групп
+              </h2>
+
+              <div className="space-y-4">
+                {/* Textarea для ссылок */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ссылки на группы ВК (по одной на строку)
+                  </label>
+                  <textarea
+                    value={batchUrls}
+                    onChange={(e) => setBatchUrls(e.target.value)}
+                    placeholder={`https://vk.com/dance_studio1\nhttps://vk.com/fitness_club\nhttps://vk.ru/yoga_center\n...`}
+                    className="w-full h-48 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Найдено ссылок: {batchUrls.split('\n').filter(url => url.includes('vk.com') || url.includes('vk.ru')).length}
+                  </p>
+                </div>
+
+                {/* Выбор ниши */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ниша
+                  </label>
+                  <select
+                    value={batchNiche}
+                    onChange={(e) => setBatchNiche(e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    {NICHE_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Ошибка */}
+                {batchError && (
+                  <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    {batchError}
+                  </div>
+                )}
+
+                {/* Кнопка запуска */}
+                <button
+                  onClick={startBatch}
+                  disabled={isBatchLoading || !batchUrls.trim()}
+                  className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isBatchLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Запуск...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-5 h-5" />
+                      Запустить генерацию
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Правая колонка: статус очереди */}
+            <div className="space-y-6">
+              {/* Статус текущего batch */}
+              {batchStatus && (
+                <div className="bg-white rounded-xl shadow-lg p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    Текущий Batch
+                  </h3>
+
+                  {/* Прогресс-бар */}
+                  <div className="mb-4">
+                    <div className="flex justify-between text-sm text-gray-600 mb-1">
+                      <span>Прогресс</span>
+                      <span>{batchStatus.completed} / {batchStatus.total}</span>
+                    </div>
+                    <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-500"
+                        style={{ width: `${batchStatus.progress}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Статистика */}
+                  <div className="grid grid-cols-4 gap-3 text-center">
+                    <div className="bg-yellow-50 rounded-lg p-3">
+                      <div className="text-2xl font-bold text-yellow-600">{batchStatus.pending}</div>
+                      <div className="text-xs text-yellow-700">В очереди</div>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-3">
+                      <div className="text-2xl font-bold text-blue-600">{batchStatus.processing}</div>
+                      <div className="text-xs text-blue-700">В работе</div>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-3">
+                      <div className="text-2xl font-bold text-green-600">{batchStatus.completed}</div>
+                      <div className="text-xs text-green-700">Готово</div>
+                    </div>
+                    <div className="bg-red-50 rounded-lg p-3">
+                      <div className="text-2xl font-bold text-red-600">{batchStatus.failed}</div>
+                      <div className="text-xs text-red-700">Ошибки</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Общий статус очереди */}
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <RefreshCw className={`w-5 h-5 ${queueStatus?.isRunning ? 'text-green-600 animate-spin' : 'text-gray-400'}`} />
+                  Статус очереди
+                </h3>
+
+                {queueStatus ? (
+                  <div className="space-y-4">
+                    {/* Статус */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Состояние:</span>
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        queueStatus.isRunning
+                          ? queueStatus.isPaused
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {queueStatus.isRunning
+                          ? queueStatus.isPaused ? 'На паузе' : 'Работает'
+                          : 'Остановлена'}
+                      </span>
+                    </div>
+
+                    {/* Текущий элемент */}
+                    {queueStatus.currentItem && (
+                      <div className="bg-blue-50 rounded-lg p-3">
+                        <div className="text-sm text-blue-700 font-medium">Сейчас обрабатывается:</div>
+                        <a
+                          href={queueStatus.currentItem.vkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm truncate block"
+                        >
+                          {queueStatus.currentItem.vkUrl}
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Общая статистика */}
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Всего:</span>
+                        <span className="font-medium">{queueStatus.stats.total}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">В очереди:</span>
+                        <span className="font-medium">{queueStatus.stats.pending}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Готово:</span>
+                        <span className="font-medium text-green-600">{queueStatus.stats.completed}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Ошибки:</span>
+                        <span className="font-medium text-red-600">{queueStatus.stats.failed}</span>
+                      </div>
+                    </div>
+
+                    {/* Кнопки управления */}
+                    <div className="flex gap-2 pt-2">
+                      {queueStatus.isRunning && !queueStatus.isPaused ? (
+                        <button
+                          onClick={pauseQueue}
+                          className="flex-1 bg-yellow-100 text-yellow-700 py-2 rounded-lg font-medium hover:bg-yellow-200 transition flex items-center justify-center gap-2"
+                        >
+                          <Pause className="w-4 h-4" />
+                          Пауза
+                        </button>
+                      ) : queueStatus.isPaused ? (
+                        <button
+                          onClick={resumeQueue}
+                          className="flex-1 bg-green-100 text-green-700 py-2 rounded-lg font-medium hover:bg-green-200 transition flex items-center justify-center gap-2"
+                        >
+                          <Play className="w-4 h-4" />
+                          Продолжить
+                        </button>
+                      ) : null}
+
+                      {queueStatus.stats.failed > 0 && (
+                        <button
+                          onClick={retryFailed}
+                          className="flex-1 bg-red-100 text-red-700 py-2 rounded-lg font-medium hover:bg-red-200 transition flex items-center justify-center gap-2"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          Повторить ошибки ({queueStatus.stats.failed})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-gray-400" />
+                    Загрузка статуса...
+                  </div>
+                )}
+              </div>
+
+              {/* Подсказка */}
+              <div className="bg-indigo-50 rounded-xl p-4 text-sm text-indigo-700">
+                <p className="font-medium mb-2">Как это работает:</p>
+                <ol className="list-decimal list-inside space-y-1 text-indigo-600">
+                  <li>Вставьте ссылки на группы ВК</li>
+                  <li>Выберите нишу</li>
+                  <li>Нажмите "Запустить"</li>
+                  <li>Система обработает каждую группу</li>
+                  <li>Готовые сайты появятся во вкладке "Сайты"</li>
+                </ol>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

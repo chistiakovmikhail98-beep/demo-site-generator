@@ -16,9 +16,20 @@ CREATE TABLE IF NOT EXISTS projects (
   site_config JSONB,
   deployed_url TEXT,
   error TEXT,
+  uploaded_files JSONB,
+  -- VK данные для CRM
+  vk_group_url TEXT,
+  vk_admins JSONB,
+  vk_contacts JSONB,  -- {phone, email, address, site}
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Миграция: добавить новые поля если таблица уже существует
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS uploaded_files JSONB;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS vk_group_url TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS vk_admins JSONB;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS vk_contacts JSONB;
 
 -- Индексы для быстрого поиска
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);

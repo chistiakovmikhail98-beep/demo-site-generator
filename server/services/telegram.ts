@@ -16,6 +16,10 @@ interface SiteNotificationData {
   siteName: string;
   siteUrl: string;
   vkGroupUrl: string;
+  groupPhone?: string;    // Телефон группы ВК
+  groupEmail?: string;    // Email группы
+  groupAddress?: string;  // Адрес
+  groupSite?: string;     // Сайт студии
   admins?: AdminContact[];
 }
 
@@ -63,6 +67,16 @@ export async function notifyNewSite(data: SiteNotificationData): Promise<void> {
     `📱 <b>VK группа:</b> ${data.vkGroupUrl}`,
   ];
 
+  // Контакты группы
+  if (data.groupPhone || data.groupEmail || data.groupAddress || data.groupSite) {
+    lines.push('');
+    lines.push('📋 <b>Контакты студии:</b>');
+    if (data.groupPhone) lines.push(`📞 Телефон: ${escapeHtml(data.groupPhone)}`);
+    if (data.groupEmail) lines.push(`✉️ Email: ${escapeHtml(data.groupEmail)}`);
+    if (data.groupAddress) lines.push(`📍 Адрес: ${escapeHtml(data.groupAddress)}`);
+    if (data.groupSite) lines.push(`🔗 Сайт: ${data.groupSite}`);
+  }
+
   // Добавляем информацию об админах
   if (data.admins && data.admins.length > 0) {
     lines.push('');
@@ -97,6 +111,37 @@ export async function notifyNewSite(data: SiteNotificationData): Promise<void> {
       }
     }
   }
+
+  // Добавляем готовый шаблон для рассылки
+  const firstAdmin = data.admins?.[0];
+  const firstName = firstAdmin?.name?.split(' ')[0] || 'Добрый день';
+
+  lines.push('');
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push('📋 <b>Шаблон для рассылки:</b>');
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push('');
+  lines.push(`<code>${firstName}, здравствуйте!
+
+Меня зовут Михаил, я представляю команду Primum Digital.
+
+Наткнулись на вашу группу в ВК, сделали прототип сайта, можете посмотреть, как он мог бы выглядеть: ${data.siteUrl}
+
+⚠️ Это пробная версия с информацией из вашего ВК - что-то могло отличаться. Естественно, всё можно адаптировать под ваши потребности.
+
+Что даёт такой сайт:
+- До 30 новых заявок в месяц БЕЗ рекламных вложений
+- До 100+ дополнительных заявок при подключении рекламы и размещении в картах
+- Современный дизайн, который вызывает доверие
+- Секция с отзывами клиентов для повышения конверсии
+
+Мы работаем по подписке, стоимость ежемесячной подписки сайта 2000 рублей без ИИ агента на сайте и 3000 рублей, в подписку также входят правки и любые изменения на сайте.
+
+Наши клиенты отмечают рост записей уже в первый месяц работы
+
+Подробнее о нашей разработке и кейсах: https://www.primum-da.ru/fitwebai/
+
+Хотели бы обсудить, как такой сайт поможет увеличить поток клиентов в вашу студию?</code>`);
 
   const message = lines.join('\n');
   await sendTelegramMessage(message);

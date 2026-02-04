@@ -1640,20 +1640,27 @@ async function processProject(projectId: string): Promise<void> {
       // Получаем VK данные из проекта (могут быть в dbProject или project)
       let vkGroupUrl: string | undefined;
       let vkAdmins: Array<{ name?: string; phone?: string; email?: string; role?: string; vkUrl?: string; vkId?: number }> | undefined;
+      let vkContacts: { phone?: string; email?: string; address?: string; site?: string } | undefined;
 
       if (USE_SUPABASE) {
         const dbProject = await supabaseService.getProject(projectId);
         vkGroupUrl = dbProject?.vk_group_url ?? undefined;
         vkAdmins = dbProject?.vk_admins as typeof vkAdmins;
+        vkContacts = dbProject?.vk_contacts as typeof vkContacts;
       } else {
         vkGroupUrl = (project as any).vkGroupUrl;
         vkAdmins = (project as any).vkAdmins;
+        vkContacts = (project as any).vkContacts;
       }
 
       await notifyNewSite({
         siteName: project.name,
         siteUrl: deployedUrl,
         vkGroupUrl: vkGroupUrl || siteConfig.sections?.contacts?.vk || 'Не указана',
+        groupPhone: vkContacts?.phone,
+        groupEmail: vkContacts?.email,
+        groupAddress: vkContacts?.address,
+        groupSite: vkContacts?.site,
         admins: vkAdmins,
       });
     } catch (tgError) {
@@ -1778,6 +1785,12 @@ queueManager.setProcessor(async (item) => {
       color_scheme: colorScheme as Record<string, string> | undefined,
       vk_group_url: item.vk_url,
       vk_admins: vkData.admins,
+      vk_contacts: {
+        phone: vkData.contacts.phone,
+        email: vkData.contacts.email,
+        address: vkData.contacts.address,
+        site: vkData.contacts.site,
+      },
     });
   }
 

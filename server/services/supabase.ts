@@ -26,6 +26,12 @@ export interface DbProject {
   // VK данные для CRM
   vk_group_url?: string;
   vk_admins?: Array<{ name?: string; phone?: string; email?: string; role?: string; vkUrl?: string; vkId?: number }>;
+  vk_contacts?: {
+    phone?: string;
+    email?: string;
+    address?: string;
+    site?: string;
+  };
   created_at: string;
   updated_at: string;
 }
