@@ -1673,7 +1673,7 @@ fastify.get('/api/diagnostics', async () => {
     customDomain: process.env.CUSTOM_DOMAIN || null,
     railwayEnv: !!process.env.RAILWAY_ENVIRONMENT,
     supabaseConfigured: !!process.env.SUPABASE_URL && !!process.env.SUPABASE_SERVICE_KEY,
-    anthropicConfigured: !!process.env.ANTHROPIC_API_KEY,
+    openrouterConfigured: !!process.env.OPENROUTER_API_KEY,
     vps: {
       configured: vpsConfig.configured,
       domain: vpsConfig.domain,
@@ -1737,7 +1737,7 @@ queueManager.setProcessor(async (item) => {
   const photos = await parseVKPhotos(item.vk_url, 30); // 30 фото для анализа
   console.log(`📷 Получено ${photos.length} фото`);
 
-  // 4. AI анализ фото (если включено и есть ANTHROPIC_API_KEY)
+  // 4. AI анализ фото (если включено и есть OPENROUTER_API_KEY)
   let distributedPhotos: {
     hero: Array<{ url: string }>;
     gallery: Array<{ url: string }>;
@@ -1745,7 +1745,7 @@ queueManager.setProcessor(async (item) => {
     atmosphere: Array<{ url: string }>;
   } | null = null;
 
-  if (item.options?.analyzePhotos !== false && process.env.ANTHROPIC_API_KEY && photos.length > 0) {
+  if (item.options?.analyzePhotos !== false && process.env.OPENROUTER_API_KEY && photos.length > 0) {
     try {
       console.log(`🤖 AI анализ фотографий...`);
       const analysis = await analyzePhotos(photos, item.options?.niche || 'fitness', 25);

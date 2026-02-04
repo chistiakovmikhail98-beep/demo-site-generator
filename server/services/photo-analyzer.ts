@@ -1,5 +1,5 @@
 /**
- * PhotoAnalyzer - анализ фотографий с Claude Haiku Vision
+ * PhotoAnalyzer - анализ фотографий с Claude Haiku Vision через OpenRouter
  *
  * Категоризация фото для демо-сайтов:
  * - hero: главный баннер (качественное фото студии/занятия)
@@ -8,12 +8,15 @@
  * - atmosphere: атмосфера (интерьер, детали)
  * - stories: до/после (если применимо)
  *
- * Стоимость: ~$0.0002 за фото (Claude Haiku Vision)
+ * Стоимость: ~$0.0002 за фото (Claude Haiku Vision через OpenRouter)
  */
 
-// Используем Anthropic API напрямую через fetch
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+// OpenRouter API для Claude Haiku Vision
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+// Модель Claude Haiku для vision (самая дешёвая с поддержкой изображений)
+const VISION_MODEL = 'anthropic/claude-3-haiku';
 
 // Типы категорий фото
 export type PhotoCategory = 'hero' | 'gallery' | 'instructors' | 'atmosphere' | 'stories' | 'skip';
@@ -58,14 +61,14 @@ export function prefilterPhotos(
 }
 
 /**
- * Анализирует одно фото с Claude Haiku Vision через API
+ * Анализирует одно фото с Claude Haiku Vision через OpenRouter
  */
 async function analyzePhoto(
   imageUrl: string,
   niche: string = 'fitness'
 ): Promise<{ category: PhotoCategory; confidence: number; description: string; isChild: boolean; isGroup: boolean; quality: 'high' | 'medium' | 'low'; tokens: number }> {
-  if (!ANTHROPIC_API_KEY) {
-    throw new Error('ANTHROPIC_API_KEY не установлен');
+  if (!OPENROUTER_API_KEY) {
+    throw new Error('OPENROUTER_API_KEY не установлен');
   }
 
   const nicheContext: Record<string, string> = {
@@ -95,24 +98,24 @@ async function analyzePhoto(
 {"category":"...", "confidence":0.9, "isChild":false, "isGroup":true, "quality":"high", "description":"..."}`;
 
   try {
-    const response = await fetch(ANTHROPIC_API_URL, {
+    const response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://fitwebai.ru',
+        'X-Title': 'FitWebAI Photo Analyzer',
       },
       body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
+        model: VISION_MODEL,
         max_tokens: 200,
         messages: [
           {
             role: 'user',
             content: [
               {
-                type: 'image',
-                source: {
-                  type: 'url',
+                type: 'image_url',
+                image_url: {
                   url: imageUrl,
                 },
               },
@@ -128,14 +131,14 @@ async function analyzePhoto(
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Anthropic API error: ${response.status} - ${errorText}`);
+      throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
 
-    // Парсим ответ
-    const text = data.content?.[0]?.type === 'text' ? data.content[0].text : '';
-    const tokens = (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0);
+    // Парсим ответ (OpenAI-совместимый формат)
+    const text = data.choices?.[0]?.message?.content || '';
+    const tokens = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
 
     // Извлекаем JSON из ответа
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -230,8 +233,8 @@ export async function analyzePhotos(
     }
   }
 
-  // Примерная стоимость: $0.00025 за 1K input tokens + $0.00125 за 1K output tokens
-  // Vision добавляет ~1000 tokens за изображение
+  // Примерная стоимость OpenRouter Claude Haiku Vision
+  // ~$0.00025 за 1K input tokens + $0.00125 за 1K output tokens
   const estimatedCost = (totalTokens / 1000) * 0.0005; // Усреднённая цена
 
   console.log(`✅ Анализ завершён: ${results.length} фото, ~$${estimatedCost.toFixed(4)}`);

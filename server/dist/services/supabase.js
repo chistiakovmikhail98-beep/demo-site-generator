@@ -258,3 +258,283 @@ export async function getTokenStatsTotal() {
         .sort((a, b) => b.date.localeCompare(a.date));
     return { totalTokens, totalCost, totalRequests, byModel, byDay };
 }
+/**
+ * Создаёт новый лид (заявку)
+ */
+export async function createLead(lead) {
+    const { data, error } = await supabase
+        .from('leads')
+        .insert({
+        ...lead,
+        status: 'new',
+        created_at: new Date().toISOString(),
+    })
+        .select()
+        .single();
+    if (error)
+        throw error;
+    return data;
+}
+/**
+ * Получает все лиды (для CRM)
+ */
+export async function getLeads(limit = 100) {
+    const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+    if (error)
+        throw error;
+    return data || [];
+}
+/**
+ * Обновляет статус лида
+ */
+export async function updateLead(id, updates) {
+    const { data, error } = await supabase
+        .from('leads')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+    if (error)
+        throw error;
+    return data;
+}
+/**
+ * Добавляет один элемент в очередь
+ */
+export async function addQueueItem(vkUrl, options = {}, batchId, batchOrder) {
+    const { data, error } = await supabase
+        .from('queue_items')
+        .insert({
+        vk_url: vkUrl,
+        status: 'pending',
+        retry_count: 0,
+        max_retries: 3,
+        options,
+        batch_id: batchId,
+        batch_order: batchOrder,
+        created_at: new Date().toISOString(),
+    })
+        .select()
+        .single();
+    if (error)
+        throw error;
+    return data;
+}
+/**
+ * Добавляет пакет VK URL в очередь
+ * @returns batch_id для отслеживания
+ */
+export async function addQueueBatch(vkUrls, options = {}) {
+    const batchId = crypto.randomUUID();
+    const items = vkUrls.map((url, index) => ({
+        vk_url: url,
+        status: 'pending',
+        retry_count: 0,
+        max_retries: 3,
+        options,
+        batch_id: batchId,
+        batch_order: index,
+        created_at: new Date().toISOString(),
+    }));
+    const { error } = await supabase
+        .from('queue_items')
+        .insert(items);
+    if (error)
+        throw error;
+    return { batchId, itemCount: items.length };
+}
+/**
+ * Получает следующий элемент для обработки (FIFO)
+ * Атомарно помечает его как processing
+ */
+export async function getNextQueueItem() {
+    // Находим следующий pending элемент
+    const { data: pending, error: findError } = await supabase
+        .from('queue_items')
+        .select('*')
+        .eq('status', 'pending')
+        .order('batch_order', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single();
+    if (findError && findError.code !== 'PGRST116')
+        throw findError;
+    if (!pending)
+        return null;
+    // Атомарно обновляем статус
+    const { data, error } = await supabase
+        .from('queue_items')
+        .update({
+        status: 'processing',
+        started_at: new Date().toISOString(),
+    })
+        .eq('id', pending.id)
+        .eq('status', 'pending') // Защита от race condition
+        .select()
+        .single();
+    if (error && error.code !== 'PGRST116')
+        throw error;
+    return data || null;
+}
+/**
+ * Обновляет элемент очереди
+ */
+export async function updateQueueItem(id, updates) {
+    const updateData = { ...updates };
+    // Автоматически ставим completed_at при завершении
+    if (updates.status === 'completed' || updates.status === 'failed') {
+        updateData.completed_at = new Date().toISOString();
+    }
+    const { data, error } = await supabase
+        .from('queue_items')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+    if (error)
+        throw error;
+    return data;
+}
+/**
+ * Помечает элемент как выполненный
+ */
+export async function completeQueueItem(id, projectId) {
+    return updateQueueItem(id, {
+        status: 'completed',
+        project_id: projectId,
+    });
+}
+/**
+ * Помечает элемент как failed
+ */
+export async function failQueueItem(id, errorMessage, retryCount) {
+    return updateQueueItem(id, {
+        status: 'failed',
+        error_message: errorMessage,
+        retry_count: retryCount,
+    });
+}
+/**
+ * Получает статистику очереди
+ */
+export async function getQueueStats() {
+    const { data, error } = await supabase
+        .from('queue_items')
+        .select('status');
+    if (error)
+        throw error;
+    const stats = {
+        total: data?.length || 0,
+        pending: 0,
+        processing: 0,
+        completed: 0,
+        failed: 0,
+    };
+    for (const item of data || []) {
+        if (item.status in stats) {
+            stats[item.status]++;
+        }
+    }
+    return stats;
+}
+/**
+ * Получает статистику по конкретному batch
+ */
+export async function getBatchStats(batchId) {
+    const { data, error } = await supabase
+        .from('queue_items')
+        .select('*')
+        .eq('batch_id', batchId)
+        .order('batch_order', { ascending: true });
+    if (error)
+        throw error;
+    const stats = {
+        total: data?.length || 0,
+        pending: 0,
+        processing: 0,
+        completed: 0,
+        failed: 0,
+    };
+    for (const item of data || []) {
+        if (item.status in stats) {
+            stats[item.status]++;
+        }
+    }
+    return { ...stats, items: data || [] };
+}
+/**
+ * Переводит failed элементы обратно в pending для retry
+ */
+export async function retryFailedItems(batchId) {
+    let query = supabase
+        .from('queue_items')
+        .update({
+        status: 'pending',
+        error_message: null,
+        started_at: null,
+        completed_at: null,
+    })
+        .eq('status', 'failed')
+        .lt('retry_count', 3); // Только если не превышен лимит
+    if (batchId) {
+        query = query.eq('batch_id', batchId);
+    }
+    const { data, error } = await query.select();
+    if (error)
+        throw error;
+    return data?.length || 0;
+}
+/**
+ * Очищает старые completed элементы (старше N дней)
+ */
+export async function cleanupOldQueueItems(daysOld = 7) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+    const { data, error } = await supabase
+        .from('queue_items')
+        .delete()
+        .eq('status', 'completed')
+        .lt('completed_at', cutoffDate.toISOString())
+        .select();
+    if (error)
+        throw error;
+    return data?.length || 0;
+}
+/**
+ * Получает текущий processing элемент (если есть)
+ */
+export async function getCurrentProcessingItem() {
+    const { data, error } = await supabase
+        .from('queue_items')
+        .select('*')
+        .eq('status', 'processing')
+        .limit(1)
+        .single();
+    if (error && error.code !== 'PGRST116')
+        throw error;
+    return data || null;
+}
+/**
+ * Сбрасывает зависшие processing элементы (старше N минут)
+ * Используется при старте сервера для восстановления после краша
+ */
+export async function resetStuckProcessingItems(minutesOld = 30) {
+    const cutoffDate = new Date();
+    cutoffDate.setMinutes(cutoffDate.getMinutes() - minutesOld);
+    const { data, error } = await supabase
+        .from('queue_items')
+        .update({
+        status: 'pending',
+        started_at: null,
+    })
+        .eq('status', 'processing')
+        .lt('started_at', cutoffDate.toISOString())
+        .select();
+    if (error)
+        throw error;
+    return data?.length || 0;
+}

@@ -348,72 +348,83 @@ ${getNicheGuidelines(niche)}
 ОТВЕТЬ ТОЛЬКО JSON!`,
     });
     messages.push({ role: 'user', content: userContent });
-    // Вызов API
-    const openai = getOpenAI();
-    const response = await openai.chat.completions.create({
-        model: modelId,
-        messages,
-        max_tokens: 8000, // Увеличен лимит для больших ответов
-        temperature: 0.85, // Повышена для креативности и уникальности
-    });
-    // Трекаем токены и сохраняем в БД
-    trackUsage(response.usage, undefined, modelId);
-    const content = response.choices[0]?.message?.content || '';
-    // Парсим JSON
-    try {
-        let jsonStr = content.trim();
-        // Убираем markdown обёртку
-        if (jsonStr.startsWith('```json'))
-            jsonStr = jsonStr.slice(7);
-        if (jsonStr.startsWith('```'))
-            jsonStr = jsonStr.slice(3);
-        if (jsonStr.endsWith('```'))
-            jsonStr = jsonStr.slice(0, -3);
-        jsonStr = jsonStr.trim();
-        // Проверяем что это валидный JSON объект
-        if (!jsonStr.startsWith('{')) {
-            console.error('AI вернул не JSON объект. Начало ответа:', jsonStr.substring(0, 200));
-            throw new Error('Ответ AI не начинается с {');
+    // Retry логика для надёжности
+    const maxRetries = 3;
+    let lastError = null;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log(`🤖 Генерация конфига (попытка ${attempt}/${maxRetries})...`);
+            // Вызов API
+            const openai = getOpenAI();
+            const response = await openai.chat.completions.create({
+                model: modelId,
+                messages,
+                max_tokens: 8000, // Увеличен лимит для больших ответов
+                temperature: 0.85, // Повышена для креативности и уникальности
+            });
+            // Трекаем токены и сохраняем в БД
+            trackUsage(response.usage, undefined, modelId);
+            const content = response.choices[0]?.message?.content || '';
+            // Парсим JSON
+            let jsonStr = content.trim();
+            // Убираем markdown обёртку
+            if (jsonStr.startsWith('```json'))
+                jsonStr = jsonStr.slice(7);
+            if (jsonStr.startsWith('```'))
+                jsonStr = jsonStr.slice(3);
+            if (jsonStr.endsWith('```'))
+                jsonStr = jsonStr.slice(0, -3);
+            jsonStr = jsonStr.trim();
+            // Проверяем что это валидный JSON объект
+            if (!jsonStr.startsWith('{')) {
+                console.error('AI вернул не JSON объект. Начало ответа:', jsonStr.substring(0, 200));
+                throw new Error('Ответ AI не начинается с {');
+            }
+            // Проверяем что JSON не обрезан (заканчивается на })
+            if (!jsonStr.endsWith('}')) {
+                console.error('JSON обрезан! Конец ответа:', jsonStr.substring(jsonStr.length - 200));
+                // Пробуем найти последнюю закрывающую скобку
+                const lastBrace = jsonStr.lastIndexOf('}');
+                if (lastBrace > 0) {
+                    jsonStr = jsonStr.substring(0, lastBrace + 1);
+                    console.log('Попытка обрезать до последней }');
+                }
+            }
+            const parsed = JSON.parse(jsonStr);
+            // Проверяем что есть нужные поля
+            if (!parsed.brand || !parsed.sections) {
+                console.error('JSON не содержит brand или sections');
+                throw new Error('Неполный ответ AI');
+            }
+            const siteConfig = {
+                meta: {
+                    projectId: '',
+                    slug: generateSlug(name),
+                    createdAt: new Date().toISOString(),
+                },
+                brand: parsed.brand,
+                sections: {
+                    ...parsed.sections,
+                    // Добавляем colorScheme если передана пользователем
+                    colorScheme: colorScheme || parsed.sections.colorScheme,
+                },
+            };
+            console.log(`✅ Конфиг успешно сгенерирован с попытки ${attempt}`);
+            return siteConfig;
         }
-        // Проверяем что JSON не обрезан (заканчивается на })
-        if (!jsonStr.endsWith('}')) {
-            console.error('JSON обрезан! Конец ответа:', jsonStr.substring(jsonStr.length - 200));
-            // Пробуем найти последнюю закрывающую скобку
-            const lastBrace = jsonStr.lastIndexOf('}');
-            if (lastBrace > 0) {
-                jsonStr = jsonStr.substring(0, lastBrace + 1);
-                console.log('Попытка обрезать до последней }');
+        catch (err) {
+            lastError = err;
+            console.error(`=== ОШИБКА ПАРСИНГА JSON (попытка ${attempt}/${maxRetries}) ===`);
+            console.error('Ошибка:', err);
+            if (attempt < maxRetries) {
+                console.log(`🔄 Повторная попытка через 1 сек...`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
-        const parsed = JSON.parse(jsonStr);
-        // Проверяем что есть нужные поля
-        if (!parsed.brand || !parsed.sections) {
-            console.error('JSON не содержит brand или sections');
-            throw new Error('Неполный ответ AI');
-        }
-        const siteConfig = {
-            meta: {
-                projectId: '',
-                slug: generateSlug(name),
-                createdAt: new Date().toISOString(),
-            },
-            brand: parsed.brand,
-            sections: {
-                ...parsed.sections,
-                // Добавляем colorScheme если передана пользователем
-                colorScheme: colorScheme || parsed.sections.colorScheme,
-            },
-        };
-        return siteConfig;
     }
-    catch (err) {
-        console.error('=== ОШИБКА ПАРСИНГА JSON ===');
-        console.error('Ошибка:', err);
-        console.error('Длина ответа:', content.length);
-        console.error('Первые 500 символов:', content.substring(0, 500));
-        console.error('Последние 500 символов:', content.substring(content.length - 500));
-        throw new Error('Не удалось распарсить ответ AI');
-    }
+    // Все попытки исчерпаны
+    console.error('❌ Не удалось сгенерировать конфиг после всех попыток');
+    throw lastError || new Error('Не удалось распарсить ответ AI');
 }
 function getNicheDescription(niche) {
     const descriptions = {

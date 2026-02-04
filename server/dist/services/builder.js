@@ -1,11 +1,9 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { downloadImage } from './supabase.js';
+// downloadImage больше не нужен — используем URL напрямую из Supabase CDN
 const execAsync = promisify(exec);
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Путь к шаблону (внутри server/template)
 // Используем process.cwd() для Railway — там рабочая директория /app
 const TEMPLATE_DIR = path.join(process.cwd(), 'template');
@@ -19,42 +17,11 @@ export async function buildSite(projectId, config, uploadedFiles) {
     await fs.mkdir(buildDir, { recursive: true });
     // Копируем шаблон
     await copyDirectory(TEMPLATE_DIR, buildDir);
-    // Копируем/скачиваем загруженные фото в public/images/ и подставляем URL в конфиг
+    // Используем URL фото напрямую из Supabase CDN (НЕ скачиваем в билд!)
+    // Это уменьшает размер билда с ~20MB до ~500KB
     if (uploadedFiles && uploadedFiles.length > 0) {
-        const imagesDir = path.join(buildDir, 'public', 'images');
-        await fs.mkdir(imagesDir, { recursive: true });
-        // Скачиваем/копируем все фото
-        for (const file of uploadedFiles) {
-            const destPath = path.join(imagesDir, file.filename);
-            try {
-                // Проверяем, является ли путь URL-ом (Supabase Storage)
-                if (file.path.includes('project-images/')) {
-                    // Скачиваем через Supabase SDK (работает с приватным bucket)
-                    const buffer = await downloadImage(file.path);
-                    await fs.writeFile(destPath, buffer);
-                    console.log(`📷 Скачано из Storage: ${file.filename} (${file.block})`);
-                }
-                else if (file.path.startsWith('http://') || file.path.startsWith('https://')) {
-                    // Другой URL — скачиваем через fetch
-                    const response = await fetch(file.path);
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    const buffer = Buffer.from(await response.arrayBuffer());
-                    await fs.writeFile(destPath, buffer);
-                    console.log(`📷 Скачано по URL: ${file.filename} (${file.block})`);
-                }
-                else {
-                    // Локальный файл — копируем
-                    await fs.copyFile(file.path, destPath);
-                    console.log(`📷 Скопировано: ${file.filename} (${file.block})`);
-                }
-            }
-            catch (err) {
-                console.error(`❌ Ошибка загрузки ${file.filename}:`, err);
-            }
-        }
-        // Подставляем реальные URL фото в конфиг
+        console.log(`📷 Используем ${uploadedFiles.length} фото напрямую из Supabase CDN`);
+        // Подставляем URL фото в конфиг (без скачивания)
         config = applyUploadedPhotos(config, uploadedFiles);
     }
     // Генерируем constants.tsx с новыми данными
@@ -125,8 +92,8 @@ export const DIRECTOR_CONFIG = {
   achievements: [${d.achievements.map(a => `'${esc(a)}'`).join(', ')}],
 };
 
-// Показывать Calculator только для fitness/yoga/stretching/wellness (НЕ для dance)
-export const SHOW_CALCULATOR = ${['fitness', 'yoga', 'stretching', 'wellness'].includes(b.niche)};
+// Показывать Calculator для всех ниш (включая dance)
+export const SHOW_CALCULATOR = true;
 
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Направления', href: '#directions' },
@@ -311,7 +278,27 @@ async function updateIndexHtml(buildDir, config) {
     // Обновляем meta description
     html = html.replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${esc(config.brand.tagline)}">`);
     // Обновляем цветовую схему в tailwind.config
-    const colorScheme = config.sections.colorScheme || getDefaultColorScheme();
+    // Базовая схема из конфига или дефолтная
+    const baseColorScheme = config.sections.colorScheme || getDefaultColorScheme();
+    const defaultScheme = getDefaultColorScheme();
+    // Вычисляем адаптивный фон на основе primary цвета
+    const adaptiveBg = getAdaptiveBackground(baseColorScheme.primary);
+    // Проверяем, выбрал ли пользователь фон явно (отличается от дефолтного чёрного)
+    const userExplicitlySetBackground = baseColorScheme.background &&
+        baseColorScheme.background !== defaultScheme.background &&
+        baseColorScheme.background !== '#0c0c0f' &&
+        baseColorScheme.background !== '#0c0c0e';
+    // Финальная цветовая схема:
+    // - Если пользователь явно выбрал фон → используем его выбор
+    // - Иначе → используем адаптивный фон
+    const colorScheme = {
+        primary: baseColorScheme.primary,
+        accent: baseColorScheme.accent,
+        background: userExplicitlySetBackground ? baseColorScheme.background : adaptiveBg.background,
+        surface: userExplicitlySetBackground ? (baseColorScheme.surface || adaptiveBg.surface) : adaptiveBg.surface,
+        text: userExplicitlySetBackground ? (baseColorScheme.text || adaptiveBg.text) : adaptiveBg.text,
+    };
+    console.log(`🎨 Цветовая схема: primary=${colorScheme.primary}, bg=${colorScheme.background} (явный выбор: ${userExplicitlySetBackground}, адаптивный: ${adaptiveBg.background})`);
     // Заменяем tailwind.config с динамическими цветами
     const tailwindConfigRegex = /tailwind\.config\s*=\s*\{[\s\S]*?\}\s*\}\s*<\/script>/;
     const newTailwindConfig = `tailwind.config = {
@@ -342,18 +329,87 @@ async function updateIndexHtml(buildDir, config) {
         background: ${colorScheme.primary};
       }`;
     });
-    // Добавляем стили для radar chart градиента и других динамических элементов
-    const radarStyles = `
+    // Определяем, светлый ли фон (для адаптации текстовых цветов)
+    const isLightBackground = colorScheme.text === '#1a1a1a';
+    // Добавляем CSS переменные и стили для динамических цветов
+    const dynamicStyles = `
+      /* CSS переменные для цветовой схемы */
+      :root {
+        --color-background: ${colorScheme.background};
+        --color-surface: ${colorScheme.surface};
+        --color-primary: ${colorScheme.primary};
+        --color-accent: ${colorScheme.accent};
+        --color-text: ${colorScheme.text};
+      }
+
+      /* Фон страницы */
+      body, html {
+        background-color: ${colorScheme.background} !important;
+      }
+
+      /* Основной цвет текста */
+      body {
+        color: ${colorScheme.text} !important;
+      }
+
+      ${isLightBackground ? `
+      /* === Адаптация для светлого фона === */
+
+      /* Текстовые цвета */
+      .text-white { color: ${colorScheme.text} !important; }
+      .text-zinc-50, .text-zinc-100, .text-zinc-200 { color: #27272a !important; }
+      .text-zinc-300, .text-zinc-400 { color: #52525b !important; }
+      .text-zinc-500 { color: #71717a !important; }
+
+      /* Фоны секций */
+      .bg-zinc-900, .bg-zinc-950 { background-color: ${colorScheme.surface} !important; }
+      .bg-zinc-800 { background-color: #e4e4e7 !important; }
+      .bg-zinc-900\\/90, .bg-zinc-950\\/90 { background-color: ${colorScheme.surface}ee !important; }
+
+      /* Границы */
+      .border-zinc-700, .border-zinc-800 { border-color: #d4d4d8 !important; }
+      .border-white\\/10, .border-white\\/20 { border-color: rgba(0,0,0,0.1) !important; }
+
+      /* Header на светлом фоне */
+      header.bg-transparent { background-color: transparent !important; }
+      header .text-zinc-900 { color: #18181b !important; }
+      header .text-zinc-600, header .text-zinc-400 { color: #52525b !important; }
+
+      /* Карточки и блоки */
+      .bg-black\\/40, .bg-black\\/50 { background-color: rgba(255,255,255,0.7) !important; }
+      .backdrop-blur-md { backdrop-filter: blur(12px); }
+
+      /* Скроллбар */
+      ::-webkit-scrollbar-track { background: ${colorScheme.background}; }
+      ` : ''}
+
       /* Radar chart gradient */
       .radar-gradient-start { stop-color: ${colorScheme.primary}; stop-opacity: 0.8; }
       .radar-gradient-end { stop-color: ${colorScheme.accent}; stop-opacity: 0.4; }
       .radar-chart svg { filter: drop-shadow(0 0 25px ${colorScheme.primary}40); }
+
       /* Stroke and fill using primary color */
       .stroke-primary { stroke: ${colorScheme.primary}; }
       .fill-primary { fill: ${colorScheme.primary}; }
+
+      /* Background classes */
+      .bg-background { background-color: ${colorScheme.background}; }
+      .bg-surface { background-color: ${colorScheme.surface}; }
+      .bg-primary { background-color: ${colorScheme.primary}; }
+      .bg-accent { background-color: ${colorScheme.accent}; }
+
+      /* Text colors */
+      .text-primary { color: ${colorScheme.primary}; }
+      .text-accent { color: ${colorScheme.accent}; }
+
+      /* Border colors */
+      .border-primary { border-color: ${colorScheme.primary}; }
+
+      /* Glow shadow */
+      .shadow-glow { box-shadow: 0 0 20px -5px ${colorScheme.primary}50; }
   `;
     // Вставляем стили перед закрывающим </style>
-    html = html.replace(/<\/style>/i, `${radarStyles}\n    </style>`);
+    html = html.replace(/<\/style>/i, `${dynamicStyles}\n    </style>`);
     await fs.writeFile(indexPath, html);
 }
 function getDefaultCalculatorStages(niche) {
@@ -436,6 +492,105 @@ function getDefaultColorScheme() {
         text: '#ffffff'
     };
 }
+/**
+ * Вычисляет адаптивный фон на основе яркости primary цвета
+ * - Если primary светлый (L > 50) → светлый приглушённый фон на основе primary
+ * - Если primary тёмный → чёрный фон
+ */
+function getAdaptiveBackground(primaryHex) {
+    // Парсим hex в RGB
+    const hex = primaryHex.replace('#', '');
+    const r = parseInt(hex.slice(0, 2), 16) / 255;
+    const g = parseInt(hex.slice(2, 4), 16) / 255;
+    const b = parseInt(hex.slice(4, 6), 16) / 255;
+    // Конвертируем в HSL
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    let h = 0;
+    let s = 0;
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r:
+                h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+                break;
+            case g:
+                h = ((b - r) / d + 2) / 6;
+                break;
+            case b:
+                h = ((r - g) / d + 4) / 6;
+                break;
+        }
+    }
+    const lightness = l * 100;
+    // Если primary достаточно светлый (L > 45), используем светлый фон
+    if (lightness > 45) {
+        // Создаём очень светлый приглушённый фон на основе hue primary цвета
+        const bgH = h * 360;
+        const bgS = Math.min(s * 100 * 0.15, 10); // Очень низкая насыщенность
+        const bgL = 96; // Очень светлый
+        const surfaceL = 92; // Чуть темнее для surface
+        return {
+            background: hslToHex(bgH, bgS, bgL),
+            surface: hslToHex(bgH, bgS, surfaceL),
+            text: '#1a1a1a' // Тёмный текст на светлом фоне
+        };
+    }
+    // Тёмный primary → чёрный фон
+    return {
+        background: '#0c0c0f',
+        surface: '#18181b',
+        text: '#ffffff'
+    };
+}
+/**
+ * Конвертирует HSL в HEX
+ */
+function hslToHex(h, s, l) {
+    s /= 100;
+    l /= 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+    if (h >= 0 && h < 60) {
+        r = c;
+        g = x;
+        b = 0;
+    }
+    else if (h >= 60 && h < 120) {
+        r = x;
+        g = c;
+        b = 0;
+    }
+    else if (h >= 120 && h < 180) {
+        r = 0;
+        g = c;
+        b = x;
+    }
+    else if (h >= 180 && h < 240) {
+        r = 0;
+        g = x;
+        b = c;
+    }
+    else if (h >= 240 && h < 300) {
+        r = x;
+        g = 0;
+        b = c;
+    }
+    else {
+        r = c;
+        g = 0;
+        b = x;
+    }
+    const toHex = (n) => {
+        const hex = Math.round((n + m) * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    };
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
 function getExpertiseByNiche(niche) {
     const expertiseByNiche = {
         dance: 'Эксперт по танцам',
@@ -486,8 +641,16 @@ function applyUploadedPhotos(config, files) {
     for (const block of Object.keys(byBlock)) {
         byBlock[block].sort((a, b) => (a.order || 0) - (b.order || 0));
     }
-    // Функция для получения URL (абсолютный путь для Vercel)
-    const getUrl = (file) => `/images/${file.filename}`;
+    // Функция для получения URL — используем Supabase CDN напрямую!
+    const getUrl = (file) => {
+        // file.path уже содержит публичный Supabase URL
+        // Формат: https://xxx.supabase.co/storage/v1/object/public/project-images/...
+        if (file.path.startsWith('http')) {
+            return file.path; // Публичный URL из Supabase
+        }
+        // Fallback для локальных файлов (старые записи)
+        return `/images/${file.filename}`;
+    };
     // === Hero ===
     if (byBlock.hero.length > 0) {
         config.brand.heroImage = getUrl(byBlock.hero[0]);
