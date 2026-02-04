@@ -67,8 +67,9 @@ function extractGroupId(url: string): string | null {
   // https://vk.com/public123456 или https://vk.ru/public123456
   // https://vk.com/club123456 или https://vk.ru/club123456
   // vk.com/groupname или vk.ru/groupname
+  // Также поддерживаем точки в screen_name (например endorphin.achinsk)
   const patterns = [
-    /vk\.(?:com|ru)\/([a-zA-Z0-9_]+)/,
+    /vk\.(?:com|ru)\/([a-zA-Z0-9_.]+)/,
     /vk\.(?:com|ru)\/public(\d+)/,
     /vk\.(?:com|ru)\/club(\d+)/,
   ];
@@ -118,7 +119,28 @@ export async function parseVKGroup(url: string): Promise<ParsedVKData> {
     throw new Error('Группа не найдена');
   }
 
-  // Посты НЕ парсим — только основная информация о группе
+  // Получаем последние 10 постов для анализа (там может быть расписание)
+  let posts: string[] = [];
+  try {
+    const wallResponse = await fetch(
+      `https://api.vk.com/method/wall.get?` +
+      `owner_id=-${group.id}&` +
+      `count=10&` +
+      `access_token=${VK_SERVICE_KEY}&` +
+      `v=${VK_API_VERSION}`
+    );
+    const wallData = await wallResponse.json();
+
+    if (wallData.response?.items) {
+      posts = wallData.response.items
+        .map((post: VKPost) => post.text)
+        .filter((text: string) => text && text.length > 20) // Только посты с текстом
+        .slice(0, 10);
+      console.log(`📝 Получено ${posts.length} постов со стены`);
+    }
+  } catch (e) {
+    console.log('⚠️ Не удалось получить посты:', e);
+  }
 
   // Собираем контакты
   const contacts: ParsedVKData['contacts'] = {
@@ -210,6 +232,14 @@ export async function parseVKGroup(url: string): Promise<ParsedVKData> {
   if (contacts.site) rawTextParts.push(`Сайт: ${contacts.site}`);
   rawTextParts.push(`ВКонтакте: ${contacts.vk}`);
 
+  // Добавляем посты (там может быть расписание, цены, акции)
+  if (posts.length > 0) {
+    rawTextParts.push(`\n\nПоследние посты (могут содержать расписание, цены, акции):`);
+    posts.forEach((post, i) => {
+      rawTextParts.push(`\n--- Пост ${i + 1} ---\n${post}`);
+    });
+  }
+
   // Получаем аватарку (приоритет: максимальное разрешение > 200px)
   const avatarUrl = group.photo_max_orig || group.photo_200 || group.photo_100;
 
@@ -218,12 +248,12 @@ export async function parseVKGroup(url: string): Promise<ParsedVKData> {
     description: group.description || '',
     contacts,
     admins,
-    posts: [], // Посты не парсим
+    posts,
     rawText: rawTextParts.join('\n'),
     avatarUrl, // URL аватарки для логотипа
   };
 
-  console.log(`✅ Получено: ${group.name} (${admins.length} админов, аватарка: ${avatarUrl ? 'да' : 'нет'})`);
+  console.log(`✅ Получено: ${group.name} (${admins.length} админов, ${posts.length} постов, аватарка: ${avatarUrl ? 'да' : 'нет'})`);
 
   return result;
 }

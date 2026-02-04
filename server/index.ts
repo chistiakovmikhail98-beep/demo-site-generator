@@ -409,6 +409,28 @@ fastify.post<{ Body: { batchId?: string } }>('/api/batch-vk/retry-failed', async
   return { success: true, retriedCount: count };
 });
 
+// Получить failed элементы с сообщениями об ошибках
+fastify.get('/api/batch-vk/failed', async () => {
+  try {
+    const failedItems = await supabaseService.getFailedQueueItems(50);
+    return {
+      success: true,
+      count: failedItems.length,
+      items: failedItems.map(item => ({
+        id: item.id,
+        vkUrl: item.vk_url,
+        errorMessage: item.error_message,
+        retryCount: item.retry_count,
+        completedAt: item.completed_at,
+        batchId: item.batch_id,
+      })),
+    };
+  } catch (error) {
+    console.error('Ошибка получения failed items:', error);
+    return { success: false, error: 'Не удалось получить ошибки' };
+  }
+});
+
 // Статистика токенов (текущая сессия)
 fastify.get('/api/tokens', async () => {
   try {
@@ -1720,15 +1742,21 @@ async function processProject(projectId: string): Promise<void> {
     await updateProject(projectId, { status: 'building' });
     const buildPath = await buildSite(projectId, siteConfig, uploadedFiles);
 
-    // Шаг 3: Деплой на VPS
+    // Шаг 3: Деплой (VPS если настроен, иначе Vercel)
     await updateProject(projectId, { status: 'deploying' });
-    const vpsResult = await deployToVPS(projectId, buildPath, siteConfig.meta.slug);
+    let deployedUrl: string;
 
-    if (!vpsResult.success) {
-      throw new Error(vpsResult.error || 'Ошибка деплоя на VPS');
+    if (isVPSConfigured()) {
+      const vpsResult = await deployToVPS(projectId, buildPath, siteConfig.meta.slug);
+      if (!vpsResult.success) {
+        throw new Error(vpsResult.error || 'Ошибка деплоя на VPS');
+      }
+      deployedUrl = vpsResult.url!;
+    } else {
+      // Fallback на Vercel если VPS не настроен
+      console.log('⚠️ VPS не настроен, используем Vercel...');
+      deployedUrl = await deployToVercel(projectId, buildPath, siteConfig.meta.slug);
     }
-
-    const deployedUrl = vpsResult.url!;
 
     await updateProject(projectId, {
       status: 'completed',
@@ -1793,6 +1821,8 @@ fastify.get('/api/diagnostics', async () => {
       configured: vpsConfig.configured,
       domain: vpsConfig.domain,
       sitesDir: vpsConfig.sitesDir,
+      host: vpsConfig.host,
+      hasSSHKey: vpsConfig.hasSSHKey,
     },
     nodeVersion: process.version,
     platform: process.platform,
