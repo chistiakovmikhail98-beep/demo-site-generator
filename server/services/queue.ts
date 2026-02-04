@@ -20,7 +20,7 @@ import {
   retryFailedItems,
   getCurrentProcessingItem,
   resetStuckProcessingItems,
-} from './supabase';
+} from './supabase.js';
 
 // Типы событий очереди
 type QueueEventType = 'item_started' | 'item_completed' | 'item_failed' | 'batch_completed' | 'queue_empty';
