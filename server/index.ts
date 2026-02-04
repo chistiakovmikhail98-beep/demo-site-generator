@@ -15,6 +15,10 @@ import { deployToVercel } from './services/deployer.js';
 import * as supabaseService from './services/supabase.js';
 import { parseVKGroup, parseVKPhotos } from './services/vk.js';
 import { notifyNewSite } from './services/telegram.js';
+import { queueManager } from './services/queue.js';
+import { analyzePhotos, distributePhotos } from './services/photo-analyzer.js';
+import { extractColorsFromUrl } from './services/color-extractor.js';
+import { deployToVPS, isVPSConfigured, getVPSConfig } from './services/vps-deployer.js';
 import sharp from 'sharp';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -301,6 +305,108 @@ fastify.get('/api/queue', async () => {
     failed,
     total: projects.length,
   };
+});
+
+// === ПАКЕТНАЯ ОБРАБОТКА VK ГРУПП ===
+
+// Добавить batch VK URL-ов в очередь
+fastify.post<{
+  Body: {
+    vkUrls: string[];
+    options?: {
+      niche?: Niche;
+      analyzePhotos?: boolean;
+      extractColors?: boolean;
+      notifyEvery?: number;
+    };
+  }
+}>('/api/batch-vk', async (request, reply) => {
+  try {
+    const { vkUrls, options = {} } = request.body;
+
+    if (!vkUrls || !Array.isArray(vkUrls) || vkUrls.length === 0) {
+      return reply.status(400).send({ error: 'vkUrls должен быть непустым массивом' });
+    }
+
+    // Фильтруем только валидные VK URL
+    const validUrls = vkUrls.filter(url =>
+      url && (url.includes('vk.com') || url.includes('vk.ru'))
+    );
+
+    if (validUrls.length === 0) {
+      return reply.status(400).send({ error: 'Не найдено валидных VK URL' });
+    }
+
+    // Добавляем в очередь
+    const result = await queueManager.addBatch(validUrls, {
+      niche: options.niche,
+      analyzePhotos: options.analyzePhotos ?? true,
+      extractColors: options.extractColors ?? true,
+    });
+
+    console.log(`📦 Batch добавлен: ${result.itemCount} VK групп`);
+
+    return {
+      success: true,
+      batchId: result.batchId,
+      totalItems: result.itemCount,
+      skipped: vkUrls.length - validUrls.length,
+      statusUrl: `/api/batch-vk/${result.batchId}/status`,
+    };
+  } catch (error) {
+    console.error('Ошибка batch-vk:', error);
+    return reply.status(500).send({
+      error: error instanceof Error ? error.message : 'Ошибка создания batch',
+    });
+  }
+});
+
+// Статус конкретного batch
+fastify.get<{ Params: { batchId: string } }>('/api/batch-vk/:batchId/status', async (request, reply) => {
+  try {
+    const stats = await queueManager.getBatchStatus(request.params.batchId);
+    return {
+      batchId: request.params.batchId,
+      ...stats,
+      progress: stats.total > 0
+        ? Math.round((stats.completed / stats.total) * 100)
+        : 0,
+    };
+  } catch (error) {
+    console.error('Ошибка получения статуса batch:', error);
+    return reply.status(500).send({ error: 'Ошибка получения статуса' });
+  }
+});
+
+// Общий статус очереди VK
+fastify.get('/api/batch-vk/status', async () => {
+  const status = await queueManager.getStatus();
+  return {
+    isRunning: status.isRunning,
+    isPaused: status.isPaused,
+    currentItem: status.currentItem ? {
+      id: status.currentItem.id,
+      vkUrl: status.currentItem.vk_url,
+      startedAt: status.currentItem.started_at,
+    } : null,
+    stats: status.stats,
+  };
+});
+
+// Управление очередью
+fastify.post('/api/batch-vk/pause', async () => {
+  queueManager.pause();
+  return { success: true, message: 'Очередь поставлена на паузу' };
+});
+
+fastify.post('/api/batch-vk/resume', async () => {
+  queueManager.resume();
+  return { success: true, message: 'Очередь возобновлена' };
+});
+
+fastify.post<{ Body: { batchId?: string } }>('/api/batch-vk/retry-failed', async (request) => {
+  const count = await queueManager.retryFailed(request.body?.batchId);
+  return { success: true, retriedCount: count };
 });
 
 // Статистика токенов (текущая сессия)
@@ -1559,12 +1665,20 @@ async function processProject(projectId: string): Promise<void> {
 
 // Диагностика окружения (без раскрытия значений)
 fastify.get('/api/diagnostics', async () => {
+  const vpsConfig = getVPSConfig();
+
   return {
     vercelToken: !!process.env.VERCEL_TOKEN,
     vercelTokenLength: process.env.VERCEL_TOKEN?.length || 0,
     customDomain: process.env.CUSTOM_DOMAIN || null,
     railwayEnv: !!process.env.RAILWAY_ENVIRONMENT,
     supabaseConfigured: !!process.env.SUPABASE_URL && !!process.env.SUPABASE_SERVICE_KEY,
+    anthropicConfigured: !!process.env.ANTHROPIC_API_KEY,
+    vps: {
+      configured: vpsConfig.configured,
+      domain: vpsConfig.domain,
+      sitesDir: vpsConfig.sitesDir,
+    },
     nodeVersion: process.version,
     platform: process.platform,
   };
@@ -1583,6 +1697,8 @@ export default async function handler(req: Request, res: Response) {
 const shutdown = async (signal: string) => {
   console.log(`\n⚠️ Получен ${signal}, завершаем работу...`);
   try {
+    // Останавливаем очередь (ждём завершения текущего элемента)
+    await queueManager.shutdown();
     await fastify.close();
     console.log('✅ Сервер корректно остановлен');
     process.exit(0);
@@ -1594,6 +1710,161 @@ const shutdown = async (signal: string) => {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+// === ИНИЦИАЛИЗАЦИЯ ОЧЕРЕДИ VK ===
+
+// Обработчик элементов очереди - создаёт сайт из VK группы
+queueManager.setProcessor(async (item) => {
+  console.log(`\n🔄 Обработка VK группы: ${item.vk_url}`);
+
+  // 1. Парсим VK группу
+  const vkData = await parseVKGroup(item.vk_url);
+  console.log(`✅ Распарсена группа: ${vkData.name}`);
+
+  // 2. Извлекаем цвета из аватарки (если включено)
+  let colorScheme: { primary: string; accent: string } | undefined;
+  if (item.options?.extractColors !== false && vkData.avatarUrl) {
+    try {
+      console.log(`🎨 Извлечение цветов из аватарки...`);
+      colorScheme = await extractColorsFromUrl(vkData.avatarUrl);
+      console.log(`🎨 Цвета: primary=${colorScheme.primary}, accent=${colorScheme.accent}`);
+    } catch (err) {
+      console.warn(`⚠️ Не удалось извлечь цвета:`, err);
+    }
+  }
+
+  // 3. Парсим фото из группы
+  const photos = await parseVKPhotos(item.vk_url, 30); // 30 фото для анализа
+  console.log(`📷 Получено ${photos.length} фото`);
+
+  // 4. AI анализ фото (если включено и есть ANTHROPIC_API_KEY)
+  let distributedPhotos: {
+    hero: Array<{ url: string }>;
+    gallery: Array<{ url: string }>;
+    instructors: Array<{ url: string }>;
+    atmosphere: Array<{ url: string }>;
+  } | null = null;
+
+  if (item.options?.analyzePhotos !== false && process.env.ANTHROPIC_API_KEY && photos.length > 0) {
+    try {
+      console.log(`🤖 AI анализ фотографий...`);
+      const analysis = await analyzePhotos(photos, item.options?.niche || 'fitness', 25);
+      distributedPhotos = distributePhotos(analysis.photos);
+      console.log(`✅ Фото распределены: hero=${distributedPhotos.hero.length}, ` +
+        `gallery=${distributedPhotos.gallery.length}, instructors=${distributedPhotos.instructors.length}`);
+    } catch (err) {
+      console.warn(`⚠️ AI анализ не удался, используем простое распределение:`, err);
+    }
+  }
+
+  // 5. Создаём проект
+  const projectId = nanoid(10);
+  const niche = (item.options?.niche as Niche) || 'stretching';
+
+  // Сохраняем в Supabase
+  if (USE_SUPABASE) {
+    await supabaseService.createProject({
+      id: projectId,
+      name: vkData.name,
+      niche,
+      status: 'pending',
+      description: vkData.description,
+      color_scheme: colorScheme as Record<string, string> | undefined,
+      vk_group_url: item.vk_url,
+      vk_admins: vkData.admins,
+    });
+  }
+
+  // 6. Загружаем фото в Storage с учётом AI категоризации
+  const uploadedFiles: UploadedFile[] = [];
+
+  // Определяем какие фото загружать и с какими категориями
+  const photosToUpload: Array<{ url: string; block: PhotoBlockType; order: number }> = [];
+
+  if (distributedPhotos) {
+    // Используем AI категоризацию
+    distributedPhotos.hero.slice(0, 3).forEach((p, i) =>
+      photosToUpload.push({ url: p.url, block: 'hero', order: i }));
+    distributedPhotos.instructors.slice(0, 4).forEach((p, i) =>
+      photosToUpload.push({ url: p.url, block: 'instructors', order: 100 + i }));
+    distributedPhotos.atmosphere.slice(0, 6).forEach((p, i) =>
+      photosToUpload.push({ url: p.url, block: 'atmosphere', order: 200 + i }));
+    distributedPhotos.gallery.slice(0, 12).forEach((p, i) =>
+      photosToUpload.push({ url: p.url, block: 'gallery', order: 300 + i }));
+  } else {
+    // Простое распределение: первые 3 — hero, остальные — gallery
+    photos.slice(0, 25).forEach((p, i) =>
+      photosToUpload.push({ url: p.url, block: i < 3 ? 'hero' : 'gallery', order: i }));
+  }
+
+  for (const photoItem of photosToUpload) {
+    try {
+      const response = await fetch(photoItem.url);
+      if (!response.ok) continue;
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const ext = photoItem.url.match(/\.(jpg|jpeg|png|webp)/i)?.[0] || '.jpg';
+      const filename = `vk-${nanoid(6)}${ext}`;
+
+      if (USE_SUPABASE) {
+        const filePath = await supabaseService.uploadImage(
+          projectId,
+          buffer,
+          filename,
+          `image/${ext.replace('.', '')}`
+        );
+        uploadedFiles.push({
+          path: filePath,
+          filename,
+          block: photoItem.block,
+          order: photoItem.order,
+        });
+      }
+    } catch (err) {
+      console.error(`⚠️ Ошибка загрузки фото:`, err);
+    }
+  }
+
+  console.log(`📷 Загружено ${uploadedFiles.length} фото`);
+
+  // 7. Обновляем проект с фото
+  if (USE_SUPABASE && uploadedFiles.length > 0) {
+    await supabaseService.updateProject(projectId, {
+      uploaded_files: uploadedFiles.map(f => ({ ...f, order: f.order ?? 0 })),
+    });
+  }
+
+  // 8. Запускаем генерацию
+  await processProject(projectId);
+
+  return projectId;
+});
+
+// Подписка на события очереди (для логирования и Telegram)
+queueManager.onEvent(async (event) => {
+  switch (event.type) {
+    case 'item_completed':
+      console.log(`✅ Queue: ${event.item?.vk_url} -> completed`);
+      break;
+    case 'item_failed':
+      console.log(`❌ Queue: ${event.item?.vk_url} failed: ${event.error}`);
+      break;
+    case 'batch_completed':
+      console.log(`🎉 Batch ${event.batchId} завершён!`);
+      console.log(`   Completed: ${event.stats?.completed}, Failed: ${event.stats?.failed}`);
+      break;
+    case 'queue_empty':
+      console.log(`📭 Очередь пуста`);
+      break;
+  }
+});
+
+// Восстановление зависших элементов при старте
+queueManager.recover().then(count => {
+  if (count > 0) {
+    console.log(`🔄 Восстановлено ${count} зависших элементов очереди`);
+  }
+});
 
 // Локальный запуск (не на Vercel)
 if (!IS_VERCEL) {
