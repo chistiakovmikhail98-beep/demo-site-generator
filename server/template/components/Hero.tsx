@@ -61,42 +61,42 @@ const Hero: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[600px]">
 
-          <div className="bg-surface rounded-[2.5rem] p-8 sm:p-10 md:p-14 flex flex-col justify-center items-start shadow-xl border border-zinc-800/50 relative overflow-hidden">
+          <div className="bg-surface rounded-[2.5rem] p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col justify-center items-start shadow-xl border border-zinc-800/50 relative overflow-hidden min-h-[450px] lg:min-h-0">
              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none"></div>
 
              {BRAND_CONFIG.city && (
-               <div className="inline-block px-4 py-1.5 mb-8 border border-primary/30 bg-primary/10 backdrop-blur-sm rounded-full text-xs font-bold tracking-widest text-accent uppercase">
+               <div className="inline-block px-3 py-1 mb-4 sm:mb-6 border border-primary/30 bg-primary/10 backdrop-blur-sm rounded-full text-[10px] sm:text-xs font-bold tracking-widest text-accent uppercase">
                 г. {BRAND_CONFIG.city}
               </div>
              )}
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.1] mb-6 tracking-tight">
-              {BRAND_CONFIG.heroTitle || BRAND_CONFIG.name}
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-[1.15] mb-4 sm:mb-5 tracking-tight">
+              {BRAND_CONFIG.heroTitle || `Добро пожаловать в ${BRAND_CONFIG.name}`}
               {BRAND_CONFIG.heroSubtitle && (
                 <>
                   <br />
-                  <span className="text-primary italic">{BRAND_CONFIG.heroSubtitle}</span>
+                  <span className="text-primary italic text-xl sm:text-2xl md:text-3xl lg:text-4xl">{BRAND_CONFIG.heroSubtitle}</span>
                 </>
               )}
             </h1>
 
             {BRAND_CONFIG.heroDescription && (
-              <p className="text-zinc-400 text-lg mb-8 max-w-md">
+              <p className="text-zinc-400 text-sm sm:text-base md:text-lg mb-5 sm:mb-6 max-w-md leading-relaxed">
                 {BRAND_CONFIG.heroDescription}
               </p>
             )}
 
-            <ul className="space-y-3 mb-10">
+            <ul className="space-y-2 sm:space-y-3 mb-6 sm:mb-8">
               {HERO_ADVANTAGES.map((text, idx) => (
-                <li key={idx} className="flex items-center gap-3 text-zinc-300 text-base md:text-lg leading-tight">
-                  <div className="w-2 h-2 bg-primary rounded-full shrink-0 shadow-[0_0_5px_#9d174d]"></div>
+                <li key={idx} className="flex items-center gap-2 sm:gap-3 text-zinc-300 text-sm sm:text-base md:text-lg leading-snug">
+                  <div className="w-2 h-2 bg-primary rounded-full shrink-0 shadow-[0_0_5px_var(--color-primary)]"></div>
                   {text}
                 </li>
               ))}
             </ul>
 
-            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-              <Button size="lg" onClick={() => window.location.href='#quiz'} className="bg-primary hover:bg-accent">
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto mt-auto">
+              <Button size="lg" onClick={() => window.location.href='#quiz'} className="bg-primary hover:bg-accent text-sm sm:text-base">
                 Записаться
               </Button>
             </div>

@@ -1,23 +1,52 @@
 import React, { useState } from 'react';
 import Section from './Section';
 import Button from './Button';
-import { MapPin, Phone, Send, Instagram, Mail, ExternalLink, CheckCircle } from 'lucide-react';
+import { MapPin, Phone, Send, Instagram, ExternalLink, CheckCircle } from 'lucide-react';
 import { CONTACTS, BRAND_CONFIG } from '../constants';
 
 const Footer: React.FC = () => {
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({ name: '', phone: '', messenger: 'telegram' });
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormSubmitted(true);
+    if (!formData.name || !formData.phone) return;
+
+    setIsSubmitting(true);
+    try {
+      // Отправляем на API сервера Primum
+      const response = await fetch('https://demo-generator-api-production.up.railway.app/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          phone: formData.phone,
+          messenger: formData.messenger,
+          studio_name: BRAND_CONFIG.name,
+          studio_phone: CONTACTS.phone || '',
+          source_url: window.location.href,
+        }),
+      });
+
+      if (response.ok) {
+        setFormSubmitted(true);
+      }
+    } catch (err) {
+      console.error('Ошибка отправки заявки:', err);
+      // Всё равно показываем успех для UX
+      setFormSubmitted(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
   // Генерируем ссылки на соцсети
   const telegramLink = CONTACTS.telegram?.startsWith('@')
     ? `https://t.me/${CONTACTS.telegram.slice(1)}`
     : CONTACTS.telegram || '#';
   const vkLink = CONTACTS.vk || '#';
   const instagramLink = CONTACTS.instagram || '#';
-  const mapUrl = CONTACTS.mapUrl || '#';
 
   return (
     <footer id="footer" className="bg-[#121215] border-t border-zinc-900 text-zinc-200">
@@ -26,18 +55,18 @@ const Footer: React.FC = () => {
 
           <div>
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 uppercase tracking-tighter">
-              Твое тело <br/>
-              <span className="text-primary italic">заслуживает заботы!</span>
+              Запишитесь <br/>
+              <span className="text-primary italic">на занятие!</span>
             </h2>
             <p className="text-zinc-400 mb-8 text-lg leading-relaxed">
-              Оставьте заявку на первичную диагностику. Мы поможем вам вернуть радость движения и жизнь без боли.
+              Оставьте заявку и мы свяжемся с вами для подбора удобного времени.
             </p>
 
             {formSubmitted ? (
               <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center max-w-md">
                 <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-white mb-2">Спасибо за заявку!</h3>
-                <p className="text-zinc-400">Мы свяжемся с вами в ближайшее время для уточнения деталей.</p>
+                <p className="text-zinc-400">Мы свяжемся с вами в ближайшее время.</p>
               </div>
             ) : (
               <form className="space-y-4 max-w-md" onSubmit={handleFormSubmit}>
@@ -45,28 +74,48 @@ const Footer: React.FC = () => {
                   <input
                     type="text"
                     placeholder="Ваше имя"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 md:p-5 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-zinc-600 text-base"
+                    required
                   />
                 </div>
                 <div>
                   <input
                     type="tel"
                     placeholder="+7 (___) ___-__-__"
+                    value={formData.phone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 md:p-5 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-zinc-600 text-base"
+                    required
                   />
                 </div>
 
                 <div className="flex gap-4 flex-wrap">
                   <label className="flex items-center gap-2 cursor-pointer text-zinc-400 text-sm">
-                    <input type="radio" name="messenger" className="accent-primary" defaultChecked /> Telegram
+                    <input
+                      type="radio"
+                      name="messenger"
+                      checked={formData.messenger === 'telegram'}
+                      onChange={() => setFormData(prev => ({ ...prev, messenger: 'telegram' }))}
+                      className="accent-primary"
+                    />
+                    Telegram
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer text-zinc-400 text-sm">
-                    <input type="radio" name="messenger" className="accent-primary" /> WhatsApp
+                    <input
+                      type="radio"
+                      name="messenger"
+                      checked={formData.messenger === 'whatsapp'}
+                      onChange={() => setFormData(prev => ({ ...prev, messenger: 'whatsapp' }))}
+                      className="accent-primary"
+                    />
+                    WhatsApp
                   </label>
                 </div>
 
-                <Button size="lg" fullWidth className="mt-4 shadow-xl shadow-primary/20 bg-primary hover:bg-accent">
-                  Записаться на диагностику
+                <Button size="lg" fullWidth className="mt-4 shadow-xl shadow-primary/20 bg-primary hover:bg-accent" disabled={isSubmitting}>
+                  {isSubmitting ? 'Отправка...' : 'Записаться'}
                 </Button>
                 <p className="text-[10px] text-zinc-600 mt-4 text-center leading-tight">
                   Нажимая кнопку, вы соглашаетесь с политикой обработки персональных данных
@@ -96,7 +145,7 @@ const Footer: React.FC = () => {
                       <Phone className="text-primary shrink-0 w-6 h-6" />
                       <div>
                           <p className="text-white font-bold">{CONTACTS.phone}</p>
-                          <p className="text-zinc-500 text-xs">Администратор студии</p>
+                          <p className="text-zinc-500 text-xs">Администратор</p>
                       </div>
                     </div>
                   )}

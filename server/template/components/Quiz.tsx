@@ -182,10 +182,10 @@ const Quiz: React.FC<QuizProps> = ({ onAnswersUpdate }) => {
   return (
     <div id="quiz" className="bg-background pt-8 pb-10 md:pt-16 md:pb-20 relative">
       <div className="text-center mb-6 md:mb-12 max-w-3xl mx-auto px-4 relative z-10">
-        <h2 className="text-2xl md:text-5xl font-bold text-white mb-2 md:mb-4 leading-tight uppercase">
+        <h2 className="text-2xl md:text-5xl font-bold text-foreground mb-2 md:mb-4 leading-tight uppercase">
           Подберем программу <br className="md:hidden"/>за 1 минуту
         </h2>
-        <p className="text-zinc-500 text-sm md:text-lg">
+        <p className="text-muted-foreground text-sm md:text-lg">
           Пройдите квиз и получите персональные рекомендации от {BRAND_CONFIG.name}
         </p>
       </div>

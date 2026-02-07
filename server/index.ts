@@ -18,8 +18,21 @@ import { notifyNewSite } from './services/telegram.js';
 import { queueManager } from './services/queue.js';
 import { analyzePhotos, distributePhotos } from './services/photo-analyzer.js';
 import { extractColorsFromUrl } from './services/color-extractor.js';
-import { deployToVPS, isVPSConfigured, getVPSConfig, checkVPSConnection } from './services/vps-deployer.js';
+import { deployToVPS, isVPSConfigured, getVPSConfig, checkVPSConnection, listVPSSites, inspectVPSSite, fixNginxConfig } from './services/vps-deployer.js';
 import sharp from 'sharp';
+import {
+  USE_SALEBOT,
+  sendMessage as salebotSendMessage,
+  saveVariables as salebotSaveVariables,
+  isSubscriptionCallback,
+  extractVkUrl,
+  getActiveSession,
+  getSessionByClientId,
+  createSession,
+  updateSession as updateSalebotSession,
+  MESSAGES as SALEBOT_MESSAGES,
+  type SalebotWebhookPayload,
+} from './services/salebot.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1331,7 +1344,7 @@ fastify.delete<{ Params: { id: string } }>('/api/projects/:id', async (request, 
 fastify.put<{ Params: { id: string }; Body: Partial<Project> }>('/api/projects/:id', async (request, reply) => {
   if (USE_SUPABASE) {
     try {
-      const allowedFields = ['name', 'niche', 'description'];
+      const allowedFields = ['name', 'niche', 'description', 'outreach_status', 'outreach_sent_at'];
       const updates: Record<string, unknown> = {};
 
       for (const field of allowedFields) {
@@ -1356,7 +1369,7 @@ fastify.put<{ Params: { id: string }; Body: Partial<Project> }>('/api/projects/:
     return reply.status(404).send({ error: 'Проект не найден' });
   }
 
-  const allowedFields = ['name', 'niche', 'description'];
+  const allowedFields = ['name', 'niche', 'description', 'outreach_status', 'outreach_sent_at'];
   const updates: Partial<Project> = {};
 
   for (const field of allowedFields) {
@@ -1669,6 +1682,135 @@ fastify.patch<{
   }
 });
 
+// === SALEBOT WEBHOOK ===
+
+if (USE_SALEBOT) {
+  console.log('🤖 Salebot webhook включён: POST /api/salebot/webhook');
+
+  fastify.post('/api/salebot/webhook', async (request, reply) => {
+    try {
+      const payload = request.body as SalebotWebhookPayload;
+      const clientId = String(payload.client?.id);
+
+      console.log(`🤖 Salebot webhook: client=${clientId}, name="${payload.client?.name}", message="${payload.message}", is_input=${payload.is_input}`);
+
+      // Игнорируем сообщения от самого бота
+      if (payload.is_input === 0) {
+        return { ok: true };
+      }
+
+      // Ищем существующую активную сессию
+      let session = await getActiveSession(clientId);
+
+      // --- Нет активной сессии ---
+      if (!session) {
+        // Проверяем: это callback подписной страницы?
+        if (isSubscriptionCallback(payload)) {
+          console.log(`🆕 Salebot: новая подписка от ${payload.client?.name} (${clientId})`);
+
+          session = await createSession(payload);
+          await updateSalebotSession(session.id, { state: 'awaiting_url' });
+
+          await salebotSendMessage(clientId, SALEBOT_MESSAGES.greeting(payload.client?.name || 'Здравствуйте'));
+          return { ok: true };
+        }
+
+        // Может у пользователя завершённая сессия — предложить новую
+        const existingSession = await getSessionByClientId(clientId);
+        if (existingSession && existingSession.state === 'completed') {
+          // Проверяем — может прислали новый VK URL
+          const vkUrl = extractVkUrl(payload.message || '');
+          if (vkUrl) {
+            // Создаём новую сессию для нового сайта
+            session = await createSession(payload);
+            await updateSalebotSession(session.id, { state: 'processing', vk_url: vkUrl });
+            await salebotSendMessage(clientId, SALEBOT_MESSAGES.processing(vkUrl));
+            processSalebotSite(session.id, vkUrl, clientId).catch(err =>
+              console.error(`❌ Salebot generation error:`, err)
+            );
+            return { ok: true };
+          }
+
+          await salebotSendMessage(clientId, SALEBOT_MESSAGES.completedRepeat(existingSession.deployed_url || ''));
+          return { ok: true };
+        }
+
+        // Неизвестный пользователь без подписки — игнорируем
+        console.log(`⚠️ Salebot: сообщение от неизвестного клиента ${clientId}, игнорируем`);
+        return { ok: true };
+      }
+
+      // --- Есть активная сессия, роутим по состоянию ---
+      switch (session.state) {
+        case 'new':
+        case 'awaiting_url': {
+          const vkUrl = extractVkUrl(payload.message || '');
+
+          if (!vkUrl) {
+            await salebotSendMessage(clientId, SALEBOT_MESSAGES.invalidUrl);
+            return { ok: true };
+          }
+
+          // Валидный URL — запускаем генерацию
+          await updateSalebotSession(session.id, { state: 'processing', vk_url: vkUrl });
+          await salebotSendMessage(clientId, SALEBOT_MESSAGES.processing(vkUrl));
+
+          // Async генерация (не блокируем webhook)
+          processSalebotSite(session.id, vkUrl, clientId).catch(err =>
+            console.error(`❌ Salebot generation error for session ${session!.id}:`, err)
+          );
+
+          return { ok: true };
+        }
+
+        case 'processing': {
+          await salebotSendMessage(clientId, SALEBOT_MESSAGES.stillProcessing);
+          return { ok: true };
+        }
+
+        case 'failed': {
+          const vkUrl = extractVkUrl(payload.message || '');
+          if (vkUrl) {
+            await updateSalebotSession(session.id, {
+              state: 'processing',
+              vk_url: vkUrl,
+              error_message: null,
+              retry_count: session.retry_count + 1,
+            });
+            await salebotSendMessage(clientId, SALEBOT_MESSAGES.retrying(vkUrl));
+            processSalebotSite(session.id, vkUrl, clientId).catch(console.error);
+          } else {
+            await updateSalebotSession(session.id, { state: 'awaiting_url' });
+            await salebotSendMessage(clientId, SALEBOT_MESSAGES.failed);
+          }
+          return { ok: true };
+        }
+
+        default:
+          return { ok: true };
+      }
+    } catch (error) {
+      console.error('❌ Salebot webhook error:', error);
+      // Всегда 200 чтобы Salebot не делал retry
+      return { ok: true };
+    }
+  });
+
+  // Эндпоинт для просмотра сессий бота (опционально, для дебага)
+  fastify.get('/api/salebot/sessions', async () => {
+    const { data, error } = await supabaseService.supabase
+      .from('salebot_sessions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+    return { sessions: data || [] };
+  });
+} else {
+  console.log('⚠️ Salebot webhook отключён (нет SALEBOT_API_KEY)');
+}
+
 // Фоновый процесс генерации
 async function processProject(projectId: string): Promise<void> {
   try {
@@ -1838,9 +1980,11 @@ fastify.get('/api/test-vps', async () => {
 
   try {
     const connected = await checkVPSConnection();
+    const sites = connected ? await listVPSSites() : [];
     return {
       success: connected,
       config: vpsConfig,
+      sites,
       message: connected ? 'SSH соединение успешно' : 'Не удалось подключиться по SSH',
     };
   } catch (error) {
@@ -1850,6 +1994,17 @@ fastify.get('/api/test-vps', async () => {
       config: vpsConfig,
     };
   }
+});
+
+// Инспекция файлов сайта на VPS
+fastify.get<{ Params: { slug: string } }>('/api/inspect-vps/:slug', async (request) => {
+  const result = await inspectVPSSite(request.params.slug);
+  return result;
+});
+
+// Исправление nginx на VPS
+fastify.post('/api/fix-nginx', async () => {
+  return await fixNginxConfig();
 });
 
 // Запуск сервера
@@ -1879,19 +2034,28 @@ const shutdown = async (signal: string) => {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-// === ИНИЦИАЛИЗАЦИЯ ОЧЕРЕДИ VK ===
+// === ОБЩАЯ ФУНКЦИЯ: обработка VK URL → сайт ===
+// Используется как очередью, так и Salebot ботом
 
-// Обработчик элементов очереди - создаёт сайт из VK группы
-queueManager.setProcessor(async (item) => {
-  console.log(`\n🔄 Обработка VK группы: ${item.vk_url}`);
+interface ProcessVkUrlOptions {
+  niche?: Niche;
+  analyzePhotos?: boolean;
+  extractColors?: boolean;
+}
+
+async function processVkUrl(
+  vkUrl: string,
+  options: ProcessVkUrlOptions = {},
+): Promise<{ projectId: string; deployedUrl: string }> {
+  console.log(`\n🔄 Обработка VK группы: ${vkUrl}`);
 
   // 1. Парсим VK группу
-  const vkData = await parseVKGroup(item.vk_url);
+  const vkData = await parseVKGroup(vkUrl);
   console.log(`✅ Распарсена группа: ${vkData.name}`);
 
-  // 2. Извлекаем цвета из аватарки (если включено)
+  // 2. Извлекаем цвета из аватарки
   let colorScheme: { primary: string; accent: string } | undefined;
-  if (item.options?.extractColors !== false && vkData.avatarUrl) {
+  if (options.extractColors !== false && vkData.avatarUrl) {
     try {
       console.log(`🎨 Извлечение цветов из аватарки...`);
       colorScheme = await extractColorsFromUrl(vkData.avatarUrl);
@@ -1902,13 +2066,13 @@ queueManager.setProcessor(async (item) => {
   }
 
   // 3. Парсим фото из группы
-  const photos = await parseVKPhotos(item.vk_url, 30); // 30 фото для анализа
+  const photos = await parseVKPhotos(vkUrl, 30);
   console.log(`📷 Получено ${photos.length} фото`);
 
   // Генерируем projectId заранее для учёта расходов AI
   const projectId = nanoid(10);
 
-  // 4. AI анализ фото (если включено и есть OPENROUTER_API_KEY)
+  // 4. AI анализ фото
   let distributedPhotos: {
     hero: Array<{ url: string }>;
     gallery: Array<{ url: string }>;
@@ -1916,10 +2080,11 @@ queueManager.setProcessor(async (item) => {
     atmosphere: Array<{ url: string }>;
   } | null = null;
 
-  if (item.options?.analyzePhotos !== false && process.env.OPENROUTER_API_KEY && photos.length > 0) {
+  if (options.analyzePhotos !== false && process.env.OPENROUTER_API_KEY && photos.length > 0) {
     try {
       console.log(`🤖 AI анализ фотографий...`);
-      const analysis = await analyzePhotos(photos, item.options?.niche || 'fitness', 25, projectId);
+      const niche = options.niche || detectNiche(vkData.name, vkData.description, vkData.posts);
+      const analysis = await analyzePhotos(photos, niche, 25, projectId);
       distributedPhotos = distributePhotos(analysis.photos);
       console.log(`✅ Фото распределены: hero=${distributedPhotos.hero.length}, ` +
         `gallery=${distributedPhotos.gallery.length}, instructors=${distributedPhotos.instructors.length}`);
@@ -1928,10 +2093,10 @@ queueManager.setProcessor(async (item) => {
     }
   }
 
-  // 5. Автоопределение ниши по названию и описанию
-  const niche = detectNiche(vkData.name, vkData.description, vkData.posts);
+  // 5. Автоопределение ниши
+  const niche = options.niche || detectNiche(vkData.name, vkData.description, vkData.posts);
 
-  // Сохраняем в Supabase
+  // 6. Сохраняем проект в Supabase
   if (USE_SUPABASE) {
     await supabaseService.createProject({
       id: projectId,
@@ -1940,7 +2105,7 @@ queueManager.setProcessor(async (item) => {
       status: 'pending',
       description: vkData.description,
       color_scheme: colorScheme as Record<string, string> | undefined,
-      vk_group_url: item.vk_url,
+      vk_group_url: vkUrl,
       vk_admins: vkData.admins,
       vk_contacts: {
         phone: vkData.contacts.phone,
@@ -1951,14 +2116,11 @@ queueManager.setProcessor(async (item) => {
     });
   }
 
-  // 6. Загружаем фото в Storage с учётом AI категоризации
+  // 7. Загружаем фото в Storage
   const uploadedFiles: UploadedFile[] = [];
-
-  // Определяем какие фото загружать и с какими категориями
   const photosToUpload: Array<{ url: string; block: PhotoBlockType; order: number }> = [];
 
   if (distributedPhotos) {
-    // Используем AI категоризацию
     distributedPhotos.hero.slice(0, 3).forEach((p, i) =>
       photosToUpload.push({ url: p.url, block: 'hero', order: i }));
     distributedPhotos.instructors.slice(0, 4).forEach((p, i) =>
@@ -1968,7 +2130,6 @@ queueManager.setProcessor(async (item) => {
     distributedPhotos.gallery.slice(0, 12).forEach((p, i) =>
       photosToUpload.push({ url: p.url, block: 'gallery', order: 300 + i }));
   } else {
-    // Простое распределение: первые 3 — hero, остальные — gallery
     photos.slice(0, 25).forEach((p, i) =>
       photosToUpload.push({ url: p.url, block: i < 3 ? 'hero' : 'gallery', order: i }));
   }
@@ -2003,17 +2164,85 @@ queueManager.setProcessor(async (item) => {
 
   console.log(`📷 Загружено ${uploadedFiles.length} фото`);
 
-  // 7. Обновляем проект с фото
   if (USE_SUPABASE && uploadedFiles.length > 0) {
     await supabaseService.updateProject(projectId, {
       uploaded_files: uploadedFiles.map(f => ({ ...f, order: f.order ?? 0 })),
     });
   }
 
-  // 8. Запускаем генерацию
+  // 8. Запускаем генерацию (AI → build → deploy)
   await processProject(projectId);
 
-  return projectId;
+  // 9. Получаем URL задеплоенного сайта
+  let deployedUrl = '';
+  if (USE_SUPABASE) {
+    const dbProject = await supabaseService.getProject(projectId);
+    deployedUrl = dbProject?.deployed_url || '';
+  }
+
+  if (!deployedUrl) {
+    throw new Error('Сайт создан, но URL деплоя не найден');
+  }
+
+  return { projectId, deployedUrl };
+}
+
+// === SALEBOT: async обработка генерации сайта ===
+
+async function processSalebotSite(
+  sessionId: string,
+  vkUrl: string,
+  salebotClientId: string,
+): Promise<void> {
+  try {
+    const result = await processVkUrl(vkUrl);
+
+    // Обновляем сессию
+    await updateSalebotSession(sessionId, {
+      state: 'completed',
+      project_id: result.projectId,
+      deployed_url: result.deployedUrl,
+    });
+
+    // Сохраняем переменные в Salebot (для аналитики воронки)
+    await salebotSaveVariables(salebotClientId, {
+      site_url: result.deployedUrl,
+      project_id: result.projectId,
+      status: 'completed',
+    });
+
+    // Отправляем результат пользователю
+    await salebotSendMessage(
+      salebotClientId,
+      SALEBOT_MESSAGES.completed(result.deployedUrl),
+      [{ type: 'inline', text: '🌐 Открыть сайт', url: result.deployedUrl, line: 0, index_in_line: 0 }],
+    );
+
+    console.log(`✅ Salebot: сайт доставлен клиенту ${salebotClientId}: ${result.deployedUrl}`);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    await updateSalebotSession(sessionId, {
+      state: 'failed',
+      error_message: errorMessage,
+    });
+
+    await salebotSendMessage(salebotClientId, SALEBOT_MESSAGES.failed);
+
+    console.error(`❌ Salebot: ошибка генерации для сессии ${sessionId}:`, errorMessage);
+  }
+}
+
+// === ИНИЦИАЛИЗАЦИЯ ОЧЕРЕДИ VK ===
+
+// Обработчик элементов очереди - использует общую функцию processVkUrl
+queueManager.setProcessor(async (item) => {
+  const result = await processVkUrl(item.vk_url, {
+    niche: item.options?.niche as Niche | undefined,
+    analyzePhotos: item.options?.analyzePhotos,
+    extractColors: item.options?.extractColors,
+  });
+  return result.projectId;
 });
 
 // Подписка на события очереди (для логирования и Telegram)
@@ -2035,12 +2264,16 @@ queueManager.onEvent(async (event) => {
   }
 });
 
-// Восстановление зависших элементов при старте
-queueManager.recover().then(count => {
-  if (count > 0) {
-    console.log(`🔄 Восстановлено ${count} зависших элементов очереди`);
-  }
-});
+// Восстановление зависших элементов при старте (только при Supabase)
+if (USE_SUPABASE) {
+  queueManager.recover().then(count => {
+    if (count > 0) {
+      console.log(`🔄 Восстановлено ${count} зависших элементов очереди`);
+    }
+  });
+} else {
+  console.log('📦 Очередь (Supabase) отключена — используем локальный режим');
+}
 
 // Локальный запуск (не на Vercel)
 if (!IS_VERCEL) {

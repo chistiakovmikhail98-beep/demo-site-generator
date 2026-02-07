@@ -38,9 +38,10 @@ const RADAR_LABELS = ['Техника', 'Сила', 'Гибкость', 'Вын�
 const ArtistGrowthViz: React.FC<{ activeIndex: number }> = ({ activeIndex }) => {
   const stats = STAGES[activeIndex].stats;
 
-  const size = 400;
-  const center = size / 2;
-  const radius = 110;
+  // Увеличенный viewBox для размещения длинных меток
+  const size = 500;
+  const center = size / 2; // 250
+  const radius = 100; // Чуть меньше для большего отступа до меток
 
   const getPoint = (value: number, angle: number) => {
     const r = (value / 100) * radius;
@@ -58,14 +59,14 @@ const ArtistGrowthViz: React.FC<{ activeIndex: number }> = ({ activeIndex }) => 
     getPoint(stats.plasticity, angles[3])
   ].join(' ');
 
-  const circles = [30, 60, 90, 110];
+  const circles = [25, 50, 75, 100];
 
-  // Позиции меток для SVG
+  // Позиции меток с большим отступом для длинных слов
   const labelPositions = [
-    { x: center, y: center - radius - 15, anchor: 'middle' },
-    { x: center + radius + 15, y: center + 4, anchor: 'start' },
-    { x: center, y: center + radius + 20, anchor: 'middle' },
-    { x: center - radius - 15, y: center + 4, anchor: 'end' },
+    { x: center, y: center - radius - 20, anchor: 'middle' },       // Техника (сверху)
+    { x: center + radius + 20, y: center + 5, anchor: 'start' },    // Сила (справа)
+    { x: center, y: center + radius + 30, anchor: 'middle' },       // Гибкость (снизу)
+    { x: center - radius - 20, y: center + 5, anchor: 'end' },      // Выносливость (слева)
   ];
 
   return (
@@ -75,8 +76,8 @@ const ArtistGrowthViz: React.FC<{ activeIndex: number }> = ({ activeIndex }) => 
              style={{ backgroundImage: 'radial-gradient(circle at center, #27272a 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
         </div>
 
-        <div className="relative z-10 w-full max-w-[320px] md:max-w-[380px] aspect-square radar-chart">
-            <svg viewBox="0 0 400 400" className="w-full h-full absolute inset-0">
+        <div className="relative z-10 w-full max-w-[340px] md:max-w-[400px] aspect-square radar-chart p-4">
+            <svg viewBox="0 0 500 500" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
                 <defs>
                     <linearGradient id="radarGradient" x1="0" y1="0" x2="1" y2="1">
                         <stop offset="0%" className="radar-gradient-start" />
@@ -88,7 +89,7 @@ const ArtistGrowthViz: React.FC<{ activeIndex: number }> = ({ activeIndex }) => 
                 {circles.map((r, i) => (<circle key={i} cx={center} cy={center} r={r} fill="none" stroke="#333" strokeWidth="1" strokeDasharray="4 4" className="opacity-30" />))}
                 <polygon points={points} fill="url(#radarGradient)" className="stroke-primary transition-all duration-1000 ease-out" strokeWidth="2" />
                 {RADAR_LABELS.map((label, i) => (
-                  <text key={i} x={labelPositions[i].x} y={labelPositions[i].y} textAnchor={labelPositions[i].anchor as 'start' | 'middle' | 'end'} className="fill-primary text-[10px] font-bold uppercase tracking-widest">{label}</text>
+                  <text key={i} x={labelPositions[i].x} y={labelPositions[i].y} textAnchor={labelPositions[i].anchor as 'start' | 'middle' | 'end'} className="fill-primary font-bold uppercase" style={{ fontSize: '12px', letterSpacing: '0.05em' }}>{label}</text>
                 ))}
             </svg>
         </div>

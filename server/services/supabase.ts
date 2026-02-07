@@ -4,10 +4,12 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || ''; // Service key для серверных операций
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.warn('⚠️ SUPABASE_URL или SUPABASE_SERVICE_KEY не установлены');
+  console.warn('⚠️ SUPABASE_URL или SUPABASE_SERVICE_KEY не установлены — работаем в локальном режиме');
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+export const supabase = (SUPABASE_URL && SUPABASE_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null as any;
 
 // Типы для БД
 export interface DbProject {
@@ -23,6 +25,9 @@ export interface DbProject {
   deployed_url?: string;
   error?: string;
   uploaded_files?: Array<{ path: string; filename: string; block: string; label?: string; order: number }>;
+  // Outreach статус
+  outreach_status?: 'new' | 'sent' | 'replied' | 'converted' | 'rejected';
+  outreach_sent_at?: string;
   // VK данные для CRM
   vk_group_url?: string;
   vk_admins?: Array<{ name?: string; phone?: string; email?: string; role?: string; vkUrl?: string; vkId?: number }>;
@@ -730,6 +735,21 @@ export async function resetStuckProcessingItems(minutesOld: number = 30): Promis
 
   if (error) throw error;
   return data?.length || 0;
+}
+
+/**
+ * Получает failed элементы очереди с сообщениями об ошибках
+ */
+export async function getFailedQueueItems(limit: number = 50): Promise<DbQueueItem[]> {
+  const { data, error } = await supabase
+    .from('queue_items')
+    .select('*')
+    .eq('status', 'failed')
+    .order('completed_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
 }
 
 // === AI Costs (детальный учёт расходов по проектам) ===

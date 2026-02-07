@@ -267,6 +267,36 @@ export async function listVPSSites(): Promise<string[]> {
 }
 
 /**
+ * Показывает содержимое папки сайта на VPS
+ */
+export async function inspectVPSSite(slug: string): Promise<{ files: string[]; nginxConfig: string }> {
+  if (!VPS_HOST) return { files: [], nginxConfig: '' };
+
+  try {
+    const keyPath = await ensureSSHKey();
+    const sshOpts = keyPath
+      ? `-i "${keyPath}" -o StrictHostKeyChecking=no`
+      : '-o StrictHostKeyChecking=no';
+
+    const { stdout: files } = await execAsync(
+      `ssh ${sshOpts} ${VPS_HOST} "ls -laR ${VPS_SITES_DIR}/${slug}/ 2>/dev/null | head -50"`
+    );
+
+    let nginxConfig = '';
+    try {
+      const { stdout } = await execAsync(
+        `ssh ${sshOpts} ${VPS_HOST} "cat /etc/nginx/sites-enabled/${VPS_DOMAIN} 2>/dev/null || cat /etc/nginx/sites-enabled/default 2>/dev/null || echo 'nginx config not found'"`
+      );
+      nginxConfig = stdout;
+    } catch { nginxConfig = 'не удалось прочитать'; }
+
+    return { files: files.trim().split('\n'), nginxConfig };
+  } catch (error) {
+    return { files: [String(error)], nginxConfig: '' };
+  }
+}
+
+/**
  * Проверяет, настроен ли VPS деплой
  */
 export function isVPSConfigured(): boolean {
@@ -290,6 +320,64 @@ export function getVPSConfig(): {
     sitesDir: VPS_SITES_DIR,
     hasSSHKey: !!VPS_SSH_KEY_CONTENT,
   };
+}
+
+/**
+ * Исправляет nginx конфиг на VPS (заменяет alias на root)
+ */
+export async function fixNginxConfig(): Promise<{ success: boolean; message: string }> {
+  if (!VPS_HOST) return { success: false, message: 'VPS не настроен' };
+
+  try {
+    const keyPath = await ensureSSHKey();
+    const sshOpts = keyPath
+      ? `-i "${keyPath}" -o StrictHostKeyChecking=no`
+      : '-o StrictHostKeyChecking=no';
+
+    const domain = VPS_DOMAIN;
+
+    // Конфиг nginx (используем base64 для безопасной передачи)
+    const nginxConfig = `server {
+    listen 80;
+    listen [::]:80;
+    server_name ${domain} www.${domain};
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${domain} www.${domain};
+
+    ssl_certificate /etc/ssl/fitwebai/fullchain.crt;
+    ssl_certificate_key /etc/ssl/fitwebai/fitwebai.key;
+
+    root /var/www/sites;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ $uri/index.html =404;
+    }
+
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+        expires 30d;
+        add_header Cache-Control "public";
+    }
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+}
+`;
+
+    const b64 = Buffer.from(nginxConfig).toString('base64');
+    await execAsync(
+      `ssh ${sshOpts} ${VPS_HOST} "echo '${b64}' | base64 -d > /etc/nginx/sites-enabled/${domain} && nginx -t && systemctl reload nginx"`
+    );
+
+    return { success: true, message: 'Nginx конфиг обновлён и перезагружен' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 // === NGINX Config Helper ===

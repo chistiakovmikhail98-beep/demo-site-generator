@@ -25,11 +25,6 @@ const Header: React.FC = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {BRAND_CONFIG.logo && (
-            <div className="w-12 h-12 flex items-center justify-center">
-               <img src={BRAND_CONFIG.logo} alt="Logo" className="w-full h-full object-contain" />
-            </div>
-          )}
           <div className="flex flex-col leading-none">
             <span className={`text-xl font-black tracking-tighter transition-colors uppercase ${isScrolled ? 'text-white' : 'text-white'}`}>
               {BRAND_CONFIG.name}

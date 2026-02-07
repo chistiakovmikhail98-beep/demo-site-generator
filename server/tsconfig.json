@@ -11,5 +11,5 @@
     "resolveJsonModule": true
   },
   "include": ["./**/*.ts"],
-  "exclude": ["node_modules", "dist", "builds", "template"]
+  "exclude": ["node_modules", "dist", "builds", "template", "tests"]
 }

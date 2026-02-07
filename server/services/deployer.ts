@@ -76,15 +76,15 @@ export async function deployToVercel(
     JSON.stringify(vercelConfig, null, 2)
   );
 
-  let deployedUrl: string | null = null;
+  let deployment: { url: string; deploymentId: string } | null = null;
 
   // Пробуем только через API (CLI не работает на Railway)
   console.log(`🔧 Деплой ${projectId} через Vercel API...`);
 
   // Используем Vercel API напрямую
   try {
-    deployedUrl = await deployToVercelAPI(buildPath, sanitizedSlug);
-    console.log(`✅ API деплой успешен: ${deployedUrl}`);
+    deployment = await deployToVercelAPI(buildPath, sanitizedSlug);
+    console.log(`✅ API деплой успешен: ${deployment.url}`);
   } catch (apiError) {
     console.error('❌ API деплой не сработал:', apiError);
 
@@ -96,18 +96,19 @@ export async function deployToVercel(
   }
 
   // Отключаем Deployment Protection для публичного доступа
-  await disableDeploymentProtection(projectName);
+  // Используем demo-${sanitizedSlug} т.к. это имя проекта в Vercel API
+  await disableDeploymentProtection(`demo-${sanitizedSlug}`);
 
   // Если есть кастомный домен — привязываем субдомен
   // ВАЖНО: используем sanitizedSlug, а не slug, и проверяем что он не пустой
-  if (CUSTOM_DOMAIN && deployedUrl && sanitizedSlug && sanitizedSlug.length >= 3) {
+  if (CUSTOM_DOMAIN && deployment && sanitizedSlug && sanitizedSlug.length >= 3) {
     const subdomain = `${sanitizedSlug}.${CUSTOM_DOMAIN}`;
 
     // ЗАЩИТА: не создаём alias на основной домен!
     if (subdomain === CUSTOM_DOMAIN || subdomain === `.${CUSTOM_DOMAIN}`) {
       console.warn(`⚠️ Попытка создать alias на основной домен заблокирована!`);
     } else {
-      const customUrl = await assignCustomDomain(deployedUrl, subdomain);
+      const customUrl = await assignCustomDomain(deployment.deploymentId, subdomain);
       if (customUrl) {
         console.log(`🌐 Кастомный домен: ${customUrl}`);
         return customUrl;
@@ -117,14 +118,14 @@ export async function deployToVercel(
     console.warn(`⚠️ Slug слишком короткий ("${sanitizedSlug}"), субдомен не создаётся`);
   }
 
-  return deployedUrl;
+  return deployment.url;
 }
 
 // Метод через Vercel API напрямую (без CLI)
 export async function deployToVercelAPI(
   buildPath: string,
   slug: string
-): Promise<string> {
+): Promise<{ url: string; deploymentId: string }> {
   const VERCEL_TOKEN = getVercelToken();
   if (!VERCEL_TOKEN) {
     throw new Error('VERCEL_TOKEN не установлен');
@@ -135,6 +136,7 @@ export async function deployToVercelAPI(
   // Собираем файлы для загрузки
   const files = await collectFiles(buildPath);
   console.log(`📤 Собрано ${files.length} файлов`);
+  console.log(`📤 Файлы: ${files.map(f => f.file).join(', ')}`);
 
   const projectName = `demo-${slug}`;
 
@@ -184,7 +186,10 @@ export async function deployToVercelAPI(
     if (status.readyState === 'READY') {
       ready = true;
     } else if (status.readyState === 'ERROR') {
-      throw new Error('Деплой завершился с ошибкой');
+      // Логируем детали ошибки от Vercel
+      console.error(`❌ Vercel deployment ERROR:`, JSON.stringify(status, null, 2));
+      const errorInfo = (status as any).errorMessage || (status as any).error || 'Unknown error';
+      throw new Error(`Деплой завершился с ошибкой: ${errorInfo}`);
     }
 
     attempts++;
@@ -194,14 +199,14 @@ export async function deployToVercelAPI(
     throw new Error('Таймаут ожидания деплоя');
   }
 
-  return `https://${deployment.url}`;
+  return { url: `https://${deployment.url}`, deploymentId: deployment.id };
 }
 
 async function collectFiles(
   dir: string,
   base = ''
-): Promise<Array<{ file: string; data: string }>> {
-  const files: Array<{ file: string; data: string }> = [];
+): Promise<Array<{ file: string; data: string; encoding: 'base64' }>> {
+  const files: Array<{ file: string; data: string; encoding: 'base64' }> = [];
   const entries = await fs.readdir(dir, { withFileTypes: true });
 
   for (const entry of entries) {
@@ -215,6 +220,7 @@ async function collectFiles(
       files.push({
         file: relativePath,
         data: content.toString('base64'),
+        encoding: 'base64',
       });
     }
   }
@@ -257,22 +263,22 @@ async function disableDeploymentProtection(projectName: string): Promise<void> {
 }
 
 // Привязка кастомного субдомена к деплою (с retry)
-async function assignCustomDomain(deploymentUrl: string, subdomain: string): Promise<string | null> {
+async function assignCustomDomain(deploymentId: string, subdomain: string): Promise<string | null> {
   const VERCEL_TOKEN = getVercelToken();
   if (!VERCEL_TOKEN) {
     console.error('❌ VERCEL_TOKEN не установлен для создания alias');
     return null;
   }
 
-  const deploymentHost = deploymentUrl.replace('https://', '').replace('http://', '');
   const maxRetries = 3;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    console.log(`🔗 Привязываем ${subdomain} к ${deploymentHost}... (попытка ${attempt}/${maxRetries})`);
+    console.log(`🔗 Привязываем ${subdomain} к deployment ${deploymentId}... (попытка ${attempt}/${maxRetries})`);
 
     try {
-      // Создаём alias через Vercel API
-      const response = await fetch('https://api.vercel.com/v2/deployments/' + encodeURIComponent(deploymentHost) + '/aliases', {
+      // Создаём alias через Vercel API (используем deployment ID)
+      // Документация: https://vercel.com/docs/rest-api/reference/endpoints/aliases/assign-an-alias
+      const response = await fetch('https://api.vercel.com/v2/now/deployments/' + encodeURIComponent(deploymentId) + '/aliases', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${VERCEL_TOKEN}`,

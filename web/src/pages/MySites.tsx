@@ -25,7 +25,9 @@ import {
   Upload,
   List,
   MapPin,
-  Globe
+  Globe,
+  Copy,
+  ClipboardCheck
 } from 'lucide-react';
 
 // Типы для лидов
@@ -56,6 +58,9 @@ interface Project {
   status: string;
   deployed_url?: string;
   created_at: string;
+  // Outreach
+  outreach_status?: 'new' | 'sent' | 'replied' | 'converted' | 'rejected';
+  outreach_sent_at?: string;
   // VK данные из БД
   vk_group_url?: string;
   vk_admins?: AdminContact[];
@@ -116,6 +121,16 @@ interface AiCostsStats {
     tokens: number;
     count: number;
   }>;
+}
+
+// Failed элемент очереди
+interface FailedItem {
+  id: string;
+  vkUrl: string;
+  errorMessage: string;
+  retryCount: number;
+  completedAt: string;
+  batchId?: string;
 }
 
 // Контакт администратора
@@ -186,6 +201,10 @@ export default function MySites() {
   // AI Costs state
   const [aiCosts, setAiCosts] = useState<AiCostsStats | null>(null);
 
+  // Failed items state
+  const [failedItems, setFailedItems] = useState<FailedItem[]>([]);
+  const [showFailedDetails, setShowFailedDetails] = useState(false);
+
   // Загрузка проектов
   useEffect(() => {
     fetchProjects();
@@ -204,8 +223,12 @@ export default function MySites() {
     if (activeTab === 'batch') {
       fetchQueueStatus();
       fetchAiCosts();
+      fetchFailedItems();
       // Автообновление каждые 3 секунды
-      const interval = setInterval(fetchQueueStatus, 3000);
+      const interval = setInterval(() => {
+        fetchQueueStatus();
+        fetchFailedItems();
+      }, 3000);
       return () => clearInterval(interval);
     }
   }, [activeTab]);
@@ -264,6 +287,18 @@ export default function MySites() {
       }
     } catch (error) {
       console.error('Ошибка загрузки AI costs:', error);
+    }
+  };
+
+  const fetchFailedItems = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/batch-vk/failed`);
+      const data = await response.json();
+      if (data.success) {
+        setFailedItems(data.items || []);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки failed items:', error);
     }
   };
 
@@ -654,18 +689,38 @@ export default function MySites() {
                 <span className="text-sm text-indigo-700">
                   Выбрано: <strong>{selectedIds.size}</strong> из {projects.length}
                 </span>
-                <button
-                  onClick={handleBulkDelete}
-                  disabled={isDeleting}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition disabled:opacity-50"
-                >
-                  {isDeleting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4" />
-                  )}
-                  Удалить выбранные
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const urls = projects
+                        .filter(p => selectedIds.has(p.id) && p.deployed_url)
+                        .map(p => p.deployed_url!);
+                      if (urls.length === 0) {
+                        alert('Нет ссылок для копирования (выбранные сайты ещё не задеплоены)');
+                        return;
+                      }
+                      navigator.clipboard.writeText(urls.join('\n')).then(() => {
+                        alert(`Скопировано ${urls.length} ссылок`);
+                      });
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Копировать ссылки
+                  </button>
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={isDeleting}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition disabled:opacity-50"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    Удалить выбранные
+                  </button>
+                </div>
               </div>
             )}
             {/* Таблица */}
@@ -691,6 +746,7 @@ export default function MySites() {
                     </th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Ниша</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Статус</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Рассылка</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Ссылка</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Контакт</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">Доп. ссылка</th>
@@ -809,6 +865,31 @@ export default function MySites() {
 
                         {/* Статус */}
                         <td className="px-4 py-3">{getStatusBadge(project.status)}</td>
+
+                        {/* Рассылка */}
+                        <td className="px-4 py-3">
+                          {project.outreach_status === 'sent' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                              <Send size={12} /> Отправлено
+                            </span>
+                          ) : project.outreach_status === 'replied' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                              <MessageSquare size={12} /> Ответил
+                            </span>
+                          ) : project.outreach_status === 'converted' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                              <CheckCircle size={12} /> Конверсия
+                            </span>
+                          ) : project.outreach_status === 'rejected' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                              <X size={12} /> Отказ
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                              <Clock size={12} /> Новый
+                            </span>
+                          )}
+                        </td>
 
                         {/* Ссылка на сайт */}
                         <td className="px-4 py-3">
@@ -1212,11 +1293,42 @@ export default function MySites() {
                       <div className="text-2xl font-bold text-green-600">{batchStatus.completed}</div>
                       <div className="text-xs text-green-700">Готово</div>
                     </div>
-                    <div className="bg-red-50 rounded-lg p-3">
+                    <button
+                      onClick={() => batchStatus.failed > 0 && setShowFailedDetails(!showFailedDetails)}
+                      className={`bg-red-50 rounded-lg p-3 ${batchStatus.failed > 0 ? 'hover:bg-red-100 cursor-pointer' : ''} transition`}
+                    >
                       <div className="text-2xl font-bold text-red-600">{batchStatus.failed}</div>
                       <div className="text-xs text-red-700">Ошибки</div>
-                    </div>
+                    </button>
                   </div>
+
+                  {/* Детали ошибок */}
+                  {showFailedDetails && failedItems.length > 0 && (
+                    <div className="mt-4 border-t pt-4">
+                      <h4 className="text-sm font-semibold text-red-600 mb-2 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" />
+                        Ошибки обработки
+                      </h4>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {failedItems.map(item => (
+                          <div key={item.id} className="bg-red-50 rounded p-3 text-sm">
+                            <a
+                              href={item.vkUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-red-800 hover:underline break-all"
+                            >
+                              {item.vkUrl}
+                            </a>
+                            <p className="text-red-600 mt-1">{item.errorMessage}</p>
+                            <p className="text-red-400 text-xs mt-1">
+                              Попыток: {item.retryCount}/3
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

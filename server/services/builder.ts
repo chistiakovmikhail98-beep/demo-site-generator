@@ -351,6 +351,8 @@ async function updateIndexHtml(buildDir: string, config: SiteConfig): Promise<vo
               surface: '${colorScheme.surface}',
               primary: '${colorScheme.primary}',
               accent: '${colorScheme.accent}',
+              foreground: '${colorScheme.text}',
+              'muted-foreground': '${colorScheme.text === '#1a1a1a' ? '#52525b' : '#a1a1aa'}',
               grayNoble: '#4b5563',
             },
             boxShadow: {
@@ -444,6 +446,8 @@ async function updateIndexHtml(buildDir: string, config: SiteConfig): Promise<vo
       /* Text colors */
       .text-primary { color: ${colorScheme.primary}; }
       .text-accent { color: ${colorScheme.accent}; }
+      .text-foreground { color: ${colorScheme.text}; }
+      .text-muted-foreground { color: ${colorScheme.text === '#1a1a1a' ? '#52525b' : '#a1a1aa'}; }
 
       /* Border colors */
       .border-primary { border-color: ${colorScheme.primary}; }
@@ -646,7 +650,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  base: '/',
+  base: './',
   build: {
     outDir: 'dist',
   },
