@@ -116,7 +116,7 @@ export async function deleteProject(id: string): Promise<void> {
   if (files && files.length > 0) {
     await supabase.storage
       .from('project-images')
-      .remove(files.map(f => `${id}/${f.name}`));
+      .remove(files.map((f: { name: string }) => `${id}/${f.name}`));
   }
 
   // Удаляем проект

@@ -21,17 +21,20 @@ import { extractColorsFromUrl } from './services/color-extractor.js';
 import { deployToVPS, isVPSConfigured, getVPSConfig, checkVPSConnection, listVPSSites, inspectVPSSite, fixNginxConfig } from './services/vps-deployer.js';
 import sharp from 'sharp';
 import {
-  USE_SALEBOT,
-  sendMessage as salebotSendMessage,
-  saveVariables as salebotSaveVariables,
-  isSubscriptionCallback,
+  USE_VK_BOT,
+  sendMessage as vkSendMessage,
   extractVkUrl,
   getActiveSession,
-  getSessionByClientId,
+  getSessionByUserId,
   createSession,
-  updateSession as updateSalebotSession,
-  MESSAGES as SALEBOT_MESSAGES,
-  type SalebotWebhookPayload,
+  updateSession as updateBotSession,
+  getVkUserName,
+  getConfirmationCode,
+  validateSecret,
+  makeSiteLinkKeyboard,
+  MESSAGES as BOT_MESSAGES,
+  type VkCallbackPayload,
+  type SenlerWebhookPayload,
 } from './services/salebot.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1682,134 +1685,221 @@ fastify.patch<{
   }
 });
 
-// === SALEBOT WEBHOOK ===
+// === ПУБЛИЧНАЯ ВОРОНКА: генерация сайта по VK URL ===
 
-if (USE_SALEBOT) {
-  console.log('🤖 Salebot webhook включён: POST /api/salebot/webhook');
+fastify.post<{
+  Body: { vkUrl: string };
+}>('/api/funnel/generate', async (request, reply) => {
+  try {
+    const { vkUrl } = request.body || {};
 
-  fastify.post('/api/salebot/webhook', async (request, reply) => {
+    if (!vkUrl || (!vkUrl.includes('vk.com') && !vkUrl.includes('vk.ru'))) {
+      return reply.status(400).send({ error: 'Укажите корректную ссылку на группу ВКонтакте' });
+    }
+
+    // Генерируем projectId заранее, чтобы фронт мог сразу полить статус
+    const projectId = nanoid(10);
+
+    // Быстрый ответ клиенту
+    reply.send({ projectId, status: 'pending', statusUrl: `/api/status/${projectId}` });
+
+    // Запускаем генерацию в фоне с заданным projectId
+    processVkUrl(vkUrl, { projectId }).catch(err => {
+      console.error(`❌ Funnel generation error for ${projectId}:`, err);
+    });
+  } catch (error) {
+    console.error('❌ Funnel endpoint error:', error);
+    return reply.status(500).send({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// === VK БОТ: Senler webhook (подписка) + VK Callback API (сообщения) ===
+
+// 1. Senler webhook — ловит подписку с подписной страницы
+fastify.post('/api/senler/webhook', async (request, reply) => {
+  try {
+    const payload = request.body as SenlerWebhookPayload;
+
+    // Подробный лог всего что пришло
+    console.log('');
+    console.log('═══════════════════════════════════════════');
+    console.log('📩 SENLER WEBHOOK ПОЛУЧЕН!');
+    console.log('═══════════════════════════════════════════');
+    console.log('Headers:', JSON.stringify(request.headers, null, 2));
+    console.log('Body:', JSON.stringify(payload, null, 2));
+    console.log('═══════════════════════════════════════════');
+    console.log('');
+
+    const vkUserId = String(payload.vk_user_id || payload.user_id || '');
+
+    if (!vkUserId) {
+      console.log('⚠️ Senler: нет user_id в payload');
+      return { ok: true, error: 'no user_id' };
+    }
+
+    console.log(`✅ Senler: подписка от vk_user_id=${vkUserId}`);
+
+    // Если Supabase подключен — создаём сессию и отправляем приветствие
+    if (USE_SUPABASE && USE_VK_BOT) {
+      const existing = await getActiveSession(vkUserId);
+      if (existing) {
+        console.log(`⚠️ Senler: сессия уже существует для ${vkUserId}, state=${existing.state}`);
+        return { ok: true };
+      }
+
+      const name = await getVkUserName(vkUserId);
+      const session = await createSession(vkUserId, name);
+      await updateBotSession(session.id, { state: 'awaiting_url' });
+      await vkSendMessage(vkUserId, BOT_MESSAGES.greeting(name));
+      console.log(`🆕 Senler: новая подписка от ${name} (${vkUserId}), приветствие отправлено`);
+    } else {
+      console.log(`ℹ️ Senler: webhook пойман, но Supabase/VK бот не настроены (тестовый режим)`);
+    }
+
+    return { ok: true };
+  } catch (error) {
+    console.error('❌ Senler webhook error:', error);
+    return { ok: true };
+  }
+});
+
+// 2. VK Callback API — ловит сообщения от пользователей
+if (USE_VK_BOT) {
+  console.log('🤖 VK бот включён: POST /api/vk/callback');
+
+  fastify.post('/api/vk/callback', async (request, reply) => {
     try {
-      const payload = request.body as SalebotWebhookPayload;
-      const clientId = String(payload.client?.id);
+      const payload = request.body as VkCallbackPayload;
 
-      console.log(`🤖 Salebot webhook: client=${clientId}, name="${payload.client?.name}", message="${payload.message}", is_input=${payload.is_input}`);
-
-      // Игнорируем сообщения от самого бота
-      if (payload.is_input === 0) {
-        return { ok: true };
+      // Проверка секрета
+      if (!validateSecret(payload.secret)) {
+        return reply.status(403).send('Invalid secret');
       }
 
-      // Ищем существующую активную сессию
-      let session = await getActiveSession(clientId);
-
-      // --- Нет активной сессии ---
-      if (!session) {
-        // Проверяем: это callback подписной страницы?
-        if (isSubscriptionCallback(payload)) {
-          console.log(`🆕 Salebot: новая подписка от ${payload.client?.name} (${clientId})`);
-
-          session = await createSession(payload);
-          await updateSalebotSession(session.id, { state: 'awaiting_url' });
-
-          await salebotSendMessage(clientId, SALEBOT_MESSAGES.greeting(payload.client?.name || 'Здравствуйте'));
-          return { ok: true };
-        }
-
-        // Может у пользователя завершённая сессия — предложить новую
-        const existingSession = await getSessionByClientId(clientId);
-        if (existingSession && existingSession.state === 'completed') {
-          // Проверяем — может прислали новый VK URL
-          const vkUrl = extractVkUrl(payload.message || '');
-          if (vkUrl) {
-            // Создаём новую сессию для нового сайта
-            session = await createSession(payload);
-            await updateSalebotSession(session.id, { state: 'processing', vk_url: vkUrl });
-            await salebotSendMessage(clientId, SALEBOT_MESSAGES.processing(vkUrl));
-            processSalebotSite(session.id, vkUrl, clientId).catch(err =>
-              console.error(`❌ Salebot generation error:`, err)
-            );
-            return { ok: true };
-          }
-
-          await salebotSendMessage(clientId, SALEBOT_MESSAGES.completedRepeat(existingSession.deployed_url || ''));
-          return { ok: true };
-        }
-
-        // Неизвестный пользователь без подписки — игнорируем
-        console.log(`⚠️ Salebot: сообщение от неизвестного клиента ${clientId}, игнорируем`);
-        return { ok: true };
+      // Подтверждение сервера VK
+      if (payload.type === 'confirmation') {
+        return reply.type('text/plain').send(getConfirmationCode());
       }
 
-      // --- Есть активная сессия, роутим по состоянию ---
-      switch (session.state) {
-        case 'new':
-        case 'awaiting_url': {
-          const vkUrl = extractVkUrl(payload.message || '');
+      // Обработка нового сообщения
+      if (payload.type === 'message_new' && payload.object?.message) {
+        const msg = payload.object.message;
+        const userId = String(msg.from_id);
+        const text = msg.text || '';
 
-          if (!vkUrl) {
-            await salebotSendMessage(clientId, SALEBOT_MESSAGES.invalidUrl);
-            return { ok: true };
-          }
+        console.log(`💬 VK message от ${userId}: "${text}"`);
 
-          // Валидный URL — запускаем генерацию
-          await updateSalebotSession(session.id, { state: 'processing', vk_url: vkUrl });
-          await salebotSendMessage(clientId, SALEBOT_MESSAGES.processing(vkUrl));
-
-          // Async генерация (не блокируем webhook)
-          processSalebotSite(session.id, vkUrl, clientId).catch(err =>
-            console.error(`❌ Salebot generation error for session ${session!.id}:`, err)
-          );
-
-          return { ok: true };
-        }
-
-        case 'processing': {
-          await salebotSendMessage(clientId, SALEBOT_MESSAGES.stillProcessing);
-          return { ok: true };
-        }
-
-        case 'failed': {
-          const vkUrl = extractVkUrl(payload.message || '');
-          if (vkUrl) {
-            await updateSalebotSession(session.id, {
-              state: 'processing',
-              vk_url: vkUrl,
-              error_message: null,
-              retry_count: session.retry_count + 1,
-            });
-            await salebotSendMessage(clientId, SALEBOT_MESSAGES.retrying(vkUrl));
-            processSalebotSite(session.id, vkUrl, clientId).catch(console.error);
-          } else {
-            await updateSalebotSession(session.id, { state: 'awaiting_url' });
-            await salebotSendMessage(clientId, SALEBOT_MESSAGES.failed);
-          }
-          return { ok: true };
-        }
-
-        default:
-          return { ok: true };
+        // Обрабатываем асинхронно, чтобы быстро вернуть "ok"
+        handleVkMessage(userId, text).catch(err =>
+          console.error(`❌ VK message handler error:`, err)
+        );
       }
+
+      // VK ожидает строку "ok"
+      return reply.type('text/plain').send('ok');
     } catch (error) {
-      console.error('❌ Salebot webhook error:', error);
-      // Всегда 200 чтобы Salebot не делал retry
-      return { ok: true };
+      console.error('❌ VK callback error:', error);
+      return reply.type('text/plain').send('ok');
     }
   });
-
-  // Эндпоинт для просмотра сессий бота (опционально, для дебага)
-  fastify.get('/api/salebot/sessions', async () => {
-    const { data, error } = await supabaseService.supabase
-      .from('salebot_sessions')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (error) throw error;
-    return { sessions: data || [] };
-  });
 } else {
-  console.log('⚠️ Salebot webhook отключён (нет SALEBOT_API_KEY)');
+  console.log('⚠️ VK бот отключён (нет VK_GROUP_TOKEN)');
 }
+
+// Обработчик VK сообщений — state machine
+async function handleVkMessage(userId: string, text: string): Promise<void> {
+  let session = await getActiveSession(userId);
+
+  // --- Нет активной сессии ---
+  if (!session) {
+    const existingSession = await getSessionByUserId(userId);
+
+    if (existingSession && existingSession.state === 'completed') {
+      // Пользователь уже получал сайт — может хочет новый
+      const vkUrl = extractVkUrl(text);
+      if (vkUrl) {
+        session = await createSession(userId);
+        await updateBotSession(session.id, { state: 'processing', vk_url: vkUrl });
+        await vkSendMessage(userId, BOT_MESSAGES.processing(vkUrl));
+        processBotSite(session.id, vkUrl, userId).catch(console.error);
+        return;
+      }
+      await vkSendMessage(userId, BOT_MESSAGES.completedRepeat(existingSession.deployed_url || ''));
+      return;
+    }
+
+    // Новый пользователь — возможно пришёл из рекламы, но не через Senler
+    // Создаём сессию и приветствуем
+    const name = await getVkUserName(userId);
+    session = await createSession(userId, name);
+    await updateBotSession(session.id, { state: 'awaiting_url' });
+
+    // Проверяем — может уже прислал URL в первом сообщении
+    const vkUrl = extractVkUrl(text);
+    if (vkUrl) {
+      await updateBotSession(session.id, { state: 'processing', vk_url: vkUrl });
+      await vkSendMessage(userId, BOT_MESSAGES.processing(vkUrl));
+      processBotSite(session.id, vkUrl, userId).catch(console.error);
+      return;
+    }
+
+    await vkSendMessage(userId, BOT_MESSAGES.greeting(name));
+    return;
+  }
+
+  // --- Есть активная сессия ---
+  switch (session.state) {
+    case 'new':
+    case 'awaiting_url': {
+      const vkUrl = extractVkUrl(text);
+      if (!vkUrl) {
+        await vkSendMessage(userId, BOT_MESSAGES.invalidUrl);
+        return;
+      }
+      await updateBotSession(session.id, { state: 'processing', vk_url: vkUrl });
+      await vkSendMessage(userId, BOT_MESSAGES.processing(vkUrl));
+      processBotSite(session.id, vkUrl, userId).catch(err =>
+        console.error(`❌ Bot generation error for session ${session!.id}:`, err)
+      );
+      return;
+    }
+
+    case 'processing': {
+      await vkSendMessage(userId, BOT_MESSAGES.stillProcessing);
+      return;
+    }
+
+    case 'failed': {
+      const vkUrl = extractVkUrl(text);
+      if (vkUrl) {
+        await updateBotSession(session.id, {
+          state: 'processing',
+          vk_url: vkUrl,
+          error_message: null,
+          retry_count: session.retry_count + 1,
+        });
+        await vkSendMessage(userId, BOT_MESSAGES.retrying(vkUrl));
+        processBotSite(session.id, vkUrl, userId).catch(console.error);
+      } else {
+        await updateBotSession(session.id, { state: 'awaiting_url' });
+        await vkSendMessage(userId, BOT_MESSAGES.failed);
+      }
+      return;
+    }
+  }
+}
+
+// Дебаг-эндпоинт для сессий
+fastify.get('/api/bot/sessions', async () => {
+  const { data, error } = await supabaseService.supabase
+    .from('salebot_sessions')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) throw error;
+  return { sessions: data || [] };
+});
 
 // Фоновый процесс генерации
 async function processProject(projectId: string): Promise<void> {
@@ -2038,6 +2128,7 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 // Используется как очередью, так и Salebot ботом
 
 interface ProcessVkUrlOptions {
+  projectId?: string;  // Можно передать заранее сгенерированный ID
   niche?: Niche;
   analyzePhotos?: boolean;
   extractColors?: boolean;
@@ -2069,8 +2160,8 @@ async function processVkUrl(
   const photos = await parseVKPhotos(vkUrl, 30);
   console.log(`📷 Получено ${photos.length} фото`);
 
-  // Генерируем projectId заранее для учёта расходов AI
-  const projectId = nanoid(10);
+  // Используем переданный projectId или генерируем новый
+  const projectId = options.projectId || nanoid(10);
 
   // 4. AI анализ фото
   let distributedPhotos: {
@@ -2189,47 +2280,40 @@ async function processVkUrl(
 
 // === SALEBOT: async обработка генерации сайта ===
 
-async function processSalebotSite(
+async function processBotSite(
   sessionId: string,
   vkUrl: string,
-  salebotClientId: string,
+  vkUserId: string,
 ): Promise<void> {
   try {
     const result = await processVkUrl(vkUrl);
 
     // Обновляем сессию
-    await updateSalebotSession(sessionId, {
+    await updateBotSession(sessionId, {
       state: 'completed',
       project_id: result.projectId,
       deployed_url: result.deployedUrl,
     });
 
-    // Сохраняем переменные в Salebot (для аналитики воронки)
-    await salebotSaveVariables(salebotClientId, {
-      site_url: result.deployedUrl,
-      project_id: result.projectId,
-      status: 'completed',
-    });
-
-    // Отправляем результат пользователю
-    await salebotSendMessage(
-      salebotClientId,
-      SALEBOT_MESSAGES.completed(result.deployedUrl),
-      [{ type: 'inline', text: '🌐 Открыть сайт', url: result.deployedUrl, line: 0, index_in_line: 0 }],
+    // Отправляем результат пользователю через VK API с кнопкой
+    await vkSendMessage(
+      vkUserId,
+      BOT_MESSAGES.completed(result.deployedUrl),
+      makeSiteLinkKeyboard(result.deployedUrl),
     );
 
-    console.log(`✅ Salebot: сайт доставлен клиенту ${salebotClientId}: ${result.deployedUrl}`);
+    console.log(`✅ VK Bot: сайт доставлен пользователю ${vkUserId}: ${result.deployedUrl}`);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
-    await updateSalebotSession(sessionId, {
+    await updateBotSession(sessionId, {
       state: 'failed',
       error_message: errorMessage,
     });
 
-    await salebotSendMessage(salebotClientId, SALEBOT_MESSAGES.failed);
+    await vkSendMessage(vkUserId, BOT_MESSAGES.failed);
 
-    console.error(`❌ Salebot: ошибка генерации для сессии ${sessionId}:`, errorMessage);
+    console.error(`❌ VK Bot: ошибка генерации для сессии ${sessionId}:`, errorMessage);
   }
 }
 

@@ -1,45 +1,62 @@
-// Сервис интеграции с Salebot (чат-бот VK воронка)
+// Сервис VK чат-бота (Senler webhook для подписки + VK API для сообщений)
 
 import { supabase } from './supabase.js';
 
 // === Конфигурация ===
 
-const SALEBOT_API_KEY = process.env.SALEBOT_API_KEY || '';
-const SALEBOT_BASE_URL = 'https://chatter.salebot.pro/api';
-const SALEBOT_SUBSCRIPTION_TAG = process.env.SALEBOT_SUBSCRIPTION_TAG || 'demo_site';
+const VK_GROUP_TOKEN = process.env.VK_GROUP_TOKEN || '';
+const VK_CONFIRMATION_CODE = process.env.VK_CONFIRMATION_CODE || '';
+const VK_SECRET_KEY = process.env.VK_SECRET_KEY || '';
+const VK_API_VERSION = '5.199';
 
-export const USE_SALEBOT = !!SALEBOT_API_KEY;
+export const USE_VK_BOT = !!VK_GROUP_TOKEN;
 
-if (!USE_SALEBOT) {
-  console.warn('⚠️ SALEBOT_API_KEY не установлен — Salebot webhook отключён');
+if (!USE_VK_BOT) {
+  console.warn('⚠️ VK_GROUP_TOKEN не установлен — VK бот отключён');
 }
 
 // === Интерфейсы ===
 
-export interface SalebotWebhookPayload {
-  id: number;
-  client: {
-    id: number;
-    recepient: string;   // VK user_id
-    client_type: string; // "vk"
-    name: string;
-    avatar: string;
-    created_at?: string;
-    tag: string;         // Тег подписной страницы
-    group: string;
+// VK Callback API payload
+export interface VkCallbackPayload {
+  type: 'confirmation' | 'message_new' | string;
+  group_id: number;
+  secret?: string;
+  event_id?: string;
+  v?: string;
+  object?: {
+    message?: {
+      id: number;
+      date: number;
+      peer_id: number;
+      from_id: number;
+      text: string;
+      random_id: number;
+      attachments: unknown[];
+      payload?: string;
+    };
+    client_info?: {
+      button_actions: string[];
+      keyboard: boolean;
+      inline_keyboard: boolean;
+    };
   };
-  message: string;
-  attachments: unknown[];
-  message_id: number;    // ID блока в воронке Salebot
-  project_id: number;    // ID проекта в Salebot
-  is_input: number;      // 1 = от пользователя, 0 = от бота
-  delivered: number;
-  error_message: string | null;
 }
 
-export interface SalebotSession {
+// Senler webhook payload (подписка)
+export interface SenlerWebhookPayload {
+  // Формат настраивается в Senler через шаблоны
+  // Минимально нужно: vk_user_id
+  vk_user_id?: string | number;
+  user_id?: string | number;
+  name?: string;
+  [key: string]: unknown;
+}
+
+// Сессия бота (та же таблица salebot_sessions)
+export interface BotSession {
   id: string;
-  salebot_client_id: string;
+  salebot_client_id: string;  // Используем как vk_user_id
   vk_user_id: string | null;
   client_name: string | null;
   state: 'new' | 'awaiting_url' | 'processing' | 'completed' | 'failed';
@@ -52,13 +69,13 @@ export interface SalebotSession {
   updated_at: string;
 }
 
-type SessionState = SalebotSession['state'];
+type SessionState = BotSession['state'];
 
 // === Шаблоны сообщений ===
 
 export const MESSAGES = {
   greeting: (name: string) =>
-    `Привет, ${name}! 👋\n\n` +
+    `Привет${name ? ', ' + name : ''}! 👋\n\n` +
     `Я создам бесплатный демо-сайт для вашей студии за 2-3 минуты.\n\n` +
     `Отправьте мне ссылку на вашу группу ВКонтакте 👇`,
 
@@ -74,7 +91,7 @@ export const MESSAGES = {
     `⏳ Ваш сайт ещё создаётся, подождите пару минут...`,
 
   completed: (url: string) =>
-    `🎉 Ваш демо-сайт готов!\n\nПосмотрите:`,
+    `🎉 Ваш демо-сайт готов!\n\nПосмотрите: ${url}`,
 
   completedRepeat: (url: string) =>
     `Ваш сайт уже готов! 🎉\n${url}\n\n` +
@@ -88,96 +105,94 @@ export const MESSAGES = {
     `Пробую снова с: ${vkUrl}\n⏳ Подождите 2-3 минуты...`,
 };
 
-// === Salebot API ===
-
-async function salebotRequest(action: string, body: Record<string, unknown>): Promise<unknown> {
-  const url = `${SALEBOT_BASE_URL}/${SALEBOT_API_KEY}/${action}`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  const result = await response.json();
-
-  if (response.status !== 200) {
-    console.error(`❌ Salebot API error (${action}):`, result);
-  }
-
-  return result;
-}
-
-export interface SalebotButton {
-  type: 'inline' | 'reply';
-  text: string;
-  url?: string;
-  line?: number;
-  index_in_line?: number;
-}
+// === VK API: отправка сообщений ===
 
 export async function sendMessage(
-  clientId: string | number,
+  peerId: number | string,
   message: string,
-  buttons?: SalebotButton[],
+  keyboard?: VkKeyboard,
 ): Promise<boolean> {
   try {
-    const body: Record<string, unknown> = {
-      client_id: String(clientId),
+    const params: Record<string, string> = {
+      peer_id: String(peerId),
       message,
+      random_id: String(Math.floor(Math.random() * 2147483647)),
+      access_token: VK_GROUP_TOKEN,
+      v: VK_API_VERSION,
     };
 
-    if (buttons && buttons.length > 0) {
-      body.buttons = {
-        buttons: buttons.map((btn, i) => ({
-          type: btn.type || 'inline',
-          text: btn.text,
-          url: btn.url,
-          line: btn.line ?? 0,
-          index_in_line: btn.index_in_line ?? i,
-        })),
-      };
+    if (keyboard) {
+      params.keyboard = JSON.stringify(keyboard);
     }
 
-    await salebotRequest('message', body);
-    console.log(`✅ Salebot: сообщение отправлено клиенту ${clientId}`);
-    return true;
-  } catch (error) {
-    console.error(`❌ Salebot sendMessage error:`, error);
-    return false;
-  }
-}
-
-export async function saveVariables(
-  clientId: string | number,
-  variables: Record<string, string>,
-): Promise<boolean> {
-  try {
-    await salebotRequest('save_variables', {
-      client_id: String(clientId),
-      variables,
+    const response = await fetch('https://api.vk.com/method/messages.send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(params),
     });
+
+    const result = await response.json() as { response?: number; error?: { error_code: number; error_msg: string } };
+
+    if (result.error) {
+      console.error(`❌ VK messages.send error:`, result.error.error_msg);
+      return false;
+    }
+
+    console.log(`✅ VK: сообщение отправлено пользователю ${peerId}`);
     return true;
   } catch (error) {
-    console.error(`❌ Salebot saveVariables error:`, error);
+    console.error(`❌ VK sendMessage error:`, error);
     return false;
   }
 }
 
-// === Определение callback подписной страницы ===
+// VK Keyboard
+export interface VkKeyboard {
+  one_time?: boolean;
+  inline?: boolean;
+  buttons: VkKeyboardButton[][];
+}
 
-export function isSubscriptionCallback(payload: SalebotWebhookPayload): boolean {
-  // Проверяем тег клиента — он задаётся в воронке Salebot на подписной странице
-  if (payload.client?.tag && payload.client.tag.includes(SALEBOT_SUBSCRIPTION_TAG)) {
-    return true;
-  }
-  return false;
+export interface VkKeyboardButton {
+  action: {
+    type: 'text' | 'open_link' | 'location' | 'vkpay';
+    label?: string;
+    link?: string;
+    payload?: string;
+  };
+  color?: 'primary' | 'secondary' | 'positive' | 'negative';
+}
+
+// Кнопка "Открыть сайт"
+export function makeSiteLinkKeyboard(url: string): VkKeyboard {
+  return {
+    inline: true,
+    buttons: [[
+      {
+        action: {
+          type: 'open_link',
+          label: '🌐 Открыть сайт',
+          link: url,
+        },
+      },
+    ]],
+  };
+}
+
+// === VK Callback API: проверка ===
+
+export function getConfirmationCode(): string {
+  return VK_CONFIRMATION_CODE;
+}
+
+export function validateSecret(secret?: string): boolean {
+  if (!VK_SECRET_KEY) return true; // Если секрет не задан — пропускаем
+  return secret === VK_SECRET_KEY;
 }
 
 // === Валидация VK URL ===
 
 export function extractVkUrl(text: string): string | null {
-  // Ищем ссылку на VK группу в тексте сообщения
   const patterns = [
     /https?:\/\/(?:www\.)?vk\.com\/[a-zA-Z0-9._-]+/i,
     /https?:\/\/(?:www\.)?vk\.ru\/[a-zA-Z0-9._-]+/i,
@@ -189,7 +204,6 @@ export function extractVkUrl(text: string): string | null {
     const match = text.match(pattern);
     if (match) {
       let url = match[0].trim();
-      // Нормализуем к полному URL
       if (!url.startsWith('http')) {
         url = `https://${url}`;
       }
@@ -200,13 +214,30 @@ export function extractVkUrl(text: string): string | null {
   return null;
 }
 
-// === Session CRUD (Supabase) ===
+// === Получение имени пользователя VK ===
 
-export async function getActiveSession(salebotClientId: string): Promise<SalebotSession | null> {
+export async function getVkUserName(userId: number | string): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://api.vk.com/method/users.get?user_ids=${userId}&access_token=${VK_GROUP_TOKEN}&v=${VK_API_VERSION}`,
+    );
+    const data = await response.json() as { response?: Array<{ first_name: string; last_name: string }> };
+    if (data.response?.[0]) {
+      return data.response[0].first_name;
+    }
+  } catch {
+    // Не критично
+  }
+  return '';
+}
+
+// === Session CRUD (Supabase, таблица salebot_sessions) ===
+
+export async function getActiveSession(vkUserId: string): Promise<BotSession | null> {
   const { data, error } = await supabase
     .from('salebot_sessions')
     .select('*')
-    .eq('salebot_client_id', salebotClientId)
+    .eq('salebot_client_id', vkUserId)
     .not('state', 'eq', 'completed')
     .order('created_at', { ascending: false })
     .limit(1)
@@ -219,31 +250,30 @@ export async function getActiveSession(salebotClientId: string): Promise<Salebot
   return data;
 }
 
-export async function getSessionByClientId(salebotClientId: string): Promise<SalebotSession | null> {
-  // Получаем любую сессию (включая completed) для повторного использования
+export async function getSessionByUserId(vkUserId: string): Promise<BotSession | null> {
   const { data, error } = await supabase
     .from('salebot_sessions')
     .select('*')
-    .eq('salebot_client_id', salebotClientId)
+    .eq('salebot_client_id', vkUserId)
     .order('created_at', { ascending: false })
     .limit(1)
     .single();
 
   if (error && error.code !== 'PGRST116') {
-    console.error('❌ getSessionByClientId error:', error);
+    console.error('❌ getSessionByUserId error:', error);
     return null;
   }
   return data;
 }
 
-export async function createSession(payload: SalebotWebhookPayload): Promise<SalebotSession> {
+export async function createSession(vkUserId: string, name?: string): Promise<BotSession> {
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from('salebot_sessions')
     .insert({
-      salebot_client_id: String(payload.client.id),
-      vk_user_id: payload.client.recepient || null,
-      client_name: payload.client.name || null,
+      salebot_client_id: vkUserId,
+      vk_user_id: vkUserId,
+      client_name: name || null,
       state: 'new' as SessionState,
       retry_count: 0,
       created_at: now,
@@ -258,7 +288,7 @@ export async function createSession(payload: SalebotWebhookPayload): Promise<Sal
 
 export async function updateSession(
   sessionId: string,
-  updates: Partial<Pick<SalebotSession, 'state' | 'vk_url' | 'project_id' | 'deployed_url' | 'error_message' | 'retry_count'>>,
+  updates: Partial<Pick<BotSession, 'state' | 'vk_url' | 'project_id' | 'deployed_url' | 'error_message' | 'retry_count'>>,
 ): Promise<void> {
   const { error } = await supabase
     .from('salebot_sessions')
