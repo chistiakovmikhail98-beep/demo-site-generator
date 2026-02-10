@@ -1,1 +1,30 @@
 .vercel
+
+# Environment variables (ВАЖНО!)
+.env
+.env.local
+.env*.local
+server/.env
+server/.env.local
+
+# Node modules
+node_modules/
+*/node_modules/
+
+# Build outputs
+dist/
+build/
+*/dist/
+*/build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temp files
+*.tmp
+.DS_Store
+nul
+
+# Claude
+.claude/

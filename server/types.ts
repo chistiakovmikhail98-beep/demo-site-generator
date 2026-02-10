@@ -236,7 +236,7 @@ export interface ColorScheme {
 }
 
 // Модели AI
-export type AIModel = 'deepseek' | 'gpt4o-mini' | 'sonnet';
+export type AIModel = 'deepseek' | 'gpt4o-mini' | 'sonnet' | 'gemini-3-flash';
 
 // Шрифты
 export type FontFamily = 'manrope' | 'inter' | 'montserrat' | 'roboto' | 'playfair';

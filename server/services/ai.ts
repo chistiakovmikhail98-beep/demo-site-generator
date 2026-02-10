@@ -1,12 +1,14 @@
 import OpenAI from 'openai';
 import type { SiteConfig, Niche, ColorScheme, AIModel, UploadedFile } from '../types.js';
 import { saveTokenStats, saveAiCost } from './supabase.js';
+import { generateSiteConfigWithGemini } from './gemini.js';
 
 // Маппинг моделей на OpenRouter ID
 const MODEL_MAP: Record<AIModel, string> = {
   'deepseek': 'deepseek/deepseek-chat',
   'gpt4o-mini': 'openai/gpt-4o-mini',
   'sonnet': 'anthropic/claude-3.5-sonnet',
+  'gemini-3-flash': 'gemini-3-flash', // Прямой Gemini API
 };
 
 // Цены за 1M токенов (input/output)
@@ -14,10 +16,11 @@ const PRICING_MAP: Record<AIModel, { input: number; output: number }> = {
   'deepseek': { input: 0.14, output: 0.28 },
   'gpt4o-mini': { input: 0.15, output: 0.60 },
   'sonnet': { input: 3, output: 15 },
+  'gemini-3-flash': { input: 0.10, output: 0.40 }, // Gemini 3 Flash цены
 };
 
-// Модель по умолчанию
-const DEFAULT_MODEL: AIModel = 'gpt4o-mini';
+// Модель по умолчанию (переключаем на Gemini!)
+const DEFAULT_MODEL: AIModel = 'gemini-3-flash';
 
 // === Трекинг токенов ===
 export interface TokenUsage {
@@ -148,6 +151,13 @@ export async function generateSiteConfig(input: GenerateInput): Promise<SiteConf
   // Проверяем что модель поддерживается, иначе fallback
   const modelKey = (aiModel && aiModel in MODEL_MAP ? aiModel : DEFAULT_MODEL) as AIModel;
 
+  // 🚀 Если Gemini — используем прямой Gemini API с Agentic Vision
+  if (modelKey === 'gemini-3-flash') {
+    console.log(`🚀 Переключение на Gemini 3 Flash (с анализом ${imageFiles.length} фото)`);
+    return generateSiteConfigWithGemini(input);
+  }
+
+  // Остальные модели через OpenRouter
   // Устанавливаем цены для трекинга
   currentPricing = PRICING_MAP[modelKey];
   const modelId = MODEL_MAP[modelKey];
