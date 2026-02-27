@@ -3,10 +3,10 @@ import type { SiteConfig, Niche, ColorScheme, UploadedFile } from '../types.js';
 import { saveTokenStats, saveAiCost } from './supabase.js';
 import fs from 'fs/promises';
 
-// Цены Gemini 3 Flash за 1M токенов
+// Цены Gemini 3 Flash Preview за 1M токенов
 const GEMINI_PRICING = {
-  input: 0.10,
-  output: 0.40,
+  input: 0.50,
+  output: 3.00,
 };
 
 // Ленивая инициализация клиента
@@ -40,10 +40,10 @@ export async function generateSiteConfigWithGemini(input: GenerateInput): Promis
 
   // Gemini 3 Flash с Agentic Vision
   const model = genAI.getGenerativeModel({
-    model: 'gemini-3-flash',
+    model: 'gemini-3-flash-preview',
     generationConfig: {
       temperature: 0.85,
-      maxOutputTokens: 8000,
+      maxOutputTokens: 32000,
     },
   });
 
@@ -96,8 +96,17 @@ ${imageFiles.length > 0 ? `\n📷 АНАЛИЗ ФОТО:\nПРОАНАЛИЗИР
 
     for (const imageFile of imageFiles) {
       try {
-        // Читаем файл и конвертируем в base64
-        const imageData = await fs.readFile(imageFile.path);
+        // Читаем файл: HTTP URL → fetch, локальный путь → fs.readFile
+        let imageData: Buffer;
+        if (imageFile.path.startsWith('http://') || imageFile.path.startsWith('https://')) {
+          const resp = await fetch(imageFile.path);
+          if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status} при загрузке ${imageFile.path}`);
+          }
+          imageData = Buffer.from(await resp.arrayBuffer());
+        } else {
+          imageData = await fs.readFile(imageFile.path);
+        }
         const base64Image = imageData.toString('base64');
 
         // Определяем MIME type
@@ -120,70 +129,170 @@ ${imageFiles.length > 0 ? `\n📷 АНАЛИЗ ФОТО:\nПРОАНАЛИЗИР
   // Добавляем текст в конец (после фото)
   parts.push({ text: textPart });
 
-  // Промпт для генерации
+  // Промпт для генерации — детальная JSON-схема для Gemini 3 Flash
   parts.push({
     text: `
-Сгенерируй JSON для сайта студии со следующей структурой:
+Сгенерируй ПОЛНЫЙ JSON для сайта студии. ВАЖНО: заполни ВСЕ секции полностью, не пропускай поля!
 
 {
   "brand": {
     "name": "${name}",
     "tagline": "Короткий слоган 3-6 слов",
     "niche": "${niche}",
-    "city": "Город из названия/описания/адреса (например: Оренбург, Москва, СПб). ОБЯЗАТЕЛЬНО извлеки город если он есть в тексте!",
-    "heroTitle": "КРЕАТИВНЫЙ заголовок 3-7 слов. НЕ 'Добро пожаловать'! Используй боль/желание клиента",
-    "heroSubtitle": "Яркий акцент 2-4 слова с эмоцией (например: 'Твоя сила', 'Без границ', 'Начни сегодня')",
-    "heroDescription": "1-2 коротких предложения БЕЗ клише. Конкретика и результат для клиента",
-    "heroImage": "https://placehold.co/800x600/1a1a1a/666666?text=Фото+студии",
-    "heroQuote": "Вдохновляющая цитата для главного экрана (или пустая строка)"
+    "city": "Город (извлеки из названия/описания)",
+    "heroTitle": "КРЕАТИВНЫЙ заголовок 3-7 слов",
+    "heroSubtitle": "Акцент 2-4 слова",
+    "heroDescription": "1-2 предложения без клише",
+    "heroImage": "",
+    "heroQuote": "Цитата или пустая строка"
   },
   "sections": {
-    "colorScheme": ${imageFiles.length > 0 ? '"ОБЯЗАТЕЛЬНО извлеки 3-5 hex цветов из фото интерьера/брендинга! Формат: {\\"primary\\": \\"#hex\\", \\"secondary\\": \\"#hex\\", \\"accent\\": \\"#hex\\", \\"background\\": \\"#hex\\", \\"text\\": \\"#hex\\"}"' : 'null'},
-    "heroAdvantages": [
-      "Преимущество 1 для hero-секции (КОНКРЕТНОЕ, основанное на визуальном анализе фото!)",
-      "Преимущество 2",
-      "Преимущество 3"
+    "colorScheme": ${imageFiles.length > 0 ? '{"primary": "#hex", "accent": "#hex", "background": "#hex", "surface": "#hex", "text": "#hex"}' : 'null'},
+    "heroAdvantages": ["Преимущество 1", "Преимущество 2", "Преимущество 3"],
+    "directions": [
+      {"id": "dir-0", "title": "Название", "image": "", "description": "Описание направления 2-3 предложения", "tags": ["тег1", "тег2"], "level": "Все уровни", "duration": "60 мин", "category": "dance", "complexity": 3, "buttonText": "Записаться"}
     ],
-    "directions": [...],
-    "instructors": [...],
-    "stories": [...],
-    "faq": [...],
-    "requests": [...],
-    "objections": [...],
-    "advantages": [...],
-    "director": {...},
-    "contacts": {...},
-    "pricing": [...],
-    "reviews": [...],
-    "gallery": [...],
-    "quiz": {...},
-    "atmosphere": [...],
-    "calculatorStages": [...],
-    "sectionTitles": {...},
-    "directionsTabs": [...]
+    "instructors": [
+      {"name": "Имя Фамилия", "image": "", "specialties": ["Специализация 1", "Специализация 2"], "experience": "5 лет опыта", "style": "Описание стиля работы"}
+    ],
+    "stories": [
+      {"beforeImg": "", "afterImg": "", "title": "Имя, результат", "description": "История успеха 2-3 предложения"}
+    ],
+    "faq": [
+      {"question": "Вопрос?", "answer": "Развёрнутый ответ 2-3 предложения"}
+    ],
+    "requests": [
+      {"image": "", "text": "Запрос клиента"}
+    ],
+    "objections": [
+      {"myth": "Миф/возражение клиента", "answer": "Развёрнутый ответ на возражение"}
+    ],
+    "advantages": [
+      {"title": "Заголовок преимущества", "text": "Описание преимущества 1-2 предложения", "image": ""}
+    ],
+    "director": {
+      "name": "Имя Фамилия", "title": "Основатель студии", "description": "Описание директора 2-3 предложения",
+      "image": "", "achievements": ["Достижение 1", "Достижение 2", "Достижение 3"]
+    },
+    "contacts": {
+      "phone": "+7 (XXX) XXX-XX-XX", "email": "", "address": "Адрес студии",
+      "telegram": "", "whatsapp": "", "vk": "", "instagram": ""
+    },
+    "pricing": [
+      {"name": "Название тарифа", "price": "2500 ₽", "period": "/мес", "features": ["Включено 1", "Включено 2", "Включено 3"], "highlighted": false, "category": ""}
+    ],
+    "reviews": [
+      {"name": "Имя", "text": "Текст отзыва 2-3 предложения", "source": "VK", "rating": 5}
+    ],
+    "gallery": [],
+    "quiz": {
+      "managerName": "Имя Фамилия",
+      "managerImage": "",
+      "tips": ["Подсказка 1", "Подсказка 2"],
+      "steps": [
+        {"question": "Вопрос квиза?", "options": ["Вариант 1", "Вариант 2", "Вариант 3", "Вариант 4"]}
+      ]
+    },
+    "atmosphere": [
+      {"title": "Заголовок", "description": "Описание атмосферы", "image": ""}
+    ],
+    "calculatorStages": [
+      {"status": "Название стадии", "description": "Описание стадии 1-2 предложения", "tags": ["тег1", "тег2", "тег3"], "achievement": "Достижение на этой стадии"}
+    ],
+    "sectionTitles": {
+      "calculator": {"title": "Как меняется тело", "subtitle": "Трансформация", "buttonText": "Начать"},
+      "directions": {"title": "{count} направлений", "subtitle": "в одной студии"},
+      "pricing": {"title": "Прозрачные цены", "subtitle": "без скрытых платежей"}
+    },
+    "directionsTabs": [
+      {"key": "all", "label": "Все"},
+      {"key": "group", "label": "Групповые", "category": "dance"},
+      {"key": "personal", "label": "Индивидуальные", "category": "body"}
+    ],
+    "blockVariants": {
+      "hero": 1,
+      "directions": 1,
+      "gallery": 1,
+      "instructors": 1,
+      "stories": 1,
+      "reviews": 1,
+      "director": 1,
+      "pricing": 1,
+      "faq": 1,
+      "objections": 1,
+      "requests": 1,
+      "advantages": 1,
+      "atmosphere": 1
+    }
   }
 }
 
-ТРЕБОВАНИЯ:
-- ВСЕ описания должны быть основаны на РЕАЛЬНОМ визуальном анализе фото!
-- Если фото загружены — colorScheme ОБЯЗАТЕЛЕН (извлеки из интерьера)!
-- Упоминай КОНКРЕТНЫЕ детали с фото (количество залов, тренажеры, стиль интерьера)
-- Используй Agentic Vision для подсчета объектов и извлечения текста
-- directions: 6-10 направлений РЕЛЕВАНТНЫХ НИШЕ "${niche}"
-- instructors: 2-4 инструктора. ЕСЛИ имена НЕ указаны — используй "Имя Фамилия"
-- stories: 1-2 истории успеха
-- faq: 4-6 вопросов РЕЛЕВАНТНЫХ НИШЕ
-- requests: 12 запросов клиентов РЕЛЕВАНТНЫХ НИШЕ
-- objections: 3 возражения с ответами РЕЛЕВАНТНЫХ НИШЕ
-- advantages: 4-6 преимуществ студии (КОНКРЕТНЫХ, с фото!)
-- pricing: 4-6 тарифов. Цены реалистичные. Один highlighted: true
-- reviews: 5-8 отзывов
-- gallery: 6-8 placeholder изображений
-- quiz: 5-7 шагов квиза
-- atmosphere: 4 шага описания атмосферы
-- calculatorStages: ОБЯЗАТЕЛЬНО 4 СТАДИИ ФИЗИЧЕСКОГО РАЗВИТИЯ ТЕЛА!
+🎨 ВАРИАНТЫ БЛОКОВ (blockVariants):
+Выбери визуальный вариант (1, 2 или 3) для каждого блока. НЕ ставь всем 1 — создавай разнообразие!
 
-ОТВЕТЬ ТОЛЬКО JSON!`,
+hero: 1=карта+фото сбоку, 2=фулскрин фон+статы, 3=сетка+метрики
+directions: 1=грид карточки+фильтры, 2=горизонтальные строки, 3=карусель
+gallery: 1=бесконечный маркиз, 2=masonry+лайтбокс, 3=главное фото+превью
+instructors: 1=тёмные карты+CTA, 2=светлый грид+инста, 3=карусель+цитаты
+stories: 1=до/после рядом, 2=полноширинный слайдер, 3=вертикальный таймлайн
+reviews: 1=маркиз-скролл, 2=карточки грид, 3=спотлайт-цитата
+director: 1=фото+достижения, 2=полноширинный баннер, 3=side-by-side
+pricing: 1=мульти-план+премиум, 2=три колонки, 3=табы
+faq: 1=сайдбар+аккордеон, 2=полноширинный аккордеон, 3=чат Q&A
+objections: 1=миф/ответ карточки, 2=до/после тоггл, 3=аккордеон
+requests: 1=маркиз строки, 2=облако пиллов, 3=грид+иконки
+advantages: 1=фото-оверлей карты, 2=иконки минимализм, 3=бенто-грид
+atmosphere: 1=scroll-sticky, 2=фото грид, 3=фулскрин слайдер
+
+Критерии выбора:
+- Ниша и стиль (танцы → более выразительные, фитнес → строгие)
+- Количество контента (много направлений → грид, мало → карусель)
+- Визуальное разнообразие между блоками!
+
+ТРЕБОВАНИЯ К КОНТЕНТУ:
+- directions: 6-10 направлений РЕЛЕВАНТНЫХ НИШЕ "${niche}" (см. guidelines выше)
+- category для directions: "dance" (групповые), "body" (индивидуальные), "beginner" (восстановление), "special" (специализированные), "wellness" (спа/wellness), "online" (онлайн)
+- instructors: 2-4 инструктора. ЕСЛИ имена НЕ указаны — используй "Имя Фамилия" (placeholder)
+- stories: 2 истории успеха
+- faq: 5-6 вопросов РЕЛЕВАНТНЫХ НИШЕ
+- requests: 12 запросов клиентов РЕЛЕВАНТНЫХ НИШЕ (короткие фразы из 3-6 слов)
+- objections: 3 возражения с развёрнутыми ответами РЕЛЕВАНТНЫМИ НИШЕ
+- advantages: 4-6 преимуществ студии
+- director: ЕСЛИ имя НЕ указано — используй "Имя Фамилия" (placeholder)
+- pricing: 4-6 тарифов (разовые, абонементы, персональные). Цены РЕАЛИСТИЧНЫЕ для ниши. Один тариф highlighted: true
+- reviews: 6 отзывов. Имена в формате "Имя К." (сокращённая фамилия). Тексты позитивные, релевантные нише
+- gallery: пустой массив [] (фото подставятся автоматически)
+- quiz.steps: 5-7 штук (КАЖДЫЙ шаг ОБЯЗАТЕЛЬНО с 3-4 options!). Вопросы РЕЛЕВАНТНЫ нише
+- quiz.tips: 5-7 подсказок менеджера (по одной на каждый шаг!)
+- atmosphere: 4 шага описания атмосферы студии
+- directionsTabs: 4-6 табов для фильтрации направлений. Первый всегда { key: "all", label: "Все" }. Остальные по категориям
+
+🔥 calculatorStages: ОБЯЗАТЕЛЬНО 4 СТАДИИ ФИЗИЧЕСКОГО РАЗВИТИЯ ТЕЛА!
+ЭТО ПРОГРЕСС УЧЕНИКА ОТ НОВИЧКА К МАСТЕРУ, А НЕ СПИСОК СТИЛЕЙ/НАПРАВЛЕНИЙ!
+
+❌ ЗАПРЕЩЕНО для calculatorStages:
+- Названия танцевальных стилей: "Хип-хоп", "Контемп", "Джаз-фанк"
+- Generic слова: "Этап 1", "Раскрепощение", "Адаптация", "Прогресс", "Мастерство"
+- Названия упражнений/тренировок: "Кардио", "Силовая"
+
+✅ ПРИМЕРЫ правильных calculatorStages (от новичка к мастеру):
+* Для танцев: "Базовая координация" → "Связки движений" → "Музыкальность" → "Импровизация"
+* Для растяжки: "Подвижность суставов" → "Глубокие наклоны" → "Полушпагат" → "Полный шпагат"
+* Для фитнеса: "Техника упражнений" → "Рост силы" → "Выносливость" → "Рельеф тела"
+* Для pole: "Хват и базовые крутки" → "Перевороты" → "Трюки на высоте" → "Связки и хореография"
+
+СТРУКТУРА КАЖДОГО calculatorStage:
+- status: название УРОВНЯ развития (2-4 слова)
+- description: что ФИЗИЧЕСКИ происходит с телом на этом этапе (2-3 предложения)
+- tags: 3 конкретных НАВЫКА этого этапа (НЕ абстрактные слова!)
+- achievement: ИЗМЕРИМЫЙ результат ("Шпагат -10см", "8 базовых элементов", "30 минут без отдыха")
+
+🎯 sectionTitles:
+- calculator: title УНИКАЛЬНЫЙ (НЕ "Как меняется тело"!), subtitle отражает специфику студии, buttonText — призыв к действию
+- directions: title используй "{count} направлений", subtitle релевантный нише
+- pricing: title и subtitle релевантные нише
+
+ОТВЕТЬ ТОЛЬКО ВАЛИДНЫМ JSON БЕЗ MARKDOWN-ОБЁРТКИ! НЕ оборачивай в \`\`\`json!`,
   });
 
   // Retry логика
@@ -211,10 +320,10 @@ ${imageFiles.length > 0 ? `\n📷 АНАЛИЗ ФОТО:\nПРОАНАЛИЗИР
         console.log(`💰 Токены: ${inputTokens} in + ${outputTokens} out = ${totalTokens} | ~$${estimatedCost.toFixed(4)}`);
 
         // Сохраняем в БД
-        saveTokenStats('gemini-3-flash', inputTokens, outputTokens, estimatedCost).catch(console.error);
+        saveTokenStats('gemini-3-flash-preview', inputTokens, outputTokens, estimatedCost).catch(console.error);
         saveAiCost({
           type: 'content_generation',
-          model: 'gemini-3-flash',
+          model: 'gemini-3-flash-preview',
           input_tokens: inputTokens,
           output_tokens: outputTokens,
           total_tokens: totalTokens,
@@ -224,6 +333,13 @@ ${imageFiles.length > 0 ? `\n📷 АНАЛИЗ ФОТО:\nПРОАНАЛИЗИР
       }
 
       const content = response.text();
+
+      // Дебаг: логируем размер и finishReason
+      const finishReason = response.candidates?.[0]?.finishReason;
+      console.log(`📝 Ответ: ${content.length} символов, finishReason: ${finishReason}`);
+      if (content.length < 3000) {
+        console.warn(`⚠️ Короткий ответ! Первые 500 символов: ${content.substring(0, 500)}`);
+      }
 
       // Парсим JSON
       let jsonStr = content.trim();
@@ -253,6 +369,133 @@ ${imageFiles.length > 0 ? `\n📷 АНАЛИЗ ФОТО:\nПРОАНАЛИЗИР
         throw new Error('Неполный ответ Gemini');
       }
 
+      // Нормализуем ответ Gemini — поля могут быть с другими именами
+      const sec = parsed.sections;
+
+      // instructors: specialization→specialties, photo→image
+      if (Array.isArray(sec.instructors)) {
+        sec.instructors = sec.instructors.map((inst: any) => ({
+          name: inst.name || 'Имя Фамилия',
+          image: inst.image || inst.photo || '',
+          specialties: inst.specialties || (inst.specialization ? [inst.specialization] : []),
+          experience: inst.experience || '',
+          style: inst.style || '',
+        }));
+      }
+
+      // pricing: title→name
+      if (Array.isArray(sec.pricing)) {
+        sec.pricing = sec.pricing.map((p: any) => ({
+          name: p.name || p.title || '',
+          price: p.price || '',
+          period: p.period || '',
+          features: Array.isArray(p.features) ? p.features : [],
+          highlighted: p.highlighted || false,
+          category: p.category || '',
+        }));
+      }
+
+      // reviews: clientName→name
+      if (Array.isArray(sec.reviews)) {
+        sec.reviews = sec.reviews.map((r: any) => ({
+          name: r.name || r.clientName || '',
+          text: r.text || '',
+          source: r.source || '',
+          rating: r.rating || 5,
+        }));
+      }
+
+      // objections: objection→myth
+      if (Array.isArray(sec.objections)) {
+        sec.objections = sec.objections.map((o: any) => ({
+          myth: o.myth || o.objection || '',
+          answer: o.answer || '',
+        }));
+      }
+
+      // requests: string[] → {image, text}[]
+      if (Array.isArray(sec.requests)) {
+        sec.requests = sec.requests.map((r: any) => {
+          if (typeof r === 'string') {
+            return { image: '', text: r };
+          }
+          return { image: r.image || '', text: r.text || '' };
+        });
+      }
+
+      // atmosphere: string[] → {title, description, image}[]
+      if (Array.isArray(sec.atmosphere)) {
+        sec.atmosphere = sec.atmosphere.map((a: any) => {
+          if (typeof a === 'string') {
+            return { title: a, description: '', image: '' };
+          }
+          return { title: a.title || '', description: a.description || '', image: a.image || '' };
+        });
+      }
+
+      // director: photo→image, position→title, quote→description
+      if (sec.director && typeof sec.director === 'object') {
+        sec.director = {
+          name: sec.director.name || 'Имя Фамилия',
+          title: sec.director.title || sec.director.position || '',
+          description: sec.director.description || sec.director.quote || '',
+          image: sec.director.image || sec.director.photo || '',
+          achievements: sec.director.achievements || [],
+        };
+      }
+
+      // stories: normalize fields
+      if (Array.isArray(sec.stories)) {
+        sec.stories = sec.stories.map((st: any) => ({
+          beforeImg: st.beforeImg || st.beforeAfterPhoto || '',
+          afterImg: st.afterImg || st.beforeAfterPhoto || '',
+          title: st.title || st.clientName || '',
+          description: st.description || st.story || '',
+        }));
+      }
+
+      // advantages: icon→image
+      if (Array.isArray(sec.advantages)) {
+        sec.advantages = sec.advantages.map((a: any) => ({
+          title: a.title || '',
+          text: a.text || a.description || '',
+          image: a.image || '',
+        }));
+      }
+
+      // quiz: ensure steps[].options is always array
+      if (sec.quiz && Array.isArray(sec.quiz.steps)) {
+        sec.quiz.steps = sec.quiz.steps.map((step: any) => ({
+          question: step.question || '',
+          options: Array.isArray(step.options) ? step.options : [],
+        }));
+      }
+
+      // calculatorStages: title→status, ensure tags/achievement
+      if (Array.isArray(sec.calculatorStages)) {
+        sec.calculatorStages = sec.calculatorStages.map((s: any) => ({
+          status: s.status || s.title || '',
+          description: s.description || '',
+          tags: Array.isArray(s.tags) ? s.tags : [],
+          achievement: s.achievement || '',
+        }));
+      }
+
+      // directions: ensure all expected fields
+      if (Array.isArray(sec.directions)) {
+        sec.directions = sec.directions.map((d: any, i: number) => ({
+          id: d.id || `dir-${i}`,
+          title: d.title || '',
+          image: d.image || '',
+          description: d.description || '',
+          tags: Array.isArray(d.tags) ? d.tags : [],
+          level: d.level || 'Все уровни',
+          duration: d.duration || '60 мин',
+          category: d.category || 'all',
+          complexity: d.complexity || 3,
+        }));
+      }
+
       const siteConfig: SiteConfig = {
         meta: {
           projectId: '',
@@ -261,8 +504,8 @@ ${imageFiles.length > 0 ? `\n📷 АНАЛИЗ ФОТО:\nПРОАНАЛИЗИР
         },
         brand: parsed.brand,
         sections: {
-          ...parsed.sections,
-          colorScheme: colorScheme || parsed.sections.colorScheme,
+          ...sec,
+          colorScheme: colorScheme || sec.colorScheme,
         },
       };
 

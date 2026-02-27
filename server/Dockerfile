@@ -6,27 +6,26 @@ RUN apt-get update && apt-get install -y \
     openssh-client \
     rsync \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ssh -V && rsync --version | head -1
 
 # Создаём рабочую директорию
 WORKDIR /app
 
-# Копируем package.json и устанавливаем зависимости
-COPY package*.json ./
-COPY tsconfig.json ./
-RUN npm ci
-
-# Копируем исходный код
+# Копируем ВСЁ (build context = project root)
 COPY . .
 
-# Компилируем TypeScript
+# Устанавливаем зависимости (root → web → server через postinstall)
+RUN npm ci --include=dev 2>/dev/null || npm install --include=dev
+
+# Собираем web + server
 RUN npm run build
 
-# Удаляем devDependencies для уменьшения размера образа
-RUN npm prune --production
+# Очищаем devDependencies
+RUN cd server && npm prune --production
 
 # Railway использует PORT из env
 EXPOSE 3001
 
-# Запускаем сервер
-CMD ["node", "dist/index.js"]
+# Запускаем через root package.json start script
+CMD ["npm", "start"]

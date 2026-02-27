@@ -50,7 +50,7 @@ const DemoBanner: React.FC = () => {
                 Демо
               </span>
             </div>
-            <span className="text-[10px] md:text-xs font-black text-primary uppercase tracking-tight truncate max-w-[150px] md:max-w-none">
+            <span className="text-[10px] md:text-xs font-black text-primary uppercase tracking-tight truncate max-w-[40vw] sm:max-w-[200px] md:max-w-none">
               {BRAND_CONFIG.name}
             </span>
 

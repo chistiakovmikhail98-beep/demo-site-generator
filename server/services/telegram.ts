@@ -21,6 +21,7 @@ interface SiteNotificationData {
   groupAddress?: string;  // Адрес
   groupSite?: string;     // Сайт студии
   admins?: AdminContact[];
+  editPassword?: string;  // Пароль для редактирования сайта
 }
 
 // Отправка сообщения в Telegram
@@ -110,6 +111,13 @@ export async function notifyNewSite(data: SiteNotificationData): Promise<void> {
         lines.push(adminLine);
       }
     }
+  }
+
+  // Пароль для редактирования
+  if (data.editPassword) {
+    lines.push('');
+    lines.push(`🔑 <b>Пароль для редактирования:</b> <code>${data.editPassword}</code>`);
+    lines.push(`📝 Для входа: ${data.siteUrl}?admin`);
   }
 
   // Добавляем готовый шаблон для рассылки

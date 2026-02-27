@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, User } from 'lucide-react';
 import { AI_CHAT_CONFIG, BRAND_CONFIG, PRICING, CONTACTS } from '../constants';
+import { isPlaceholder } from './PlaceholderImg';
 
 // Используем конфиг из constants, можно переопределить webhookUrl
 const WEBHOOK_URL = (AI_CHAT_CONFIG as any).webhookUrl || "https://primum-digital.store/webhook/iivik";
@@ -187,11 +188,17 @@ ${CONTACTS.phone ? `Телефон для записи: ${CONTACTS.phone}.` : ''
                 <div>
                     <div className="flex items-center gap-3 md:gap-4 mb-2 md:mb-6">
                         <div className="relative">
-                            <img
+                            {isPlaceholder(AI_CHAT_CONFIG.managerImage) ? (
+                              <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-800 border-2 border-primary shadow-lg flex items-center justify-center">
+                                <User className="w-6 h-6 md:w-8 md:h-8 text-zinc-500" />
+                              </div>
+                            ) : (
+                              <img
                                 src={AI_CHAT_CONFIG.managerImage}
                                 alt={AI_CHAT_CONFIG.managerName}
                                 className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover border-2 border-primary shadow-lg"
-                            />
+                              />
+                            )}
                             <div className="absolute bottom-0 right-0 w-3 h-3 md:w-4 md:h-4 bg-green-500 rounded-full border-2 border-[#121215] animate-pulse"></div>
                         </div>
                         <div>
@@ -215,11 +222,17 @@ ${CONTACTS.phone ? `Телефон для записи: ${CONTACTS.phone}.` : ''
         ) : (
             <div className="bg-primary p-4 flex items-center gap-3 border-b border-white/10">
                 <div className="relative">
-                    <img
+                    {isPlaceholder(AI_CHAT_CONFIG.managerImage) ? (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-700 border border-white/30 flex items-center justify-center">
+                        <User className="w-5 h-5 text-zinc-400" />
+                      </div>
+                    ) : (
+                      <img
                         src={AI_CHAT_CONFIG.managerImage}
                         alt={AI_CHAT_CONFIG.managerName}
                         className="w-10 h-10 rounded-full object-cover border border-white/30"
-                    />
+                      />
+                    )}
                     <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-white"></div>
                 </div>
                 <div>

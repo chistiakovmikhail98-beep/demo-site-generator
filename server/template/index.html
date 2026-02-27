@@ -13,35 +13,41 @@
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Manrope', 'sans-serif'],
+              sans: ['var(--font-primary)', 'Manrope', 'sans-serif'],
             },
             colors: {
-              background: '#0c0c0e', 
-              surface: '#18181b', 
-              primary: '#9d174d', // Noble Crimson (Малиновый)
-              accent: '#be185d', 
+              background: 'var(--color-background)',
+              surface: 'var(--color-surface)',
+              primary: 'var(--color-primary)',
+              accent: 'var(--color-accent)',
               grayNoble: '#4b5563',
             },
+            borderRadius: {
+              'card': 'var(--radius-card)',
+            },
             boxShadow: {
-              'glow': '0 0 20px -5px rgba(157, 23, 77, 0.3)',
+              'glow': '0 0 20px -5px rgba(var(--color-primary-rgb), 0.3)',
             }
           }
         }
       }
     </script>
     <style>
-      ::-webkit-scrollbar {
-        width: 8px;
+      :root {
+        --color-primary: #9d174d;
+        --color-primary-rgb: 157, 23, 77;
+        --color-accent: #be185d;
+        --color-accent-rgb: 190, 24, 93;
+        --color-background: #0c0c0e;
+        --color-surface: #18181b;
+        --color-text: #ffffff;
+        --radius-card: 2rem;
+        --font-primary: 'Manrope', sans-serif;
       }
-      ::-webkit-scrollbar-track {
-        background: #0c0c0e; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #9d174d; 
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #be185d; 
-      }
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-track { background: var(--color-background); }
+      ::-webkit-scrollbar-thumb { background: var(--color-primary); }
+      ::-webkit-scrollbar-thumb:hover { background: var(--color-accent); }
     </style>
   <script type="importmap">
 {

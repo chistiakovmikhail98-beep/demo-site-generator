@@ -13,13 +13,17 @@
     "@fastify/static": "^7.0.1",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.93.3",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
     "fastify": "^4.26.2",
+    "jsonwebtoken": "^9.0.3",
     "nanoid": "^5.0.5",
     "openai": "^4.28.0",
     "sharp": "^0.34.5"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.11.24",
     "@types/sharp": "^0.31.1",
     "tsx": "^4.7.1",

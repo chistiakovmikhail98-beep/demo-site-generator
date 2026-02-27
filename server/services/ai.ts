@@ -16,7 +16,7 @@ const PRICING_MAP: Record<AIModel, { input: number; output: number }> = {
   'deepseek': { input: 0.14, output: 0.28 },
   'gpt4o-mini': { input: 0.15, output: 0.60 },
   'sonnet': { input: 3, output: 15 },
-  'gemini-3-flash': { input: 0.10, output: 0.40 }, // Gemini 3 Flash цены
+  'gemini-3-flash': { input: 0.50, output: 3.00 }, // Gemini 3 Flash Preview цены
 };
 
 // Модель по умолчанию (переключаем на Gemini!)
@@ -146,10 +146,15 @@ interface GenerateInput {
 }
 
 export async function generateSiteConfig(input: GenerateInput): Promise<SiteConfig> {
-  const { name, niche, description, imageFiles, colorScheme, aiModel = DEFAULT_MODEL } = input;
+  const { name, niche, description, imageFiles, colorScheme, aiModel } = input;
 
-  // Проверяем что модель поддерживается, иначе fallback
-  const modelKey = (aiModel && aiModel in MODEL_MAP ? aiModel : DEFAULT_MODEL) as AIModel;
+  // Debug: показать какая модель запрошена
+  console.log(`🔍 generateSiteConfig вызван: aiModel=${JSON.stringify(aiModel)}, DEFAULT=${DEFAULT_MODEL}`);
+
+  // Если aiModel не указан, null или undefined — используем Gemini
+  const effectiveModel = aiModel || DEFAULT_MODEL;
+  const modelKey = (effectiveModel in MODEL_MAP ? effectiveModel : DEFAULT_MODEL) as AIModel;
+  console.log(`🔍 modelKey=${modelKey}`);
 
   // 🚀 Если Gemini — используем прямой Gemini API с Agentic Vision
   if (modelKey === 'gemini-3-flash') {
@@ -376,9 +381,46 @@ ${getNicheGuidelines(niche)}
       { "key": "all", "label": "Все" },
       { "key": "group", "label": "Групповые", "category": "dance" },
       { "key": "personal", "label": "Индивидуальные", "category": "body" }
-    ]
+    ],
+    "blockVariants": {
+      "hero": 1,
+      "directions": 1,
+      "gallery": 1,
+      "instructors": 1,
+      "stories": 1,
+      "reviews": 1,
+      "director": 1,
+      "pricing": 1,
+      "faq": 1,
+      "objections": 1,
+      "requests": 1,
+      "advantages": 1,
+      "atmosphere": 1
+    }
   }
 }
+
+🎨 ВАРИАНТЫ БЛОКОВ (blockVariants):
+Выбери визуальный вариант (1, 2 или 3) для каждого блока. НЕ ставь всем 1 — создавай разнообразие!
+
+hero: 1=карта+фото сбоку, 2=фулскрин фон+статы, 3=сетка+метрики
+directions: 1=грид карточки+фильтры, 2=горизонтальные строки, 3=карусель
+gallery: 1=бесконечный маркиз, 2=masonry+лайтбокс, 3=главное фото+превью
+instructors: 1=тёмные карты+CTA, 2=светлый грид+инста, 3=карусель+цитаты
+stories: 1=до/после рядом, 2=полноширинный слайдер, 3=вертикальный таймлайн
+reviews: 1=маркиз-скролл, 2=карточки грид, 3=спотлайт-цитата
+director: 1=фото+достижения, 2=полноширинный баннер, 3=side-by-side
+pricing: 1=мульти-план+премиум, 2=три колонки, 3=табы
+faq: 1=сайдбар+аккордеон, 2=полноширинный аккордеон, 3=чат Q&A
+objections: 1=миф/ответ карточки, 2=до/после тоггл, 3=аккордеон
+requests: 1=маркиз строки, 2=облако пиллов, 3=грид+иконки
+advantages: 1=фото-оверлей карты, 2=иконки минимализм, 3=бенто-грид
+atmosphere: 1=scroll-sticky, 2=фото грид, 3=фулскрин слайдер
+
+Критерии выбора:
+- Ниша и стиль (танцы → более выразительные, фитнес → строгие)
+- Количество контента (много направлений → грид, мало → карусель)
+- Визуальное разнообразие между блоками!
 
 ТРЕБОВАНИЯ:
 - directions: 6-10 направлений РЕЛЕВАНТНЫХ НИШЕ "${niche}" (см. guidelines выше)

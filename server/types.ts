@@ -85,6 +85,9 @@ export interface SiteConfig {
 
     // Цветовая схема
     colorScheme?: ColorScheme;
+
+    // Визуальные варианты блоков (1, 2 или 3) — выбираются AI
+    blockVariants?: Record<string, 1 | 2 | 3>;
   };
 }
 

@@ -600,6 +600,23 @@ export const AI_CHAT_CONFIG = {
   placeholderText: 'Задайте вопрос...',
 };
 
+// Визуальные варианты блоков (1, 2 или 3) — выбираются AI при генерации
+export const BLOCK_VARIANTS: Record<string, number> = {
+  hero: 1,
+  directions: 1,
+  gallery: 1,
+  instructors: 1,
+  stories: 1,
+  reviews: 1,
+  director: 1,
+  pricing: 1,
+  faq: 1,
+  objections: 1,
+  requests: 1,
+  advantages: 1,
+  atmosphere: 1,
+};
+
 // Стадии для калькулятора прогресса (по нише)
 export const CALCULATOR_STAGES = [
   { status: 'Снятие зажимов', description: 'Вы научитесь правильно дышать, разгрузите нервную систему и почувствуете первое облегчение.', tags: ['Дыхание', 'Релакс', 'Снятие боли'], achievement: 'Первый день без боли в спине' },

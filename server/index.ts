@@ -20,6 +20,7 @@ import { analyzePhotos, distributePhotos } from './services/photo-analyzer.js';
 import { extractColorsFromUrl } from './services/color-extractor.js';
 import { deployToVPS, isVPSConfigured, getVPSConfig, checkVPSConnection, listVPSSites, inspectVPSSite, fixNginxConfig } from './services/vps-deployer.js';
 import sharp from 'sharp';
+import * as adminService from './services/admin.js';
 import {
   USE_VK_BOT,
   sendMessage as vkSendMessage,
@@ -1720,24 +1721,36 @@ fastify.post('/api/senler/webhook', async (request, reply) => {
   try {
     const payload = request.body as SenlerWebhookPayload;
 
-    // Подробный лог всего что пришло
-    console.log('');
-    console.log('═══════════════════════════════════════════');
-    console.log('📩 SENLER WEBHOOK ПОЛУЧЕН!');
-    console.log('═══════════════════════════════════════════');
-    console.log('Headers:', JSON.stringify(request.headers, null, 2));
-    console.log('Body:', JSON.stringify(payload, null, 2));
-    console.log('═══════════════════════════════════════════');
-    console.log('');
+    // Лог (полный payload)
+    console.log(`📩 Senler webhook: type=${payload.type}`);
+    console.log('📩 Senler FULL payload:', JSON.stringify(payload, null, 2));
 
-    const vkUserId = String(payload.vk_user_id || payload.user_id || '');
+    // Тестовый запрос от Senler — просто подтверждаем
+    if (payload.type === 'check') {
+      console.log('✅ Senler: тестовый запрос, ОК');
+      return { ok: true };
+    }
 
-    if (!vkUserId) {
-      console.log('⚠️ Senler: нет user_id в payload');
+    // Извлекаем данные (вложены в object)
+    const vkUserId = String(
+      payload.object?.vk_user_id || payload.vk_user_id || payload.user_id || ''
+    );
+    const subscriptionId = payload.object?.subscription_id;
+    const vkGroupId = payload.object?.vk_group_id;
+
+    if (!vkUserId || vkUserId === '0' || vkUserId === '') {
+      console.log('⚠️ Senler: нет vk_user_id в payload');
       return { ok: true, error: 'no user_id' };
     }
 
-    console.log(`✅ Senler: подписка от vk_user_id=${vkUserId}`);
+    // Только конкретная подписная страница (бот-воронка)
+    const ALLOWED_SUBSCRIPTION_ID = 3575432;
+    if (!subscriptionId || subscriptionId !== ALLOWED_SUBSCRIPTION_ID) {
+      console.log(`❌ Senler: не та воронка (получено: ${subscriptionId}, нужно: ${ALLOWED_SUBSCRIPTION_ID}), игнорируем`);
+      return { ok: true };
+    }
+
+    console.log(`✅ Senler: подписка от vk_user_id=${vkUserId}, subscription_id=${subscriptionId}, vk_group_id=${vkGroupId}`);
 
     // Если Supabase подключен — создаём сессию и отправляем приветствие
     if (USE_SUPABASE && USE_VK_BOT) {
@@ -1781,18 +1794,15 @@ if (USE_VK_BOT) {
         return reply.type('text/plain').send(getConfirmationCode());
       }
 
-      // Обработка нового сообщения
-      if (payload.type === 'message_new' && payload.object?.message) {
-        const msg = payload.object.message;
-        const userId = String(msg.from_id);
-        const text = msg.text || '';
-
-        console.log(`💬 VK message от ${userId}: "${text}"`);
-
-        // Обрабатываем асинхронно, чтобы быстро вернуть "ok"
-        handleVkMessage(userId, text).catch(err =>
-          console.error(`❌ VK message handler error:`, err)
-        );
+      // Обработка входящего сообщения
+      if (payload.type === 'message_new') {
+        const message = payload.object?.message;
+        if (message) {
+          const userId = String(message.from_id);
+          const text = message.text || '';
+          console.log(`💬 VK message от ${userId}: "${text}"`);
+          handleVkMessage(userId, text).catch(console.error);
+        }
       }
 
       // VK ожидает строку "ok"
@@ -1828,22 +1838,9 @@ async function handleVkMessage(userId: string, text: string): Promise<void> {
       return;
     }
 
-    // Новый пользователь — возможно пришёл из рекламы, но не через Senler
-    // Создаём сессию и приветствуем
-    const name = await getVkUserName(userId);
-    session = await createSession(userId, name);
-    await updateBotSession(session.id, { state: 'awaiting_url' });
-
-    // Проверяем — может уже прислал URL в первом сообщении
-    const vkUrl = extractVkUrl(text);
-    if (vkUrl) {
-      await updateBotSession(session.id, { state: 'processing', vk_url: vkUrl });
-      await vkSendMessage(userId, BOT_MESSAGES.processing(vkUrl));
-      processBotSite(session.id, vkUrl, userId).catch(console.error);
-      return;
-    }
-
-    await vkSendMessage(userId, BOT_MESSAGES.greeting(name));
+    // Новый пользователь — НЕ пришёл через Senler (нет сессии)
+    // Игнорируем — бот работает только для подписчиков из воронки
+    console.log(`ℹ️ VK: сообщение от ${userId} проигнорировано (нет сессии из Senler)`);
     return;
   }
 
@@ -1997,6 +1994,16 @@ async function processProject(projectId: string): Promise<void> {
 
     console.log(`✅ Проект ${projectId} успешно создан: ${deployedUrl}`);
 
+    // Генерируем пароль для клиентской админки
+    let editPassword: string | undefined;
+    try {
+      const { password } = await adminService.setEditPassword(projectId);
+      editPassword = password;
+      console.log(`🔑 Пароль для редактирования: ${editPassword}`);
+    } catch (pwErr) {
+      console.error('⚠️ Ошибка генерации пароля:', pwErr);
+    }
+
     // Отправляем уведомление в Telegram
     try {
       // Получаем VK данные из проекта (могут быть в dbProject или project)
@@ -2024,6 +2031,7 @@ async function processProject(projectId: string): Promise<void> {
         groupAddress: vkContacts?.address,
         groupSite: vkContacts?.site,
         admins: vkAdmins,
+        editPassword,
       });
     } catch (tgError) {
       console.error('⚠️ Ошибка отправки в Telegram:', tgError);
@@ -2171,7 +2179,7 @@ async function processVkUrl(
     atmosphere: Array<{ url: string }>;
   } | null = null;
 
-  if (options.analyzePhotos !== false && process.env.OPENROUTER_API_KEY && photos.length > 0) {
+  if (options.analyzePhotos !== false && (process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY) && photos.length > 0) {
     try {
       console.log(`🤖 AI анализ фотографий...`);
       const niche = options.niche || detectNiche(vkData.name, vkData.description, vkData.posts);
@@ -2196,6 +2204,7 @@ async function processVkUrl(
       status: 'pending',
       description: vkData.description,
       color_scheme: colorScheme as Record<string, string> | undefined,
+      ai_model: 'gemini-3-flash',
       vk_group_url: vkUrl,
       vk_admins: vkData.admins,
       vk_contacts: {
@@ -2285,8 +2294,25 @@ async function processBotSite(
   vkUrl: string,
   vkUserId: string,
 ): Promise<void> {
+  // Живые обновления прогресса — шлём сообщения параллельно с генерацией
+  let finished = false;
+  const timers: ReturnType<typeof setTimeout>[] = [];
+
+  for (const step of BOT_MESSAGES.progressSteps) {
+    const timer = setTimeout(async () => {
+      if (!finished) {
+        await vkSendMessage(vkUserId, step.text).catch(() => {});
+      }
+    }, step.delaySec * 1000);
+    timers.push(timer);
+  }
+
   try {
     const result = await processVkUrl(vkUrl);
+
+    // Останавливаем таймеры прогресса
+    finished = true;
+    timers.forEach(clearTimeout);
 
     // Обновляем сессию
     await updateBotSession(sessionId, {
@@ -2304,6 +2330,10 @@ async function processBotSite(
 
     console.log(`✅ VK Bot: сайт доставлен пользователю ${vkUserId}: ${result.deployedUrl}`);
   } catch (error) {
+    // Останавливаем таймеры прогресса
+    finished = true;
+    timers.forEach(clearTimeout);
+
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     await updateBotSession(sessionId, {
@@ -2318,6 +2348,124 @@ async function processBotSite(
 }
 
 // === ИНИЦИАЛИЗАЦИЯ ОЧЕРЕДИ VK ===
+
+// =============================================
+// Admin Panel API (client site editor)
+// =============================================
+
+// Login with password → JWT
+fastify.post<{ Params: { id: string }; Body: { password: string } }>(
+  '/api/admin/:id/login',
+  async (request, reply) => {
+    const { id } = request.params;
+    const { password } = request.body || {};
+
+    if (!password) {
+      return reply.status(400).send({ error: 'Password required' });
+    }
+
+    const result = await adminService.loginAdmin(id, password);
+    if (!result) {
+      return reply.status(401).send({ error: 'Invalid password' });
+    }
+
+    return result;
+  }
+);
+
+// Verify JWT
+fastify.get<{ Params: { id: string } }>(
+  '/api/admin/:id/verify',
+  async (request, reply) => {
+    const { id } = request.params;
+    const auth = request.headers.authorization;
+    const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+
+    if (!token) {
+      return reply.status(401).send({ valid: false });
+    }
+
+    const result = await adminService.verifyAdminAccess(id, token);
+    if (!result.valid) {
+      return reply.status(401).send({ valid: false });
+    }
+
+    return result;
+  }
+);
+
+// Reset password (internal — requires API key)
+fastify.post<{ Params: { id: string } }>(
+  '/api/admin/:id/reset-password',
+  async (request, reply) => {
+    const { id } = request.params;
+
+    const { password, hash } = await adminService.setEditPassword(id);
+
+    return { success: true, password };
+  }
+);
+
+// Save admin edits (draft)
+fastify.post<{ Params: { id: string }; Body: adminService.AdminSavePayload }>(
+  '/api/admin/:id/save',
+  async (request, reply) => {
+    const { id } = request.params;
+    const auth = request.headers.authorization;
+    const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+
+    if (!token) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const access = await adminService.verifyAdminAccess(id, token);
+    if (!access.valid) {
+      return reply.status(401).send({ error: 'Invalid token' });
+    }
+
+    try {
+      await adminService.saveAdminEdits(id, request.body);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Admin save error:', error);
+      return reply.status(500).send({ error: 'Save failed' });
+    }
+  }
+);
+
+// Publish (save + rebuild + deploy)
+fastify.post<{ Params: { id: string } }>(
+  '/api/admin/:id/publish',
+  async (request, reply) => {
+    const { id } = request.params;
+    const auth = request.headers.authorization;
+    const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+
+    if (!token) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const access = await adminService.verifyAdminAccess(id, token);
+    if (!access.valid) {
+      return reply.status(401).send({ error: 'Invalid token' });
+    }
+
+    try {
+      // Trigger rebuild (same as regenerate with cached config)
+      await updateProject(id, { status: 'pending', deployedUrl: undefined, error: undefined });
+
+      // Process in background
+      processProject(id).catch(err => {
+        console.error(`❌ Publish rebuild failed for ${id}:`, err);
+      });
+
+      return { success: true, message: 'Rebuild started' };
+    } catch (error) {
+      console.error('❌ Admin publish error:', error);
+      return reply.status(500).send({ error: 'Publish failed' });
+    }
+  }
+);
 
 // Обработчик элементов очереди - использует общую функцию processVkUrl
 queueManager.setProcessor(async (item) => {

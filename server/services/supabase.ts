@@ -37,6 +37,9 @@ export interface DbProject {
     address?: string;
     site?: string;
   };
+  // Admin edit password
+  edit_password_hash?: string;
+  edit_password_plain?: string;
   created_at: string;
   updated_at: string;
 }
