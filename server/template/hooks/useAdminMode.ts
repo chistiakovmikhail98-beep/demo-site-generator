@@ -40,6 +40,16 @@ export function useAdminMode(): AdminMode {
     }
 
     const params = new URLSearchParams(window.location.search);
+
+    // DEV MODE: ?admin&dev skips API auth (only works in Vite dev server)
+    const isDev = typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV;
+    if (params.has('admin') && params.has('dev') && isDev) {
+      setEditMode(true);
+      setJwt('dev-token');
+      setLoading(false);
+      return;
+    }
+
     const savedJwt = localStorage.getItem(storageKey);
 
     if (savedJwt) {

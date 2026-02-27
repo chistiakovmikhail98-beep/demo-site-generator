@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 
 interface ThemeConfig {
   colorScheme: {
@@ -19,31 +19,35 @@ const FONT_OPTIONS = [
   { value: 'playfair', label: 'Playfair Display' },
 ];
 
-const COLOR_FIELDS: { key: keyof ThemeConfig['colorScheme']; label: string }[] = [
-  { key: 'primary', label: 'Основной' },
-  { key: 'accent', label: 'Акцентный' },
-  { key: 'background', label: 'Фон' },
-  { key: 'surface', label: 'Поверхность' },
-  { key: 'text', label: 'Текст' },
+const COLOR_FIELDS: { key: keyof ThemeConfig['colorScheme']; label: string; desc: string }[] = [
+  { key: 'primary', label: 'Основной', desc: 'Кнопки, ссылки, акценты' },
+  { key: 'accent', label: 'Акцентный', desc: 'Hover-эффекты, выделения' },
+  { key: 'background', label: 'Фон страницы', desc: 'Основной фон сайта' },
+  { key: 'surface', label: 'Фон карточек', desc: 'Блоки, панели, карточки' },
+  { key: 'text', label: 'Текст', desc: 'Основной цвет текста' },
 ];
 
 interface ThemeEditorProps {
   theme: ThemeConfig;
   onChange: (theme: ThemeConfig) => void;
-  onClose: () => void;
 }
 
-export default function ThemeEditor({ theme, onChange, onClose }: ThemeEditorProps) {
-  const updateColor = (key: keyof ThemeConfig['colorScheme'], value: string) => {
-    const newTheme = {
-      ...theme,
-      colorScheme: { ...theme.colorScheme, [key]: value },
-    };
-    onChange(newTheme);
+export default function ThemeEditor({ theme, onChange }: ThemeEditorProps) {
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Live preview — update CSS variables
-    const cssVar = `--color-${key}`;
-    document.documentElement.style.setProperty(cssVar, value);
+  const updateColor = (key: keyof ThemeConfig['colorScheme'], value: string) => {
+    // Live preview — update CSS variables immediately
+    document.documentElement.style.setProperty(`--color-${key}`, value);
+
+    // Debounce state update to avoid excessive re-renders during color picker drag
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const newTheme = {
+        ...theme,
+        colorScheme: { ...theme.colorScheme, [key]: value },
+      };
+      onChange(newTheme);
+    }, 50);
   };
 
   const updateFont = (fontFamily: string) => {
@@ -51,64 +55,53 @@ export default function ThemeEditor({ theme, onChange, onClose }: ThemeEditorPro
   };
 
   return (
-    <div className="fixed bottom-12 left-0 right-0 z-[9989] bg-zinc-900 border-t border-zinc-700 shadow-2xl">
-      <div className="max-w-md mx-auto p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-white">Тема оформления</h3>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Colors */}
-        <div className="space-y-2.5 mb-4">
-          {COLOR_FIELDS.map(({ key, label }) => (
-            <div key={key} className="flex items-center gap-3">
-              <label className="text-xs text-zinc-400 w-24 shrink-0">{label}</label>
-              <div className="flex items-center gap-2 flex-1">
-                <input
-                  type="color"
-                  value={theme.colorScheme[key]}
-                  onChange={(e) => updateColor(key, e.target.value)}
-                  className="w-8 h-8 rounded-lg border border-zinc-600 cursor-pointer bg-transparent"
-                />
-                <input
-                  type="text"
-                  value={theme.colorScheme[key]}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (/^#[0-9a-fA-F]{0,6}$/.test(v)) {
-                      updateColor(key, v);
-                    }
-                  }}
-                  className="flex-1 h-8 px-2.5 bg-zinc-800 border border-zinc-600 rounded-lg text-xs text-zinc-200 font-mono focus:outline-none focus:border-primary transition-colors"
-                />
-              </div>
+    <div className="p-3 space-y-3">
+      {/* Colors */}
+      {COLOR_FIELDS.map(({ key, label, desc }) => (
+        <div key={key}>
+          <div className="flex items-center gap-2.5 mb-1">
+            <label className="text-xs text-zinc-300 font-medium flex-1">{label}</label>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="color"
+                value={theme.colorScheme[key]}
+                onChange={(e) => updateColor(key, e.target.value)}
+                className="w-7 h-7 rounded-md border border-zinc-600 cursor-pointer bg-transparent"
+              />
+              <input
+                type="text"
+                value={theme.colorScheme[key]}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (/^#[0-9a-fA-F]{0,6}$/.test(v)) {
+                    updateColor(key, v);
+                  }
+                }}
+                className="w-20 h-7 px-2 bg-zinc-800 border border-zinc-600 rounded-md text-[11px] text-zinc-200 font-mono focus:outline-none focus:border-primary transition-colors"
+              />
             </div>
-          ))}
+          </div>
+          <p className="text-[10px] text-zinc-500 leading-tight">{desc}</p>
         </div>
+      ))}
 
-        {/* Font */}
-        <div className="flex items-center gap-3">
-          <label className="text-xs text-zinc-400 w-24 shrink-0">Шрифт</label>
-          <select
-            value={theme.fontFamily || 'manrope'}
-            onChange={(e) => updateFont(e.target.value)}
-            className="flex-1 h-8 px-2.5 bg-zinc-800 border border-zinc-600 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-primary transition-colors"
-          >
-            {FONT_OPTIONS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Divider */}
+      <div className="border-t border-zinc-700/50" />
+
+      {/* Font */}
+      <div>
+        <label className="text-xs text-zinc-300 font-medium block mb-1.5">Шрифт</label>
+        <select
+          value={theme.fontFamily || 'manrope'}
+          onChange={(e) => updateFont(e.target.value)}
+          className="w-full h-8 px-2.5 bg-zinc-800 border border-zinc-600 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-primary transition-colors"
+        >
+          {FONT_OPTIONS.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   );

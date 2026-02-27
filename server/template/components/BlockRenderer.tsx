@@ -1,5 +1,6 @@
 import React from 'react';
 import type { BlockConfig, BlockProps } from '../types';
+import { VARIANT_NAMES } from './admin/BlockManager';
 
 // Migrated blocks (variant system)
 import Hero from './blocks/Hero';
@@ -123,35 +124,26 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
       return null;
   }
 
-  // Wrap with edit controls when in edit mode
+  // data-block attribute for scroll-to from sidebar
+  const blockAttr = { 'data-block': config.type };
+
+  // Edit mode: minimal label bar (variant controls are in the sidebar)
   if (editable) {
+    const variantNames = VARIANT_NAMES[config.type];
+    const currentName = variantNames ? variantNames[config.variant - 1] : null;
     const hasManyVariants = !SINGLE_VARIANT_BLOCKS.includes(config.type);
 
     return (
-      <div className="relative group/block">
-        {/* Edit header */}
-        <div className="sticky top-16 z-40 bg-zinc-900/90 backdrop-blur-md px-4 py-1.5 flex items-center gap-3 border-b border-zinc-700/50">
-          <span className="text-xs font-medium text-zinc-400">
+      <div className="relative group/block" {...blockAttr}>
+        {/* Minimal edit label */}
+        <div className="sticky top-0 z-40 bg-zinc-900/80 backdrop-blur-sm px-4 py-1 flex items-center gap-2 border-b border-zinc-700/40">
+          <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
             {BLOCK_LABELS[config.type] || config.type}
           </span>
-
-          {hasManyVariants && onVariantChange && (
-            <div className="flex items-center gap-0.5 ml-auto">
-              <span className="text-[10px] text-zinc-500 mr-1">V:</span>
-              {([1, 2, 3] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => onVariantChange(v)}
-                  className={`w-6 h-6 text-[10px] font-medium rounded transition-colors ${
-                    config.variant === v
-                      ? 'bg-primary text-white'
-                      : 'bg-zinc-800 text-zinc-500 hover:text-white hover:bg-zinc-700'
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
+          {hasManyVariants && currentName && (
+            <span className="text-[10px] text-zinc-600">
+              — {currentName}
+            </span>
           )}
         </div>
 
@@ -160,7 +152,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
     );
   }
 
-  return <>{blockContent}</>;
+  return <div {...blockAttr}>{blockContent}</div>;
 };
 
 export default BlockRenderer;

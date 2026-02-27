@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import DemoBanner from './components/DemoBanner';
 import HeaderNew from './components/layout/Header';
 import FooterNew from './components/layout/Footer';
@@ -6,6 +6,7 @@ import FloatingChat from './components/FloatingChat';
 import BlockRenderer from './components/BlockRenderer';
 import AdminToolbar from './components/AdminToolbar';
 import LoginForm from './components/admin/LoginForm';
+import { ToastProvider } from './components/ui/Toast';
 import { siteData as initialSiteData } from './data';
 import { useAdminMode } from './hooks/useAdminMode';
 import { useAdminSave } from './hooks/useAdminSave';
@@ -53,6 +54,17 @@ function App() {
     .filter((block) => block.visible !== false);
 
   const isEditing = admin.editMode && !preview;
+
+  // ── beforeunload protection ──
+  useEffect(() => {
+    if (!adminSave.hasChanges) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [adminSave.hasChanges]);
 
   // Block data change handler
   const handleBlockDataChange = useCallback(
@@ -106,66 +118,85 @@ function App() {
   );
 
   return (
-    <div className={`min-h-screen bg-zinc-50 text-zinc-900 font-sans selection:bg-primary/30 selection:text-white ${admin.editMode ? 'pb-14' : ''}`}>
-      <DemoBanner />
-      <HeaderNew data={data.header} />
-
-      <main>
-        {visibleBlocks.map((blockConfig, index) => (
-          <BlockRenderer
-            key={`${blockConfig.type}-${blockConfig.variant}-${index}`}
-            config={blockConfig}
-            data={(data as any)[blockConfig.type]}
-            editable={isEditing}
-            onDataChange={(d: any) => handleBlockDataChange(blockConfig.type, d)}
-            onVariantChange={(v: 1 | 2 | 3) => handleVariantChange(blockConfig.type, v)}
-            quizAnswersUpdate={
-              blockConfig.type === 'quiz' ? setQuizAnswers : undefined
+    <ToastProvider>
+      <div
+        className={`min-h-screen bg-zinc-50 text-zinc-900 font-sans selection:bg-primary/30 selection:text-white transition-[padding] duration-300 ${
+          admin.editMode ? 'lg:pr-80 pb-14 lg:pb-0' : ''
+        }`}
+      >
+        {/* Push fixed header away from sidebar on desktop */}
+        {admin.editMode && (
+          <style>{`
+            @media (min-width: 1024px) {
+              header { right: 20rem !important; }
             }
+          `}</style>
+        )}
+
+        {/* Hide DemoBanner in edit mode — it's not relevant for the client */}
+        {!admin.editMode && <DemoBanner />}
+
+        <HeaderNew data={data.header} />
+
+        <main>
+          {visibleBlocks.map((blockConfig, index) => (
+            <BlockRenderer
+              key={`${blockConfig.type}-${blockConfig.variant}-${index}`}
+              config={blockConfig}
+              data={(data as any)[blockConfig.type]}
+              editable={isEditing}
+              onDataChange={(d: any) => handleBlockDataChange(blockConfig.type, d)}
+              onVariantChange={(v: 1 | 2 | 3) => handleVariantChange(blockConfig.type, v)}
+              quizAnswersUpdate={
+                blockConfig.type === 'quiz' ? setQuizAnswers : undefined
+              }
+            />
+          ))}
+        </main>
+
+        <FooterNew data={data.footer} />
+
+        {/* Hide FloatingChat in edit mode to avoid overlap with admin UI */}
+        {!admin.editMode && <FloatingChat answers={quizAnswers} />}
+
+        {/* Login form */}
+        {admin.showLogin && (
+          <LoginForm
+            onLogin={admin.login}
+            onClose={() => admin.setShowLogin(false)}
           />
-        ))}
-      </main>
+        )}
 
-      <FooterNew data={data.footer} />
-      <FloatingChat answers={quizAnswers} />
+        {/* Edit button — visible on hover, click shows login */}
+        {!admin.editMode && !admin.showLogin && admin.config && (
+          <button
+            onClick={() => admin.setShowLogin(true)}
+            className="fixed bottom-4 right-4 z-50 w-11 h-11 bg-zinc-800/90 hover:bg-primary text-zinc-400 hover:text-white rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-primary/30 group"
+            title="Редактировать сайт"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="transition-transform group-hover:scale-110">
+              <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
 
-      {/* Login form */}
-      {admin.showLogin && (
-        <LoginForm
-          onLogin={admin.login}
-          onClose={() => admin.setShowLogin(false)}
-        />
-      )}
-
-      {/* Edit button (visible when not in edit mode, on ?admin pages or always at bottom) */}
-      {!admin.editMode && !admin.showLogin && admin.config && (
-        <button
-          onClick={() => admin.setShowLogin(true)}
-          className="fixed bottom-4 right-4 z-50 w-10 h-10 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded-full flex items-center justify-center transition-all opacity-0 hover:opacity-100 focus:opacity-100"
-          title="Редактировать сайт"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-          </svg>
-        </button>
-      )}
-
-      {/* Admin toolbar */}
-      {admin.editMode && (
-        <AdminToolbar
-          siteData={data}
-          layout={layout}
-          theme={theme}
-          adminSave={adminSave}
-          onLayoutChange={handleLayoutChange}
-          onThemeChange={handleThemeChange}
-          onContactsChange={handleContactsChange}
-          onLogout={admin.logout}
-          preview={preview}
-          onPreviewToggle={() => setPreview((p) => !p)}
-        />
-      )}
-    </div>
+        {/* Admin toolbar (right sidebar on desktop, bottom bar on mobile) */}
+        {admin.editMode && (
+          <AdminToolbar
+            siteData={data}
+            layout={layout}
+            theme={theme}
+            adminSave={adminSave}
+            onLayoutChange={handleLayoutChange}
+            onThemeChange={handleThemeChange}
+            onContactsChange={handleContactsChange}
+            onLogout={admin.logout}
+            preview={preview}
+            onPreviewToggle={() => setPreview((p) => !p)}
+          />
+        )}
+      </div>
+    </ToastProvider>
   );
 }
 

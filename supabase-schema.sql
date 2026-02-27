@@ -31,6 +31,14 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS vk_group_url TEXT;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS vk_admins JSONB;
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS vk_contacts JSONB;
 
+-- Outreach колонки
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS outreach_status TEXT DEFAULT 'new';
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS outreach_sent_at TEXT;
+
+-- Админ-панель: пароль для редактирования клиентом
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS edit_password_hash TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS edit_password_plain TEXT;
+
 -- Индексы для быстрого поиска
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
 CREATE INDEX IF NOT EXISTS idx_projects_created ON projects(created_at DESC);
