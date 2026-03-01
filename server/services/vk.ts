@@ -102,7 +102,7 @@ export async function parseVKGroup(url: string): Promise<ParsedVKData> {
   // Получаем информацию о группе (включая аватарку)
   const groupResponse = await fetch(
     `https://api.vk.com/method/groups.getById?` +
-    `group_id=${groupId}&` +
+    `group_ids=${groupId}&` +
     `fields=description,site,contacts,addresses,phone,photo_200,photo_max_orig&` +
     `access_token=${VK_SERVICE_KEY}&` +
     `v=${VK_API_VERSION}`
@@ -285,7 +285,7 @@ export async function parseVKPhotos(url: string, limit: number = 50): Promise<VK
   // Сначала получаем числовой ID группы
   const groupResponse = await fetch(
     `https://api.vk.com/method/groups.getById?` +
-    `group_id=${groupId}&` +
+    `group_ids=${groupId}&` +
     `access_token=${VK_SERVICE_KEY}&` +
     `v=${VK_API_VERSION}`
   );
