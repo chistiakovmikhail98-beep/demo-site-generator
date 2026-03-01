@@ -59,7 +59,7 @@ async function copyDirectory(src, dest) {
 async function generateConstants(buildDir, config) {
     const s = config.sections;
     const b = config.brand;
-    const d = s.director;
+    const d = s.director || { name: '', title: '', description: '', image: '', achievements: [] };
     const content = `import {
   Heart, Zap, Sparkles, Target,
   ShieldCheck, Activity, Users, Star, GraduationCap, Award
@@ -89,7 +89,7 @@ export const DIRECTOR_CONFIG = {
   title: '${esc(d.title)}',
   description: '${esc(d.description)}',
   image: '${esc(d.image)}',
-  achievements: [${d.achievements.map(a => `'${esc(a)}'`).join(', ')}],
+  achievements: [${(d.achievements || []).map(a => `'${esc(a)}'`).join(', ')}],
 };
 
 // Показывать Calculator для всех ниш (включая dance)
@@ -105,16 +105,16 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 export const HERO_ADVANTAGES = [
-${s.heroAdvantages.map(a => `  '${esc(a)}'`).join(',\n')}
+${(s.heroAdvantages || []).map(a => `  '${esc(a)}'`).join(',\n')}
 ];
 
 export const DIRECTIONS: Direction[] = [
-${s.directions.map((d, i) => `  {
+${(s.directions || []).map((d, i) => `  {
     id: '${esc(d.id || `dir-${i}`)}',
     title: '${esc(d.title)}',
     image: '${esc(d.image)}',
     description: '${esc(d.description)}',
-    tags: [${d.tags.map(t => `'${esc(t)}'`).join(', ')}],
+    tags: [${(d.tags || []).map(t => `'${esc(t)}'`).join(', ')}],
     level: '${esc(d.level)}',
     duration: '${esc(d.duration)}',
     category: '${d.category}',
@@ -123,18 +123,18 @@ ${s.directions.map((d, i) => `  {
 ];
 
 export const INSTRUCTORS: Instructor[] = [
-${s.instructors.map((inst, i) => `  {
+${(s.instructors || []).map((inst, i) => `  {
     id: ${i + 1},
     name: '${esc(inst.name)}',
     image: '${esc(inst.image)}',
-    specialties: [${inst.specialties.map(sp => `'${esc(sp)}'`).join(', ')}],
+    specialties: [${(inst.specialties || []).map(sp => `'${esc(sp)}'`).join(', ')}],
     experience: '${esc(inst.experience)}',
     style: '${esc(inst.style)}'
   }`).join(',\n')}
 ];
 
 export const STORIES: Story[] = [
-${s.stories.map((st, i) => `  {
+${(s.stories || []).map((st, i) => `  {
     id: ${i + 1},
     beforeImg: '${esc(st.beforeImg)}',
     afterImg: '${esc(st.afterImg)}',
@@ -144,33 +144,33 @@ ${s.stories.map((st, i) => `  {
 ];
 
 export const FAQ_ITEMS = [
-${s.faq.map(f => `  {
+${(s.faq || []).map(f => `  {
     question: '${esc(f.question)}',
     answer: '${esc(f.answer)}'
   }`).join(',\n')}
 ];
 
 export const REQUESTS_ROW_1 = [
-${s.requests.slice(0, 4).map(r => `  { image: '${esc(r.image)}', text: '${esc(r.text)}' }`).join(',\n')}
+${(s.requests || []).slice(0, 4).map(r => `  { image: '${esc(r.image)}', text: '${esc(r.text)}' }`).join(',\n')}
 ];
 
 export const REQUESTS_ROW_2 = [
-${s.requests.slice(4, 8).map(r => `  { image: '${esc(r.image)}', text: '${esc(r.text)}' }`).join(',\n')}
+${(s.requests || []).slice(4, 8).map(r => `  { image: '${esc(r.image)}', text: '${esc(r.text)}' }`).join(',\n')}
 ];
 
 export const REQUESTS_ROW_3 = [
-${s.requests.slice(8, 12).map(r => `  { image: '${esc(r.image)}', text: '${esc(r.text)}' }`).join(',\n')}
+${(s.requests || []).slice(8, 12).map(r => `  { image: '${esc(r.image)}', text: '${esc(r.text)}' }`).join(',\n')}
 ];
 
 export const OBJECTIONS_PAIRS = [
-${s.objections.map(o => `  {
+${(s.objections || []).map(o => `  {
     myth: "${esc(o.myth)}",
     answer: "${esc(o.answer)}"
   }`).join(',\n')}
 ];
 
 export const ADVANTAGES_GRID: Advantage[] = [
-${s.advantages.map(a => `  {
+${(s.advantages || []).map(a => `  {
     title: "${esc(a.title)}",
     text: "${esc(a.text)}",
     image: '${esc(a.image)}'
@@ -226,7 +226,7 @@ export const QUIZ_CONFIG = {
   steps: [
 ${(s.quiz?.steps || []).map(step => `    {
       question: '${esc(step.question)}',
-      options: [${step.options.map(o => `'${esc(o)}'`).join(', ')}]
+      options: [${(step.options || []).map(o => `'${esc(o)}'`).join(', ')}]
     }`).join(',\n')}
   ]
 };
@@ -241,16 +241,16 @@ ${(s.atmosphere || []).map(a => `  {
 ];
 
 // === CALCULATOR STAGES (по нише) ===
-export const CALCULATOR_STAGES = ${JSON.stringify(s.calculatorStages || getDefaultCalculatorStages(b.niche), null, 2).replace(/"/g, "'")};
+export const CALCULATOR_STAGES = ${jsonToSingleQuote(s.calculatorStages || getDefaultCalculatorStages(b.niche))};
 
 // === SECTION TITLES (динамические заголовки секций) ===
-export const SECTION_TITLES = ${JSON.stringify(s.sectionTitles || getDefaultSectionTitles(b.niche, s.directions?.length || 10), null, 2).replace(/"/g, "'")};
+export const SECTION_TITLES = ${jsonToSingleQuote(s.sectionTitles || getDefaultSectionTitles(b.niche, s.directions?.length || 10))};
 
 // === DIRECTIONS TABS (табы для фильтрации направлений) ===
-export const DIRECTIONS_TABS = ${JSON.stringify(s.directionsTabs || getDefaultDirectionsTabs(), null, 2).replace(/"/g, "'")};
+export const DIRECTIONS_TABS = ${jsonToSingleQuote(s.directionsTabs || getDefaultDirectionsTabs())};
 
 // === COLOR SCHEME (цветовая схема) ===
-export const COLOR_SCHEME = ${JSON.stringify(s.colorScheme || getDefaultColorScheme(), null, 2).replace(/"/g, "'")};
+export const COLOR_SCHEME = ${jsonToSingleQuote(s.colorScheme || getDefaultColorScheme())};
 
 // === AI CHAT CONFIG (конфигурация чата с AI) ===
 export const AI_CHAT_CONFIG = {
@@ -262,6 +262,9 @@ export const AI_CHAT_CONFIG = {
   responseTime: 'Отвечаю в течение пары минут',
   placeholderText: 'Задайте вопрос...',
 };
+
+// === BLOCK VARIANTS (визуальные варианты блоков, выбранные AI) ===
+export const BLOCK_VARIANTS: Record<string, number> = ${jsonToSingleQuote(getBlockVariants(s))};
 `;
     await fs.writeFile(path.join(buildDir, 'constants.tsx'), content);
 }
@@ -269,6 +272,12 @@ function esc(str) {
     if (!str)
         return '';
     return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+/** JSON.stringify → single-quoted JS object (safe: escapes ' in values first) */
+function jsonToSingleQuote(data) {
+    return JSON.stringify(data, null, 2)
+        .replace(/'/g, "\\'") // escape existing single quotes in values
+        .replace(/"/g, "'"); // then replace JSON double quotes with single quotes
 }
 async function updateIndexHtml(buildDir, config) {
     const indexPath = path.join(buildDir, 'index.html');
@@ -312,6 +321,8 @@ async function updateIndexHtml(buildDir, config) {
               surface: '${colorScheme.surface}',
               primary: '${colorScheme.primary}',
               accent: '${colorScheme.accent}',
+              foreground: '${colorScheme.text}',
+              'muted-foreground': '${colorScheme.text === '#1a1a1a' ? '#52525b' : '#a1a1aa'}',
               grayNoble: '#4b5563',
             },
             boxShadow: {
@@ -401,6 +412,8 @@ async function updateIndexHtml(buildDir, config) {
       /* Text colors */
       .text-primary { color: ${colorScheme.primary}; }
       .text-accent { color: ${colorScheme.accent}; }
+      .text-foreground { color: ${colorScheme.text}; }
+      .text-muted-foreground { color: ${colorScheme.text === '#1a1a1a' ? '#52525b' : '#a1a1aa'}; }
 
       /* Border colors */
       .border-primary { border-color: ${colorScheme.primary}; }
@@ -410,6 +423,14 @@ async function updateIndexHtml(buildDir, config) {
   `;
     // Вставляем стили перед закрывающим </style>
     html = html.replace(/<\/style>/i, `${dynamicStyles}\n    </style>`);
+    // Inject __ADMIN_CONFIG__ for client-side admin panel
+    const apiUrl = process.env.PUBLIC_API_URL || (process.env.RAILWAY_PUBLIC_DOMAIN
+        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+        : `http://localhost:${process.env.PORT || 3000}`);
+    const projectId = config.meta.projectId;
+    const slug = config.meta.slug;
+    const adminScript = `<script>window.__ADMIN_CONFIG__={apiUrl:"${apiUrl}",projectId:"${projectId}",slug:"${slug}"}</script>`;
+    html = html.replace('</head>', `  ${adminScript}\n  </head>`);
     await fs.writeFile(indexPath, html);
 }
 function getDefaultCalculatorStages(niche) {
@@ -482,6 +503,34 @@ function getDefaultDirectionsTabs() {
         { key: 'wellness', label: 'Wellness', category: 'wellness' },
         { key: 'online', label: 'Онлайн', category: 'online' }
     ];
+}
+/** Возвращает варианты блоков (AI или дефолтные) */
+function getBlockVariants(sections) {
+    const defaults = {
+        hero: 1,
+        directions: 1,
+        gallery: 1,
+        instructors: 1,
+        stories: 1,
+        reviews: 1,
+        director: 1,
+        pricing: 1,
+        faq: 1,
+        objections: 1,
+        requests: 1,
+        advantages: 1,
+        atmosphere: 1,
+    };
+    if (!sections.blockVariants)
+        return defaults;
+    // Merge AI-selected variants with defaults, clamp to 1-3
+    const result = { ...defaults };
+    for (const [key, val] of Object.entries(sections.blockVariants)) {
+        if (key in result && typeof val === 'number' && val >= 1 && val <= 3) {
+            result[key] = val;
+        }
+    }
+    return result;
 }
 function getDefaultColorScheme() {
     return {
@@ -608,7 +657,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  base: '/',
+  base: './',
   build: {
     outDir: 'dist',
   },

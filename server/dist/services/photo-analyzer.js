@@ -1,5 +1,5 @@
 /**
- * PhotoAnalyzer - анализ фотографий с Claude Haiku Vision через OpenRouter
+ * PhotoAnalyzer - анализ фотографий с Gemini Flash (vision)
  *
  * Категоризация фото для демо-сайтов:
  * - hero: главный баннер (качественное фото студии/занятия)
@@ -8,13 +8,13 @@
  * - atmosphere: атмосфера (интерьер, детали)
  * - stories: до/после (если применимо)
  *
- * Стоимость: ~$0.0002 за фото (Claude Haiku Vision через OpenRouter)
+ * Стоимость: ~$0.00001 за фото (Gemini Flash - в 20 раз дешевле Claude Haiku)
  */
-// OpenRouter API для Claude Haiku Vision
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-// Модель Claude Haiku для vision (самая дешёвая с поддержкой изображений)
-const VISION_MODEL = 'anthropic/claude-3-haiku';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { saveAiCost } from './supabase.js';
+// Gemini API для vision
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const VISION_MODEL = 'gemini-3-flash-preview';
 /**
  * Предварительная фильтрация фото без AI
  * Отсеивает явно неподходящие фото
@@ -37,11 +37,11 @@ export function prefilterPhotos(photos) {
     });
 }
 /**
- * Анализирует одно фото с Claude Haiku Vision через OpenRouter
+ * Анализирует одно фото с Gemini Flash Vision
  */
 async function analyzePhoto(imageUrl, niche = 'fitness') {
-    if (!OPENROUTER_API_KEY) {
-        throw new Error('OPENROUTER_API_KEY не установлен');
+    if (!GEMINI_API_KEY) {
+        throw new Error('GEMINI_API_KEY не установлен');
     }
     const nicheContext = {
         dance: 'танцевальная студия',
@@ -68,46 +68,39 @@ async function analyzePhoto(imageUrl, niche = 'fitness') {
 Формат ответа СТРОГО JSON:
 {"category":"...", "confidence":0.9, "isChild":false, "isGroup":true, "quality":"high", "description":"..."}`;
     try {
-        const response = await fetch(OPENROUTER_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'HTTP-Referer': 'https://fitwebai.ru',
-                'X-Title': 'FitWebAI Photo Analyzer',
-            },
-            body: JSON.stringify({
-                model: VISION_MODEL,
-                max_tokens: 200,
-                messages: [
-                    {
-                        role: 'user',
-                        content: [
-                            {
-                                type: 'image_url',
-                                image_url: {
-                                    url: imageUrl,
-                                },
-                            },
-                            {
-                                type: 'text',
-                                text: prompt,
-                            },
-                        ],
-                    },
-                ],
-            }),
-        });
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+        // Скачиваем изображение и конвертируем в base64
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+            throw new Error(`Failed to fetch image: ${imageResponse.status}`);
         }
-        const data = await response.json();
-        // Парсим ответ (OpenAI-совместимый формат)
-        const text = data.choices?.[0]?.message?.content || '';
-        const tokens = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
+        const arrayBuffer = await imageResponse.arrayBuffer();
+        const base64Image = Buffer.from(arrayBuffer).toString('base64');
+        // Определяем MIME type
+        const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({
+            model: VISION_MODEL,
+            generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 1000,
+            },
+        });
+        const result = await model.generateContent([
+            {
+                inlineData: {
+                    data: base64Image,
+                    mimeType: contentType,
+                },
+            },
+            prompt,
+        ]);
+        const response = result.response;
+        const text = response.text();
+        const tokens = response.usageMetadata?.totalTokenCount || 0;
+        // Убираем markdown code fences (Gemini 3 Flash оборачивает в ```json ... ```)
+        const cleanText = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
         // Извлекаем JSON из ответа
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
             console.warn('⚠️ Не удалось распарсить ответ:', text);
             return {
@@ -149,8 +142,9 @@ async function analyzePhoto(imageUrl, niche = 'fitness') {
  * @param photos - массив URL фото
  * @param niche - ниша бизнеса
  * @param limit - максимум фото для анализа
+ * @param projectId - ID проекта для учёта расходов
  */
-export async function analyzePhotos(photos, niche = 'fitness', limit = 25) {
+export async function analyzePhotos(photos, niche = 'fitness', limit = 25, projectId) {
     // Предварительная фильтрация
     const filtered = prefilterPhotos(photos).slice(0, limit);
     console.log(`📷 Анализ ${filtered.length} фото (из ${photos.length})...`);
@@ -186,10 +180,27 @@ export async function analyzePhotos(photos, niche = 'fitness', limit = 25) {
             });
         }
     }
-    // Примерная стоимость OpenRouter Claude Haiku Vision
-    // ~$0.00025 за 1K input tokens + $0.00125 за 1K output tokens
-    const estimatedCost = (totalTokens / 1000) * 0.0005; // Усреднённая цена
-    console.log(`✅ Анализ завершён: ${results.length} фото, ~$${estimatedCost.toFixed(4)}`);
+    // Стоимость Gemini 2.5 Flash: $0.30 input / $2.50 output per 1M tokens
+    // Vision обычно ~95% input (изображение) + 5% output (JSON ответ)
+    const inputTokens = Math.round(totalTokens * 0.95);
+    const outputTokens = Math.round(totalTokens * 0.05);
+    const estimatedCost = (inputTokens / 1_000_000) * 0.30 + (outputTokens / 1_000_000) * 2.50;
+    console.log(`✅ Анализ завершён: ${results.length} фото, ~$${estimatedCost.toFixed(5)} (Gemini Flash)`);
+    // 💾 Сохраняем расход в ai_costs
+    if (totalTokens > 0) {
+        saveAiCost({
+            project_id: projectId,
+            type: 'photo_analysis',
+            model: VISION_MODEL,
+            input_tokens: inputTokens,
+            output_tokens: outputTokens,
+            total_tokens: totalTokens,
+            cost_usd: estimatedCost,
+            description: `Photo analysis: ${results.length} photos (Gemini Flash)`,
+        }).catch(err => {
+            console.error('⚠️ Не удалось сохранить AI cost для фото:', err);
+        });
+    }
     return {
         photos: results,
         totalCost: estimatedCost,

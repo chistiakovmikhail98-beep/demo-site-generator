@@ -7,8 +7,9 @@ function extractGroupId(url) {
     // https://vk.com/public123456 или https://vk.ru/public123456
     // https://vk.com/club123456 или https://vk.ru/club123456
     // vk.com/groupname или vk.ru/groupname
+    // Также поддерживаем точки в screen_name (например endorphin.achinsk)
     const patterns = [
-        /vk\.(?:com|ru)\/([a-zA-Z0-9_]+)/,
+        /vk\.(?:com|ru)\/([a-zA-Z0-9_.]+)/,
         /vk\.(?:com|ru)\/public(\d+)/,
         /vk\.(?:com|ru)\/club(\d+)/,
     ];

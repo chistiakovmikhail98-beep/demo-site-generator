@@ -1,19 +1,22 @@
 import OpenAI from 'openai';
-import { saveTokenStats } from './supabase.js';
+import { saveTokenStats, saveAiCost } from './supabase.js';
+import { generateSiteConfigWithGemini } from './gemini.js';
 // Маппинг моделей на OpenRouter ID
 const MODEL_MAP = {
     'deepseek': 'deepseek/deepseek-chat',
     'gpt4o-mini': 'openai/gpt-4o-mini',
     'sonnet': 'anthropic/claude-3.5-sonnet',
+    'gemini-3-flash': 'gemini-3-flash', // Прямой Gemini API
 };
 // Цены за 1M токенов (input/output)
 const PRICING_MAP = {
     'deepseek': { input: 0.14, output: 0.28 },
     'gpt4o-mini': { input: 0.15, output: 0.60 },
     'sonnet': { input: 3, output: 15 },
+    'gemini-3-flash': { input: 0.50, output: 3.00 }, // Gemini 3 Flash Preview цены
 };
-// Модель по умолчанию
-const DEFAULT_MODEL = 'gpt4o-mini';
+// Модель по умолчанию (переключаем на Gemini!)
+const DEFAULT_MODEL = 'gemini-3-flash';
 // Глобальный счётчик
 export const tokenStats = {
     total: {
@@ -27,7 +30,7 @@ export const tokenStats = {
 };
 // Активная модель для текущего запроса (устанавливается перед вызовом)
 let currentPricing = PRICING_MAP['gpt4o-mini'];
-function trackUsage(usage, projectId, modelName) {
+function trackUsage(usage, projectId, modelName, costType = 'content_generation') {
     if (!usage) {
         return { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCost: 0 };
     }
@@ -57,10 +60,23 @@ function trackUsage(usage, projectId, modelName) {
             estimatedCost: existing.estimatedCost + estimatedCost,
         });
     }
-    // 💾 Сохраняем в Supabase (постоянное хранение по дням)
     const model = modelName || 'unknown';
+    // 💾 Сохраняем в Supabase: старая таблица (агрегация по дням)
     saveTokenStats(model, promptTokens, completionTokens, estimatedCost).catch(err => {
         console.error('⚠️ Не удалось сохранить статистику в БД:', err);
+    });
+    // 💾 Сохраняем в Supabase: новая таблица ai_costs (детально по проектам)
+    saveAiCost({
+        project_id: projectId,
+        type: costType,
+        model,
+        input_tokens: promptTokens,
+        output_tokens: completionTokens,
+        total_tokens: totalTokens,
+        cost_usd: estimatedCost,
+        description: `${costType} via ${model}`,
+    }).catch(err => {
+        console.error('⚠️ Не удалось сохранить AI cost:', err);
     });
     console.log(`💰 Токены: ${promptTokens} in + ${completionTokens} out = ${totalTokens} | ~$${estimatedCost.toFixed(4)}`);
     return { promptTokens, completionTokens, totalTokens, estimatedCost };
@@ -86,9 +102,19 @@ function getOpenAI() {
     return openaiClient;
 }
 export async function generateSiteConfig(input) {
-    const { name, niche, description, imageFiles, colorScheme, aiModel = DEFAULT_MODEL } = input;
-    // Проверяем что модель поддерживается, иначе fallback
-    const modelKey = (aiModel && aiModel in MODEL_MAP ? aiModel : DEFAULT_MODEL);
+    const { name, niche, description, imageFiles, colorScheme, aiModel } = input;
+    // Debug: показать какая модель запрошена
+    console.log(`🔍 generateSiteConfig вызван: aiModel=${JSON.stringify(aiModel)}, DEFAULT=${DEFAULT_MODEL}`);
+    // Если aiModel не указан, null или undefined — используем Gemini
+    const effectiveModel = aiModel || DEFAULT_MODEL;
+    const modelKey = (effectiveModel in MODEL_MAP ? effectiveModel : DEFAULT_MODEL);
+    console.log(`🔍 modelKey=${modelKey}`);
+    // 🚀 Если Gemini — используем прямой Gemini API с Agentic Vision
+    if (modelKey === 'gemini-3-flash') {
+        console.log(`🚀 Переключение на Gemini 3 Flash (с анализом ${imageFiles.length} фото)`);
+        return generateSiteConfigWithGemini(input);
+    }
+    // Остальные модели через OpenRouter
     // Устанавливаем цены для трекинга
     currentPricing = PRICING_MAP[modelKey];
     const modelId = MODEL_MAP[modelKey];
@@ -300,9 +326,46 @@ ${getNicheGuidelines(niche)}
       { "key": "all", "label": "Все" },
       { "key": "group", "label": "Групповые", "category": "dance" },
       { "key": "personal", "label": "Индивидуальные", "category": "body" }
-    ]
+    ],
+    "blockVariants": {
+      "hero": 1,
+      "directions": 1,
+      "gallery": 1,
+      "instructors": 1,
+      "stories": 1,
+      "reviews": 1,
+      "director": 1,
+      "pricing": 1,
+      "faq": 1,
+      "objections": 1,
+      "requests": 1,
+      "advantages": 1,
+      "atmosphere": 1
+    }
   }
 }
+
+🎨 ВАРИАНТЫ БЛОКОВ (blockVariants):
+Выбери визуальный вариант (1, 2 или 3) для каждого блока. НЕ ставь всем 1 — создавай разнообразие!
+
+hero: 1=карта+фото сбоку, 2=фулскрин фон+статы, 3=сетка+метрики
+directions: 1=грид карточки+фильтры, 2=горизонтальные строки, 3=карусель
+gallery: 1=бесконечный маркиз, 2=masonry+лайтбокс, 3=главное фото+превью
+instructors: 1=тёмные карты+CTA, 2=светлый грид+инста, 3=карусель+цитаты
+stories: 1=до/после рядом, 2=полноширинный слайдер, 3=вертикальный таймлайн
+reviews: 1=маркиз-скролл, 2=карточки грид, 3=спотлайт-цитата
+director: 1=фото+достижения, 2=полноширинный баннер, 3=side-by-side
+pricing: 1=мульти-план+премиум, 2=три колонки, 3=табы
+faq: 1=сайдбар+аккордеон, 2=полноширинный аккордеон, 3=чат Q&A
+objections: 1=миф/ответ карточки, 2=до/после тоггл, 3=аккордеон
+requests: 1=маркиз строки, 2=облако пиллов, 3=грид+иконки
+advantages: 1=фото-оверлей карты, 2=иконки минимализм, 3=бенто-грид
+atmosphere: 1=scroll-sticky, 2=фото грид, 3=фулскрин слайдер
+
+Критерии выбора:
+- Ниша и стиль (танцы → более выразительные, фитнес → строгие)
+- Количество контента (много направлений → грид, мало → карусель)
+- Визуальное разнообразие между блоками!
 
 ТРЕБОВАНИЯ:
 - directions: 6-10 направлений РЕЛЕВАНТНЫХ НИШЕ "${niche}" (см. guidelines выше)

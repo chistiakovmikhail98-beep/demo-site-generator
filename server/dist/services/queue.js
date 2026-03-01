@@ -7,7 +7,7 @@
  * - Auto-retry при ошибках (до 3 попыток)
  * - Graceful shutdown
  */
-import { addQueueBatch, getNextQueueItem, completeQueueItem, failQueueItem, getQueueStats, getBatchStats, retryFailedItems, resetStuckProcessingItems, } from './supabase.js';
+import { addQueueBatch, getNextQueueItem, completeQueueItem, failQueueItem, updateQueueItem, getQueueStats, getBatchStats, retryFailedItems, resetStuckProcessingItems, } from './supabase.js';
 class QueueManager {
     isRunning = false;
     isPaused = false;
@@ -143,11 +143,18 @@ class QueueManager {
     }
     /**
      * Восстановление после краша - сбрасывает зависшие processing элементы
+     * и перезапускает очередь если есть pending элементы
      */
     async recover() {
         const count = await resetStuckProcessingItems(30); // 30 минут
         if (count > 0) {
             console.log(`🔄 Восстановлено ${count} зависших элементов`);
+        }
+        // Автозапуск если есть pending элементы
+        const stats = await getQueueStats();
+        if (stats.pending > 0 && !this.isRunning && !this.isPaused && this.processor) {
+            console.log(`🚀 Автозапуск очереди: ${stats.pending} элементов в ожидании`);
+            this.start();
         }
         return count;
     }
@@ -196,8 +203,11 @@ class QueueManager {
                     if (newRetryCount < item.max_retries) {
                         // Можно retry - возвращаем в pending
                         console.log(`⚠️ Error (retry ${newRetryCount}/${item.max_retries}): ${errorMessage}`);
-                        await failQueueItem(item.id, errorMessage, newRetryCount);
-                        // TODO: можно сделать exponential backoff
+                        await updateQueueItem(item.id, {
+                            status: 'pending',
+                            error_message: errorMessage,
+                            retry_count: newRetryCount,
+                        });
                     }
                     else {
                         // Исчерпаны попытки

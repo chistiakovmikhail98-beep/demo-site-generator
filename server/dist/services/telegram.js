@@ -38,6 +38,19 @@ export async function notifyNewSite(data) {
         `🌐 <b>Сайт:</b> ${data.siteUrl}`,
         `📱 <b>VK группа:</b> ${data.vkGroupUrl}`,
     ];
+    // Контакты группы
+    if (data.groupPhone || data.groupEmail || data.groupAddress || data.groupSite) {
+        lines.push('');
+        lines.push('📋 <b>Контакты студии:</b>');
+        if (data.groupPhone)
+            lines.push(`📞 Телефон: ${escapeHtml(data.groupPhone)}`);
+        if (data.groupEmail)
+            lines.push(`✉️ Email: ${escapeHtml(data.groupEmail)}`);
+        if (data.groupAddress)
+            lines.push(`📍 Адрес: ${escapeHtml(data.groupAddress)}`);
+        if (data.groupSite)
+            lines.push(`🔗 Сайт: ${data.groupSite}`);
+    }
     // Добавляем информацию об админах
     if (data.admins && data.admins.length > 0) {
         lines.push('');
@@ -68,6 +81,28 @@ export async function notifyNewSite(data) {
             }
         }
     }
+    // Пароль для редактирования
+    if (data.editPassword) {
+        lines.push('');
+        lines.push(`🔑 <b>Пароль для редактирования:</b> <code>${data.editPassword}</code>`);
+        lines.push(`📝 Для входа: ${data.siteUrl}?admin`);
+    }
+    // Добавляем готовый шаблон для рассылки
+    // Извлекаем короткое название студии (до " | " или первое слово)
+    const shortName = data.siteName.includes('|')
+        ? data.siteName.split('|')[0].trim()
+        : data.siteName;
+    lines.push('');
+    lines.push('━━━━━━━━━━━━━━━━━━━━━━');
+    lines.push('📋 <b>Шаблон для рассылки:</b>');
+    lines.push('━━━━━━━━━━━━━━━━━━━━━━');
+    lines.push('');
+    lines.push(`<code>Здравствуйте! Сделали прототип сайта для вашей студии «${shortName}» на основе группы ВК - посмотрите:
+${data.siteUrl}
+
+Это прототип - можно скорректировать под вас. Само создание бесплатно, работаем по подписке за совсем небольшую сумму в месяц.
+
+Такие сайты приносят от 30 заявок/мес уже из поиска и карт - если интересно, расскажу подробнее 🙌</code>`);
     const message = lines.join('\n');
     await sendTelegramMessage(message);
 }

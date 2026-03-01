@@ -17,8 +17,10 @@ import { notifyNewSite } from './services/telegram.js';
 import { queueManager } from './services/queue.js';
 import { analyzePhotos, distributePhotos } from './services/photo-analyzer.js';
 import { extractColorsFromUrl } from './services/color-extractor.js';
-import { getVPSConfig } from './services/vps-deployer.js';
+import { deployToVPS, isVPSConfigured, getVPSConfig, checkVPSConnection, listVPSSites, inspectVPSSite, fixNginxConfig } from './services/vps-deployer.js';
 import sharp from 'sharp';
+import * as adminService from './services/admin.js';
+import { USE_VK_BOT, sendMessage as vkSendMessage, extractVkUrl, getActiveSession, getSessionByUserId, createSession, updateSession as updateBotSession, getVkUserName, getConfirmationCode, validateSecret, makeSiteLinkKeyboard, MESSAGES as BOT_MESSAGES, } from './services/salebot.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fastify = Fastify({ logger: true });
 // Определяем окружение
@@ -368,6 +370,28 @@ fastify.post('/api/batch-vk/retry-failed', async (request) => {
     const count = await queueManager.retryFailed(request.body?.batchId);
     return { success: true, retriedCount: count };
 });
+// Получить failed элементы с сообщениями об ошибках
+fastify.get('/api/batch-vk/failed', async () => {
+    try {
+        const failedItems = await supabaseService.getFailedQueueItems(50);
+        return {
+            success: true,
+            count: failedItems.length,
+            items: failedItems.map(item => ({
+                id: item.id,
+                vkUrl: item.vk_url,
+                errorMessage: item.error_message,
+                retryCount: item.retry_count,
+                completedAt: item.completed_at,
+                batchId: item.batch_id,
+            })),
+        };
+    }
+    catch (error) {
+        console.error('Ошибка получения failed items:', error);
+        return { success: false, error: 'Не удалось получить ошибки' };
+    }
+});
 // Статистика токенов (текущая сессия)
 fastify.get('/api/tokens', async () => {
     try {
@@ -421,6 +445,52 @@ fastify.get('/api/tokens/stats', async (request) => {
             success: false,
             error: 'Не удалось получить статистику',
             summary: { totalTokens: 0, totalCost: 0, totalCostFormatted: '$0.0000', totalRequests: 0 },
+            byModel: [],
+            byDay: [],
+        };
+    }
+});
+// Статистика AI расходов (детально по проектам)
+fastify.get('/api/ai-costs', async () => {
+    try {
+        const stats = await supabaseService.getAiCostsTotal();
+        return {
+            success: true,
+            summary: {
+                totalCostUsd: stats.totalCostUsd,
+                totalCostFormatted: `$${stats.totalCostUsd.toFixed(4)}`,
+                totalTokens: stats.totalTokens,
+            },
+            byType: Object.entries(stats.byType).map(([type, data]) => ({
+                type,
+                cost: data.cost,
+                costFormatted: `$${data.cost.toFixed(4)}`,
+                tokens: data.tokens,
+                count: data.count,
+            })),
+            byModel: Object.entries(stats.byModel).map(([model, data]) => ({
+                model,
+                cost: data.cost,
+                costFormatted: `$${data.cost.toFixed(4)}`,
+                tokens: data.tokens,
+                count: data.count,
+            })),
+            byDay: stats.byDay.slice(0, 30).map(day => ({
+                date: day.date,
+                cost: day.cost,
+                costFormatted: `$${day.cost.toFixed(4)}`,
+                tokens: day.tokens,
+                count: day.count,
+            })),
+        };
+    }
+    catch (error) {
+        console.error('Ошибка получения AI costs:', error);
+        return {
+            success: false,
+            error: 'Не удалось получить статистику AI',
+            summary: { totalCostUsd: 0, totalCostFormatted: '$0.0000', totalTokens: 0 },
+            byType: [],
             byModel: [],
             byDay: [],
         };
@@ -777,6 +847,55 @@ function getNicheLabel(niche) {
     };
     return labels[niche] || niche;
 }
+// Автоопределение ниши по названию, описанию и постам
+function detectNiche(name, description, posts) {
+    const text = `${name} ${description} ${posts.join(' ')}`.toLowerCase();
+    // Ключевые слова для каждой ниши (в порядке приоритета)
+    const nicheKeywords = [
+        {
+            niche: 'dance',
+            keywords: ['танц', 'dance', 'хореограф', 'балет', 'хип-хоп', 'hip-hop', 'contemporary', 'джаз', 'сальса', 'бачата', 'танго', 'вог', 'vogue', 'брейк', 'break', 'pole dance', 'пилон', 'go-go', 'гоу-гоу', 'стрип', 'strip', 'тверк', 'twerk', 'k-pop', 'кпоп', 'waacking', 'вакинг', 'dancehall', 'дэнсхолл', 'контемп', 'реггетон', 'reggaeton'],
+            weight: 0,
+        },
+        {
+            niche: 'stretching',
+            keywords: ['растяж', 'stretch', 'шпагат', 'гибкост', 'стретчинг', 'flexibility', 'split', 'пластик'],
+            weight: 0,
+        },
+        {
+            niche: 'yoga',
+            keywords: ['йог', 'yoga', 'асан', 'медитац', 'пранаям', 'хатха', 'аштанга', 'кундалини', 'виньяса', 'намасте'],
+            weight: 0,
+        },
+        {
+            niche: 'fitness',
+            keywords: ['фитнес', 'fitness', 'тренажер', 'gym', 'спортзал', 'тренировк', 'кроссфит', 'crossfit', 'бодибилдинг', 'силов', 'кардио', 'аэробик', 'zumba', 'зумба', 'пилатес', 'pilates', 'функционал', 'табата', 'hiit'],
+            weight: 0,
+        },
+        {
+            niche: 'wellness',
+            keywords: ['spa', 'спа', 'массаж', 'релакс', 'wellness', 'оздоров', 'детокс', 'обертыван'],
+            weight: 0,
+        },
+    ];
+    // Подсчитываем совпадения
+    for (const item of nicheKeywords) {
+        for (const keyword of item.keywords) {
+            if (text.includes(keyword)) {
+                item.weight += 1;
+                // Бонус за совпадение в названии
+                if (name.toLowerCase().includes(keyword)) {
+                    item.weight += 3;
+                }
+            }
+        }
+    }
+    // Находим нишу с максимальным весом
+    const sorted = nicheKeywords.sort((a, b) => b.weight - a.weight);
+    const detected = sorted[0].weight > 0 ? sorted[0].niche : 'dance'; // По умолчанию танцы
+    console.log(`🎯 Автоопределение ниши: "${name}" → ${detected} (веса: ${nicheKeywords.map(n => `${n.niche}:${n.weight}`).join(', ')})`);
+    return detected;
+}
 // Быстрая генерация из сырого текста — AI сам парсит
 fastify.post('/api/quick', async (request, reply) => {
     let text = '';
@@ -1096,7 +1215,7 @@ fastify.delete('/api/projects/:id', async (request, reply) => {
 fastify.put('/api/projects/:id', async (request, reply) => {
     if (USE_SUPABASE) {
         try {
-            const allowedFields = ['name', 'niche', 'description'];
+            const allowedFields = ['name', 'niche', 'description', 'outreach_status', 'outreach_sent_at'];
             const updates = {};
             for (const field of allowedFields) {
                 if (request.body[field] !== undefined) {
@@ -1117,7 +1236,7 @@ fastify.put('/api/projects/:id', async (request, reply) => {
     if (index === -1) {
         return reply.status(404).send({ error: 'Проект не найден' });
     }
-    const allowedFields = ['name', 'niche', 'description'];
+    const allowedFields = ['name', 'niche', 'description', 'outreach_status', 'outreach_sent_at'];
     const updates = {};
     for (const field of allowedFields) {
         if (request.body[field] !== undefined) {
@@ -1373,6 +1492,187 @@ fastify.patch('/api/leads/:id', async (request, reply) => {
         });
     }
 });
+// === ПУБЛИЧНАЯ ВОРОНКА: генерация сайта по VK URL ===
+fastify.post('/api/funnel/generate', async (request, reply) => {
+    try {
+        const { vkUrl } = request.body || {};
+        if (!vkUrl || (!vkUrl.includes('vk.com') && !vkUrl.includes('vk.ru'))) {
+            return reply.status(400).send({ error: 'Укажите корректную ссылку на группу ВКонтакте' });
+        }
+        // Генерируем projectId заранее, чтобы фронт мог сразу полить статус
+        const projectId = nanoid(10);
+        // Быстрый ответ клиенту
+        reply.send({ projectId, status: 'pending', statusUrl: `/api/status/${projectId}` });
+        // Запускаем генерацию в фоне с заданным projectId
+        processVkUrl(vkUrl, { projectId }).catch(err => {
+            console.error(`❌ Funnel generation error for ${projectId}:`, err);
+        });
+    }
+    catch (error) {
+        console.error('❌ Funnel endpoint error:', error);
+        return reply.status(500).send({ error: 'Внутренняя ошибка сервера' });
+    }
+});
+// === VK БОТ: Senler webhook (подписка) + VK Callback API (сообщения) ===
+// 1. Senler webhook — ловит подписку с подписной страницы
+fastify.post('/api/senler/webhook', async (request, reply) => {
+    try {
+        const payload = request.body;
+        // Лог (полный payload)
+        console.log(`📩 Senler webhook: type=${payload.type}`);
+        console.log('📩 Senler FULL payload:', JSON.stringify(payload, null, 2));
+        // Тестовый запрос от Senler — просто подтверждаем
+        if (payload.type === 'check') {
+            console.log('✅ Senler: тестовый запрос, ОК');
+            return { ok: true };
+        }
+        // Извлекаем данные (вложены в object)
+        const vkUserId = String(payload.object?.vk_user_id || payload.vk_user_id || payload.user_id || '');
+        const subscriptionId = payload.object?.subscription_id;
+        const vkGroupId = payload.object?.vk_group_id;
+        if (!vkUserId || vkUserId === '0' || vkUserId === '') {
+            console.log('⚠️ Senler: нет vk_user_id в payload');
+            return { ok: true, error: 'no user_id' };
+        }
+        // Только конкретная подписная страница (бот-воронка)
+        const ALLOWED_SUBSCRIPTION_ID = 3575432;
+        if (!subscriptionId || subscriptionId !== ALLOWED_SUBSCRIPTION_ID) {
+            console.log(`❌ Senler: не та воронка (получено: ${subscriptionId}, нужно: ${ALLOWED_SUBSCRIPTION_ID}), игнорируем`);
+            return { ok: true };
+        }
+        console.log(`✅ Senler: подписка от vk_user_id=${vkUserId}, subscription_id=${subscriptionId}, vk_group_id=${vkGroupId}`);
+        // Если Supabase подключен — создаём сессию и отправляем приветствие
+        if (USE_SUPABASE && USE_VK_BOT) {
+            const existing = await getActiveSession(vkUserId);
+            if (existing) {
+                console.log(`⚠️ Senler: сессия уже существует для ${vkUserId}, state=${existing.state}`);
+                return { ok: true };
+            }
+            const name = await getVkUserName(vkUserId);
+            const session = await createSession(vkUserId, name);
+            await updateBotSession(session.id, { state: 'awaiting_url' });
+            await vkSendMessage(vkUserId, BOT_MESSAGES.greeting(name));
+            console.log(`🆕 Senler: новая подписка от ${name} (${vkUserId}), приветствие отправлено`);
+        }
+        else {
+            console.log(`ℹ️ Senler: webhook пойман, но Supabase/VK бот не настроены (тестовый режим)`);
+        }
+        return { ok: true };
+    }
+    catch (error) {
+        console.error('❌ Senler webhook error:', error);
+        return { ok: true };
+    }
+});
+// 2. VK Callback API — ловит сообщения от пользователей
+if (USE_VK_BOT) {
+    console.log('🤖 VK бот включён: POST /api/vk/callback');
+    fastify.post('/api/vk/callback', async (request, reply) => {
+        try {
+            const payload = request.body;
+            // Проверка секрета
+            if (!validateSecret(payload.secret)) {
+                return reply.status(403).send('Invalid secret');
+            }
+            // Подтверждение сервера VK
+            if (payload.type === 'confirmation') {
+                return reply.type('text/plain').send(getConfirmationCode());
+            }
+            // Обработка входящего сообщения
+            if (payload.type === 'message_new') {
+                const message = payload.object?.message;
+                if (message) {
+                    const userId = String(message.from_id);
+                    const text = message.text || '';
+                    console.log(`💬 VK message от ${userId}: "${text}"`);
+                    handleVkMessage(userId, text).catch(console.error);
+                }
+            }
+            // VK ожидает строку "ok"
+            return reply.type('text/plain').send('ok');
+        }
+        catch (error) {
+            console.error('❌ VK callback error:', error);
+            return reply.type('text/plain').send('ok');
+        }
+    });
+}
+else {
+    console.log('⚠️ VK бот отключён (нет VK_GROUP_TOKEN)');
+}
+// Обработчик VK сообщений — state machine
+async function handleVkMessage(userId, text) {
+    let session = await getActiveSession(userId);
+    // --- Нет активной сессии ---
+    if (!session) {
+        const existingSession = await getSessionByUserId(userId);
+        if (existingSession && existingSession.state === 'completed') {
+            // Пользователь уже получал сайт — может хочет новый
+            const vkUrl = extractVkUrl(text);
+            if (vkUrl) {
+                session = await createSession(userId);
+                await updateBotSession(session.id, { state: 'processing', vk_url: vkUrl });
+                await vkSendMessage(userId, BOT_MESSAGES.processing(vkUrl));
+                processBotSite(session.id, vkUrl, userId).catch(console.error);
+                return;
+            }
+            await vkSendMessage(userId, BOT_MESSAGES.completedRepeat(existingSession.deployed_url || ''));
+            return;
+        }
+        // Новый пользователь — НЕ пришёл через Senler (нет сессии)
+        // Игнорируем — бот работает только для подписчиков из воронки
+        console.log(`ℹ️ VK: сообщение от ${userId} проигнорировано (нет сессии из Senler)`);
+        return;
+    }
+    // --- Есть активная сессия ---
+    switch (session.state) {
+        case 'new':
+        case 'awaiting_url': {
+            const vkUrl = extractVkUrl(text);
+            if (!vkUrl) {
+                await vkSendMessage(userId, BOT_MESSAGES.invalidUrl);
+                return;
+            }
+            await updateBotSession(session.id, { state: 'processing', vk_url: vkUrl });
+            await vkSendMessage(userId, BOT_MESSAGES.processing(vkUrl));
+            processBotSite(session.id, vkUrl, userId).catch(err => console.error(`❌ Bot generation error for session ${session.id}:`, err));
+            return;
+        }
+        case 'processing': {
+            await vkSendMessage(userId, BOT_MESSAGES.stillProcessing);
+            return;
+        }
+        case 'failed': {
+            const vkUrl = extractVkUrl(text);
+            if (vkUrl) {
+                await updateBotSession(session.id, {
+                    state: 'processing',
+                    vk_url: vkUrl,
+                    error_message: null,
+                    retry_count: session.retry_count + 1,
+                });
+                await vkSendMessage(userId, BOT_MESSAGES.retrying(vkUrl));
+                processBotSite(session.id, vkUrl, userId).catch(console.error);
+            }
+            else {
+                await updateBotSession(session.id, { state: 'awaiting_url' });
+                await vkSendMessage(userId, BOT_MESSAGES.failed);
+            }
+            return;
+        }
+    }
+}
+// Дебаг-эндпоинт для сессий
+fastify.get('/api/bot/sessions', async () => {
+    const { data, error } = await supabaseService.supabase
+        .from('salebot_sessions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+    if (error)
+        throw error;
+    return { sessions: data || [] };
+});
 // Фоновый процесс генерации
 async function processProject(projectId) {
     try {
@@ -1439,33 +1739,63 @@ async function processProject(projectId) {
         // Шаг 2: Сборка сайта (с передачей загруженных фото)
         await updateProject(projectId, { status: 'building' });
         const buildPath = await buildSite(projectId, siteConfig, uploadedFiles);
-        // Шаг 3: Деплой на Vercel
+        // Шаг 3: Деплой (VPS если настроен, иначе Vercel)
         await updateProject(projectId, { status: 'deploying' });
-        const deployedUrl = await deployToVercel(projectId, buildPath, siteConfig.meta.slug);
+        let deployedUrl;
+        if (isVPSConfigured()) {
+            const vpsResult = await deployToVPS(projectId, buildPath, siteConfig.meta.slug);
+            if (!vpsResult.success) {
+                throw new Error(vpsResult.error || 'Ошибка деплоя на VPS');
+            }
+            deployedUrl = vpsResult.url;
+        }
+        else {
+            // Fallback на Vercel если VPS не настроен
+            console.log('⚠️ VPS не настроен, используем Vercel...');
+            deployedUrl = await deployToVercel(projectId, buildPath, siteConfig.meta.slug);
+        }
         await updateProject(projectId, {
             status: 'completed',
             deployedUrl,
         });
         console.log(`✅ Проект ${projectId} успешно создан: ${deployedUrl}`);
+        // Генерируем пароль для клиентской админки
+        let editPassword;
+        try {
+            const { password } = await adminService.setEditPassword(projectId);
+            editPassword = password;
+            console.log(`🔑 Пароль для редактирования: ${editPassword}`);
+        }
+        catch (pwErr) {
+            console.error('⚠️ Ошибка генерации пароля:', pwErr);
+        }
         // Отправляем уведомление в Telegram
         try {
             // Получаем VK данные из проекта (могут быть в dbProject или project)
             let vkGroupUrl;
             let vkAdmins;
+            let vkContacts;
             if (USE_SUPABASE) {
                 const dbProject = await supabaseService.getProject(projectId);
                 vkGroupUrl = dbProject?.vk_group_url ?? undefined;
                 vkAdmins = dbProject?.vk_admins;
+                vkContacts = dbProject?.vk_contacts;
             }
             else {
                 vkGroupUrl = project.vkGroupUrl;
                 vkAdmins = project.vkAdmins;
+                vkContacts = project.vkContacts;
             }
             await notifyNewSite({
                 siteName: project.name,
                 siteUrl: deployedUrl,
                 vkGroupUrl: vkGroupUrl || siteConfig.sections?.contacts?.vk || 'Не указана',
+                groupPhone: vkContacts?.phone,
+                groupEmail: vkContacts?.email,
+                groupAddress: vkContacts?.address,
+                groupSite: vkContacts?.site,
                 admins: vkAdmins,
+                editPassword,
             });
         }
         catch (tgError) {
@@ -1495,10 +1825,45 @@ fastify.get('/api/diagnostics', async () => {
             configured: vpsConfig.configured,
             domain: vpsConfig.domain,
             sitesDir: vpsConfig.sitesDir,
+            host: vpsConfig.host,
+            hasSSHKey: vpsConfig.hasSSHKey,
         },
         nodeVersion: process.version,
         platform: process.platform,
     };
+});
+// Тест VPS соединения
+fastify.get('/api/test-vps', async () => {
+    const vpsConfig = getVPSConfig();
+    if (!vpsConfig.configured) {
+        return { success: false, error: 'VPS не настроен' };
+    }
+    try {
+        const connected = await checkVPSConnection();
+        const sites = connected ? await listVPSSites() : [];
+        return {
+            success: connected,
+            config: vpsConfig,
+            sites,
+            message: connected ? 'SSH соединение успешно' : 'Не удалось подключиться по SSH',
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+            config: vpsConfig,
+        };
+    }
+});
+// Инспекция файлов сайта на VPS
+fastify.get('/api/inspect-vps/:slug', async (request) => {
+    const result = await inspectVPSSite(request.params.slug);
+    return result;
+});
+// Исправление nginx на VPS
+fastify.post('/api/fix-nginx', async () => {
+    return await fixNginxConfig();
 });
 // Запуск сервера
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -1524,16 +1889,14 @@ const shutdown = async (signal) => {
 };
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
-// === ИНИЦИАЛИЗАЦИЯ ОЧЕРЕДИ VK ===
-// Обработчик элементов очереди - создаёт сайт из VK группы
-queueManager.setProcessor(async (item) => {
-    console.log(`\n🔄 Обработка VK группы: ${item.vk_url}`);
+async function processVkUrl(vkUrl, options = {}) {
+    console.log(`\n🔄 Обработка VK группы: ${vkUrl}`);
     // 1. Парсим VK группу
-    const vkData = await parseVKGroup(item.vk_url);
+    const vkData = await parseVKGroup(vkUrl);
     console.log(`✅ Распарсена группа: ${vkData.name}`);
-    // 2. Извлекаем цвета из аватарки (если включено)
+    // 2. Извлекаем цвета из аватарки
     let colorScheme;
-    if (item.options?.extractColors !== false && vkData.avatarUrl) {
+    if (options.extractColors !== false && vkData.avatarUrl) {
         try {
             console.log(`🎨 Извлечение цветов из аватарки...`);
             colorScheme = await extractColorsFromUrl(vkData.avatarUrl);
@@ -1544,14 +1907,17 @@ queueManager.setProcessor(async (item) => {
         }
     }
     // 3. Парсим фото из группы
-    const photos = await parseVKPhotos(item.vk_url, 30); // 30 фото для анализа
+    const photos = await parseVKPhotos(vkUrl, 30);
     console.log(`📷 Получено ${photos.length} фото`);
-    // 4. AI анализ фото (если включено и есть OPENROUTER_API_KEY)
+    // Используем переданный projectId или генерируем новый
+    const projectId = options.projectId || nanoid(10);
+    // 4. AI анализ фото
     let distributedPhotos = null;
-    if (item.options?.analyzePhotos !== false && process.env.OPENROUTER_API_KEY && photos.length > 0) {
+    if (options.analyzePhotos !== false && (process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY) && photos.length > 0) {
         try {
             console.log(`🤖 AI анализ фотографий...`);
-            const analysis = await analyzePhotos(photos, item.options?.niche || 'fitness', 25);
+            const niche = options.niche || detectNiche(vkData.name, vkData.description, vkData.posts);
+            const analysis = await analyzePhotos(photos, niche, 25, projectId);
             distributedPhotos = distributePhotos(analysis.photos);
             console.log(`✅ Фото распределены: hero=${distributedPhotos.hero.length}, ` +
                 `gallery=${distributedPhotos.gallery.length}, instructors=${distributedPhotos.instructors.length}`);
@@ -1560,10 +1926,9 @@ queueManager.setProcessor(async (item) => {
             console.warn(`⚠️ AI анализ не удался, используем простое распределение:`, err);
         }
     }
-    // 5. Создаём проект
-    const projectId = nanoid(10);
-    const niche = item.options?.niche || 'stretching';
-    // Сохраняем в Supabase
+    // 5. Автоопределение ниши
+    const niche = options.niche || detectNiche(vkData.name, vkData.description, vkData.posts);
+    // 6. Сохраняем проект в Supabase
     if (USE_SUPABASE) {
         await supabaseService.createProject({
             id: projectId,
@@ -1572,23 +1937,27 @@ queueManager.setProcessor(async (item) => {
             status: 'pending',
             description: vkData.description,
             color_scheme: colorScheme,
-            vk_group_url: item.vk_url,
+            ai_model: 'gemini-3-flash',
+            vk_group_url: vkUrl,
             vk_admins: vkData.admins,
+            vk_contacts: {
+                phone: vkData.contacts.phone,
+                email: vkData.contacts.email,
+                address: vkData.contacts.address,
+                site: vkData.contacts.site,
+            },
         });
     }
-    // 6. Загружаем фото в Storage с учётом AI категоризации
+    // 7. Загружаем фото в Storage
     const uploadedFiles = [];
-    // Определяем какие фото загружать и с какими категориями
     const photosToUpload = [];
     if (distributedPhotos) {
-        // Используем AI категоризацию
         distributedPhotos.hero.slice(0, 3).forEach((p, i) => photosToUpload.push({ url: p.url, block: 'hero', order: i }));
         distributedPhotos.instructors.slice(0, 4).forEach((p, i) => photosToUpload.push({ url: p.url, block: 'instructors', order: 100 + i }));
         distributedPhotos.atmosphere.slice(0, 6).forEach((p, i) => photosToUpload.push({ url: p.url, block: 'atmosphere', order: 200 + i }));
         distributedPhotos.gallery.slice(0, 12).forEach((p, i) => photosToUpload.push({ url: p.url, block: 'gallery', order: 300 + i }));
     }
     else {
-        // Простое распределение: первые 3 — hero, остальные — gallery
         photos.slice(0, 25).forEach((p, i) => photosToUpload.push({ url: p.url, block: i < 3 ? 'hero' : 'gallery', order: i }));
     }
     for (const photoItem of photosToUpload) {
@@ -1614,15 +1983,157 @@ queueManager.setProcessor(async (item) => {
         }
     }
     console.log(`📷 Загружено ${uploadedFiles.length} фото`);
-    // 7. Обновляем проект с фото
     if (USE_SUPABASE && uploadedFiles.length > 0) {
         await supabaseService.updateProject(projectId, {
             uploaded_files: uploadedFiles.map(f => ({ ...f, order: f.order ?? 0 })),
         });
     }
-    // 8. Запускаем генерацию
+    // 8. Запускаем генерацию (AI → build → deploy)
     await processProject(projectId);
-    return projectId;
+    // 9. Получаем URL задеплоенного сайта
+    let deployedUrl = '';
+    if (USE_SUPABASE) {
+        const dbProject = await supabaseService.getProject(projectId);
+        deployedUrl = dbProject?.deployed_url || '';
+    }
+    if (!deployedUrl) {
+        throw new Error('Сайт создан, но URL деплоя не найден');
+    }
+    return { projectId, deployedUrl };
+}
+// === SALEBOT: async обработка генерации сайта ===
+async function processBotSite(sessionId, vkUrl, vkUserId) {
+    // Живые обновления прогресса — шлём сообщения параллельно с генерацией
+    let finished = false;
+    const timers = [];
+    for (const step of BOT_MESSAGES.progressSteps) {
+        const timer = setTimeout(async () => {
+            if (!finished) {
+                await vkSendMessage(vkUserId, step.text).catch(() => { });
+            }
+        }, step.delaySec * 1000);
+        timers.push(timer);
+    }
+    try {
+        const result = await processVkUrl(vkUrl);
+        // Останавливаем таймеры прогресса
+        finished = true;
+        timers.forEach(clearTimeout);
+        // Обновляем сессию
+        await updateBotSession(sessionId, {
+            state: 'completed',
+            project_id: result.projectId,
+            deployed_url: result.deployedUrl,
+        });
+        // Отправляем результат пользователю через VK API с кнопкой
+        await vkSendMessage(vkUserId, BOT_MESSAGES.completed(result.deployedUrl), makeSiteLinkKeyboard(result.deployedUrl));
+        console.log(`✅ VK Bot: сайт доставлен пользователю ${vkUserId}: ${result.deployedUrl}`);
+    }
+    catch (error) {
+        // Останавливаем таймеры прогресса
+        finished = true;
+        timers.forEach(clearTimeout);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        await updateBotSession(sessionId, {
+            state: 'failed',
+            error_message: errorMessage,
+        });
+        await vkSendMessage(vkUserId, BOT_MESSAGES.failed);
+        console.error(`❌ VK Bot: ошибка генерации для сессии ${sessionId}:`, errorMessage);
+    }
+}
+// === ИНИЦИАЛИЗАЦИЯ ОЧЕРЕДИ VK ===
+// =============================================
+// Admin Panel API (client site editor)
+// =============================================
+// Login with password → JWT
+fastify.post('/api/admin/:id/login', async (request, reply) => {
+    const { id } = request.params;
+    const { password } = request.body || {};
+    if (!password) {
+        return reply.status(400).send({ error: 'Password required' });
+    }
+    const result = await adminService.loginAdmin(id, password);
+    if (!result) {
+        return reply.status(401).send({ error: 'Invalid password' });
+    }
+    return result;
+});
+// Verify JWT
+fastify.get('/api/admin/:id/verify', async (request, reply) => {
+    const { id } = request.params;
+    const auth = request.headers.authorization;
+    const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+    if (!token) {
+        return reply.status(401).send({ valid: false });
+    }
+    const result = await adminService.verifyAdminAccess(id, token);
+    if (!result.valid) {
+        return reply.status(401).send({ valid: false });
+    }
+    return result;
+});
+// Reset password (internal — requires API key)
+fastify.post('/api/admin/:id/reset-password', async (request, reply) => {
+    const { id } = request.params;
+    const { password, hash } = await adminService.setEditPassword(id);
+    return { success: true, password };
+});
+// Save admin edits (draft)
+fastify.post('/api/admin/:id/save', async (request, reply) => {
+    const { id } = request.params;
+    const auth = request.headers.authorization;
+    const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+    if (!token) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+    }
+    const access = await adminService.verifyAdminAccess(id, token);
+    if (!access.valid) {
+        return reply.status(401).send({ error: 'Invalid token' });
+    }
+    try {
+        await adminService.saveAdminEdits(id, request.body);
+        return { success: true };
+    }
+    catch (error) {
+        console.error('❌ Admin save error:', error);
+        return reply.status(500).send({ error: 'Save failed' });
+    }
+});
+// Publish (save + rebuild + deploy)
+fastify.post('/api/admin/:id/publish', async (request, reply) => {
+    const { id } = request.params;
+    const auth = request.headers.authorization;
+    const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+    if (!token) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+    }
+    const access = await adminService.verifyAdminAccess(id, token);
+    if (!access.valid) {
+        return reply.status(401).send({ error: 'Invalid token' });
+    }
+    try {
+        // Trigger rebuild (same as regenerate with cached config)
+        await updateProject(id, { status: 'pending', deployedUrl: undefined, error: undefined });
+        // Process in background
+        processProject(id).catch(err => {
+            console.error(`❌ Publish rebuild failed for ${id}:`, err);
+        });
+        return { success: true, message: 'Rebuild started' };
+    }
+    catch (error) {
+        console.error('❌ Admin publish error:', error);
+        return reply.status(500).send({ error: 'Publish failed' });
+    }
+});
+// Обработчик элементов очереди - использует общую функцию processVkUrl
+queueManager.setProcessor(async (item) => {
+    const result = await processVkUrl(item.vk_url, {
+        niche: item.options?.niche,
+        analyzePhotos: item.options?.analyzePhotos,
+        extractColors: item.options?.extractColors,
+    });
+    return result.projectId;
 });
 // Подписка на события очереди (для логирования и Telegram)
 queueManager.onEvent(async (event) => {
@@ -1642,12 +2153,17 @@ queueManager.onEvent(async (event) => {
             break;
     }
 });
-// Восстановление зависших элементов при старте
-queueManager.recover().then(count => {
-    if (count > 0) {
-        console.log(`🔄 Восстановлено ${count} зависших элементов очереди`);
-    }
-});
+// Восстановление зависших элементов при старте (только при Supabase)
+if (USE_SUPABASE) {
+    queueManager.recover().then(count => {
+        if (count > 0) {
+            console.log(`🔄 Восстановлено ${count} зависших элементов очереди`);
+        }
+    });
+}
+else {
+    console.log('📦 Очередь (Supabase) отключена — используем локальный режим');
+}
 // Локальный запуск (не на Vercel)
 if (!IS_VERCEL) {
     try {

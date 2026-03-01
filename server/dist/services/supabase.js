@@ -2,9 +2,11 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || ''; // Service key для серверных операций
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.warn('⚠️ SUPABASE_URL или SUPABASE_SERVICE_KEY не установлены');
+    console.warn('⚠️ SUPABASE_URL или SUPABASE_SERVICE_KEY не установлены — работаем в локальном режиме');
 }
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+export const supabase = (SUPABASE_URL && SUPABASE_KEY)
+    ? createClient(SUPABASE_URL, SUPABASE_KEY)
+    : null;
 // === CRUD операции ===
 export async function getProjects() {
     const { data, error } = await supabase
@@ -63,7 +65,7 @@ export async function deleteProject(id) {
     if (files && files.length > 0) {
         await supabase.storage
             .from('project-images')
-            .remove(files.map(f => `${id}/${f.name}`));
+            .remove(files.map((f) => `${id}/${f.name}`));
     }
     // Удаляем проект
     const { error } = await supabase.from('projects').delete().eq('id', id);
@@ -537,4 +539,107 @@ export async function resetStuckProcessingItems(minutesOld = 30) {
     if (error)
         throw error;
     return data?.length || 0;
+}
+/**
+ * Получает failed элементы очереди с сообщениями об ошибках
+ */
+export async function getFailedQueueItems(limit = 50) {
+    const { data, error } = await supabase
+        .from('queue_items')
+        .select('*')
+        .eq('status', 'failed')
+        .order('completed_at', { ascending: false })
+        .limit(limit);
+    if (error)
+        throw error;
+    return data || [];
+}
+/**
+ * Сохраняет расход AI в таблицу ai_costs
+ * Автоматически обновляет ai_cost_usd в projects через триггер
+ */
+export async function saveAiCost(cost) {
+    const { data, error } = await supabase
+        .from('ai_costs')
+        .insert({
+        ...cost,
+        created_at: new Date().toISOString(),
+    })
+        .select()
+        .single();
+    if (error) {
+        console.error('⚠️ Ошибка сохранения AI cost:', error);
+        throw error;
+    }
+    console.log(`💰 AI cost сохранён: $${cost.cost_usd.toFixed(4)} (${cost.type}, ${cost.model})`);
+    return data;
+}
+/**
+ * Получает общую статистику AI расходов
+ */
+export async function getAiCostsTotal() {
+    const { data, error } = await supabase
+        .from('ai_costs')
+        .select('*')
+        .order('created_at', { ascending: false });
+    if (error) {
+        console.error('⚠️ Ошибка получения AI costs:', error);
+        return {
+            totalCostUsd: 0,
+            totalTokens: 0,
+            byType: {},
+            byModel: {},
+            byDay: [],
+        };
+    }
+    let totalCostUsd = 0;
+    let totalTokens = 0;
+    const byType = {};
+    const byModel = {};
+    const byDayMap = {};
+    for (const item of data || []) {
+        totalCostUsd += Number(item.cost_usd) || 0;
+        totalTokens += item.total_tokens || 0;
+        // По типу
+        if (!byType[item.type]) {
+            byType[item.type] = { cost: 0, tokens: 0, count: 0 };
+        }
+        byType[item.type].cost += Number(item.cost_usd) || 0;
+        byType[item.type].tokens += item.total_tokens || 0;
+        byType[item.type].count++;
+        // По модели
+        if (!byModel[item.model]) {
+            byModel[item.model] = { cost: 0, tokens: 0, count: 0 };
+        }
+        byModel[item.model].cost += Number(item.cost_usd) || 0;
+        byModel[item.model].tokens += item.total_tokens || 0;
+        byModel[item.model].count++;
+        // По дню
+        const date = item.created_at?.split('T')[0] || 'unknown';
+        if (!byDayMap[date]) {
+            byDayMap[date] = { cost: 0, tokens: 0, count: 0 };
+        }
+        byDayMap[date].cost += Number(item.cost_usd) || 0;
+        byDayMap[date].tokens += item.total_tokens || 0;
+        byDayMap[date].count++;
+    }
+    const byDay = Object.entries(byDayMap)
+        .map(([date, data]) => ({ date, ...data }))
+        .sort((a, b) => b.date.localeCompare(a.date));
+    return { totalCostUsd, totalTokens, byType, byModel, byDay };
+}
+/**
+ * Получает расходы по конкретному проекту
+ */
+export async function getProjectAiCosts(projectId) {
+    const { data, error } = await supabase
+        .from('ai_costs')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+    if (error) {
+        console.error('⚠️ Ошибка получения AI costs проекта:', error);
+        return [];
+    }
+    return data || [];
 }
