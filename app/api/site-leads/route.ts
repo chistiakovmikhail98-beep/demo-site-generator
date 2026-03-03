@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { pool, getProjectIdBySlug, insertSiteLead, getSiteLeads } from '@/lib/db';
 import { verifyJwt } from '@/lib/admin';
 
 /**
@@ -15,42 +15,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Name and phone required' }, { status: 400 });
   }
 
-  // Without Supabase, just acknowledge receipt
-  if (!supabase) {
+  // Without DB, just acknowledge receipt
+  if (!pool) {
     return NextResponse.json({ success: true, demo: true });
   }
 
-  // Resolve project by slug (from body or from URL)
+  // Resolve project by slug
   let projectId: string | null = body.project_id || null;
   if (!projectId && slug) {
-    const { data } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('slug', slug)
-      .single();
-    projectId = data?.id || null;
+    projectId = await getProjectIdBySlug(slug);
   }
 
-  const { error } = await supabase
-    .from('site_leads')
-    .insert({
-      project_id: projectId,
-      name,
-      phone,
-      source: source || 'footer',
-      quiz_answers: quiz_answers || null,
-      source_url: source_url || '',
-      status: 'new',
-      created_at: new Date().toISOString(),
-    });
+  const saved = await insertSiteLead({
+    project_id: projectId,
+    name,
+    phone,
+    source: source || 'footer',
+    quiz_answers: quiz_answers || null,
+    source_url: source_url || '',
+  });
 
-  if (error) {
-    console.error('site_leads insert error:', error);
-    // Still return success — don't block the UX flow
-    return NextResponse.json({ success: true, saved: false });
-  }
-
-  return NextResponse.json({ success: true, saved: true });
+  return NextResponse.json({ success: true, saved });
 }
 
 export async function GET(request: NextRequest) {
@@ -68,13 +53,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Without Supabase (local dev), return mock data
-  if (!supabase) {
+  // Without DB (local dev), return mock data
+  if (!pool) {
     return NextResponse.json({
       leads: [
         { id: '1', name: 'Мария Иванова', phone: '+7 (999) 123-45-67', source: 'quiz', status: 'new', created_at: new Date(Date.now() - 3600000).toISOString(), quiz_answers: { step_0: 'Научиться танцевать', step_1: 'Полный ноль' } },
         { id: '2', name: 'Анна Петрова', phone: '+7 (916) 987-65-43', source: 'footer', status: 'new', created_at: new Date(Date.now() - 7200000).toISOString(), quiz_answers: null },
-        { id: '3', name: 'Елена Сидорова', phone: '+7 (903) 555-12-34', source: 'quiz', status: 'contacted', created_at: new Date(Date.now() - 86400000).toISOString(), quiz_answers: { step_0: 'Похудеть', step_1: 'Занимался(ась) раньше' } },
       ],
     });
   }
@@ -85,16 +69,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data, error } = await supabase
-    .from('site_leads')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('created_at', { ascending: false })
-    .limit(100);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ leads: data || [] });
+  const leads = await getSiteLeads(projectId);
+  return NextResponse.json({ leads });
 }

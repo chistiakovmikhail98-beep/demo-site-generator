@@ -1,4 +1,4 @@
-import { getProjectBySlug } from '@/lib/supabase';
+import { getProjectBySlug } from '@/lib/db';
 import type { SiteConfig, ColorScheme } from '@/lib/types';
 
 interface LayoutProps {

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
-import { getProjectBySlug } from '@/lib/supabase';
+import { getProjectBySlug } from '@/lib/db';
 import TemplateApp from '@/components/template/App';
 import type { SiteConfig } from '@/lib/types';
 

@@ -2,11 +2,10 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import type { SiteConfig } from './types';
-import { supabase } from './supabase';
+import { getProjectForLogin, getProjectName, getProjectConfig, updateProjectConfig } from './db';
 
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const JWT_EXPIRES_IN = '7d';
-const SALT_ROUNDS = 10;
 
 interface JwtPayload {
   projectId: string;
@@ -29,14 +28,7 @@ export async function loginAdmin(
   projectId: string,
   password: string
 ): Promise<{ token: string; projectName: string; slug: string } | null> {
-  if (!supabase) return null;
-
-  const { data: project } = await supabase
-    .from('projects')
-    .select('name, site_config, edit_password_hash')
-    .eq('id', projectId)
-    .single();
-
+  const project = await getProjectForLogin(projectId);
   if (!project?.edit_password_hash) return null;
 
   const valid = await bcrypt.compare(password, project.edit_password_hash);
@@ -55,14 +47,7 @@ export async function verifyAdminAccess(
   const payload = verifyJwt(token);
   if (!payload || payload.projectId !== projectId) return { valid: false };
 
-  if (!supabase) return { valid: false };
-
-  const { data: project } = await supabase
-    .from('projects')
-    .select('name')
-    .eq('id', projectId)
-    .single();
-
+  const project = await getProjectName(projectId);
   if (!project) return { valid: false };
 
   return { valid: true, projectName: project.name, slug: payload.slug };
@@ -169,24 +154,11 @@ export function siteDataToConfig(existing: SiteConfig, payload: AdminSavePayload
   };
 }
 
-/** Save admin edits — just update SiteConfig in Supabase (instant!) */
+/** Save admin edits — just update SiteConfig in PostgreSQL (instant!) */
 export async function saveAdminEdits(projectId: string, payload: AdminSavePayload): Promise<void> {
-  if (!supabase) throw new Error('Supabase not configured');
-
-  const { data: project } = await supabase
-    .from('projects')
-    .select('site_config')
-    .eq('id', projectId)
-    .single();
-
+  const project = await getProjectConfig(projectId);
   if (!project?.site_config) throw new Error('Project not found');
 
   const updatedConfig = siteDataToConfig(project.site_config as unknown as SiteConfig, payload);
-
-  const { error } = await supabase
-    .from('projects')
-    .update({ site_config: updatedConfig as any, updated_at: new Date().toISOString() })
-    .eq('id', projectId);
-
-  if (error) throw new Error(error.message);
+  await updateProjectConfig(projectId, updatedConfig);
 }

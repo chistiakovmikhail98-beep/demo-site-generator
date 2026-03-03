@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { pool, insertQueueItem } from '@/lib/db';
 
 /** POST /api/generate — add VK URL to queue for worker processing */
 export async function POST(request: NextRequest) {
-  if (!supabase) {
-    return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
+  if (!pool) {
+    return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
   }
 
   const { vkUrl } = await request.json();
@@ -12,23 +12,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'vkUrl required' }, { status: 400 });
   }
 
-  // Create a pending queue item for the worker to pick up
-  const { data, error } = await supabase
-    .from('queue_items')
-    .insert({
-      vk_url: vkUrl,
-      status: 'pending',
-      created_at: new Date().toISOString(),
-    })
-    .select('id')
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  const item = await insertQueueItem({ vk_url: vkUrl });
+  if (!item) {
+    return NextResponse.json({ error: 'Failed to create queue item' }, { status: 500 });
   }
 
   return NextResponse.json({
-    queueItemId: data.id,
-    statusUrl: `/api/status/${data.id}`,
+    queueItemId: item.id,
+    statusUrl: `/api/status/${item.id}`,
   });
 }
