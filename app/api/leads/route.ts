@@ -29,8 +29,10 @@ export async function POST(request: NextRequest) {
     });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[leads] Supabase error:', error.message);
+    // Still return success — don't block the UX flow
+    return NextResponse.json({ success: true, saved: false });
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, saved: true });
 }

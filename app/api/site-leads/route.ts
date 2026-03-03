@@ -46,10 +46,11 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error('site_leads insert error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Still return success — don't block the UX flow
+    return NextResponse.json({ success: true, saved: false });
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, saved: true });
 }
 
 export async function GET(request: NextRequest) {

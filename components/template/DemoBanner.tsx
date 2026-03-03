@@ -33,11 +33,11 @@ const DemoBanner: React.FC<DemoBannerProps> = ({ brandName = '', phone = '' }) =
         }),
       });
 
-      if (response.ok) {
-        setFormSubmitted(true);
-      }
+      setFormSubmitted(true);
     } catch (err) {
       console.error('Ошибка отправки заявки:', err);
+      // Show success anyway so user can proceed to order
+      setFormSubmitted(true);
     } finally {
       setIsSubmitting(false);
     }
