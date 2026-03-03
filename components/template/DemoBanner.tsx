@@ -97,7 +97,7 @@ const DemoBanner: React.FC<DemoBannerProps> = ({ brandName = '', phone = '' }) =
                 <p className="text-zinc-400 mb-4">Хотите получить сайт прямо сейчас? Оформите за 2 минуты:</p>
                 <div className="flex flex-col gap-2">
                   <a
-                    href={`/order?slug=${encodeURIComponent(brandName.toLowerCase().replace(/\s+/g, '-'))}`}
+                    href={`/order?slug=${encodeURIComponent(brandName.toLowerCase().replace(/\s+/g, '-'))}&test=1`}
                     className="px-6 py-3 bg-primary hover:bg-accent text-white font-bold rounded-xl transition-colors shadow-lg shadow-primary/20"
                   >
                     Перейти к оформлению &rarr;
@@ -130,9 +130,20 @@ const DemoBanner: React.FC<DemoBannerProps> = ({ brandName = '', phone = '' }) =
                   />
                   <input
                     type="tel"
-                    placeholder="+7 (___) ___-__-__"
+                    placeholder="+7 (900) 123-45-67"
                     value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      let body = digits;
+                      if (digits.length > 0 && ['7', '8'].includes(digits[0])) body = digits.slice(1);
+                      body = body.slice(0, 10);
+                      let formatted = '+7';
+                      if (body.length > 0) formatted += ` (${body.slice(0, 3)}`;
+                      if (body.length >= 3) formatted += `) ${body.slice(3, 6)}`;
+                      if (body.length >= 6) formatted += `-${body.slice(6, 8)}`;
+                      if (body.length >= 8) formatted += `-${body.slice(8, 10)}`;
+                      setFormData(prev => ({ ...prev, phone: formatted }));
+                    }}
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-white focus:outline-none focus:border-primary transition-all placeholder:text-zinc-500"
                     required
                   />
