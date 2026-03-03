@@ -1,0 +1,7 @@
+[build]
+buildCommand = "cd worker && npm install && npm run build"
+
+[deploy]
+startCommand = "node worker/dist/index.js"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10

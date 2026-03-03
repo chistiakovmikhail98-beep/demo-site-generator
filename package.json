@@ -1,18 +1,34 @@
 {
-  "name": "demo-site-generator",
-  "version": "1.0.0",
+  "name": "fitwebai",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
-    "dev:server": "cd server && npm run dev",
-    "dev:web": "cd web && npm run dev",
-    "postinstall": "cd web && npm install && cd ../server && npm install",
-    "build": "npm run build:web && npm run build:server",
-    "build:server": "cd server && npm run build",
-    "build:web": "cd web && npm run build",
-    "start": "cd server && npm start"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^15.3.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "@supabase/supabase-js": "^2.49.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.560.0",
+    "nanoid": "^5.1.5"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.9",
+    "typescript": "^5.8.2",
+    "tailwindcss": "^3.4.17",
+    "postcss": "^8.5.3",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.3.0"
   }
 }

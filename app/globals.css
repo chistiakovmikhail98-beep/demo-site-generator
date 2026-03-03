@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #9d174d;
+  --color-accent: #be185d;
+  --color-background: #0c0c0e;
+  --color-surface: #18181b;
+  --color-text: #ffffff;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: 'Manrope', sans-serif;
+}

@@ -1,0 +1,5 @@
+nul
+server/nul
+scripts/
+.claude/
+*.docx
