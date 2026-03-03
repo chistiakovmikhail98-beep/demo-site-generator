@@ -511,20 +511,28 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
                   </div>
 
                   {/* CTA */}
-                  <div className="flex flex-col items-center">
+                  <div className="flex flex-col items-center gap-3">
                     <Button
                       size="md"
-                      className="w-full sm:w-auto sm:px-12 mb-2 bg-primary hover:bg-accent"
+                      className="w-full sm:w-auto sm:px-12 bg-primary hover:bg-accent"
+                      onClick={() => {
+                        const host = window.location.hostname;
+                        const parts = host.split('.');
+                        const slug = parts.length >= 3 ? parts[0] : window.location.pathname.split('/s/')[1]?.split('/')[0] || 'studio-energy';
+                        window.location.href = `/order?slug=${slug}&test=1`;
+                      }}
+                    >
+                      Оформить сайт
+                    </Button>
+                    <button
+                      className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors"
                       onClick={() => {
                         const el = document.getElementById('footer');
                         el?.scrollIntoView({ behavior: 'smooth' });
                       }}
                     >
-                      Записаться на диагностику
-                    </Button>
-                    <p className="text-zinc-600 text-[10px] sm:text-xs text-center">
-                      Мы свяжемся с вами для подтверждения времени консультации.
-                    </p>
+                      или записаться на консультацию
+                    </button>
                   </div>
                 </div>
               </div>

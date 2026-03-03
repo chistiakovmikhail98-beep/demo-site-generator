@@ -86,7 +86,19 @@ export default function Footer({ data }: Props) {
               <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-8 text-center max-w-md">
                 <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-green-500 mx-auto mb-3 sm:mb-4 animate-in zoom-in duration-300" />
                 <h3 className="text-lg sm:text-xl font-bold text-white mb-2">Спасибо за заявку!</h3>
-                <p className="text-zinc-400 text-sm sm:text-base">Мы свяжемся с вами в ближайшее время.</p>
+                <p className="text-zinc-400 text-sm sm:text-base mb-4">Мы свяжемся с вами в ближайшее время.</p>
+                <a
+                  href={(() => {
+                    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+                    const parts = host.split('.');
+                    const slug = parts.length >= 3 ? parts[0] : (typeof window !== 'undefined' ? window.location.pathname.split('/s/')[1]?.split('/')[0] : '') || 'studio-energy';
+                    return `/order?slug=${slug}&test=1&brand=${encodeURIComponent(data.brandName || '')}`;
+                  })()}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-accent text-white font-bold text-sm rounded-xl transition-all"
+                >
+                  Перейти к оформлению
+                  <ExternalLink className="w-4 h-4" />
+                </a>
               </div>
             ) : (
               <form className="space-y-3 sm:space-y-4 max-w-md" onSubmit={handleSubmit}>
@@ -100,9 +112,20 @@ export default function Footer({ data }: Props) {
                 />
                 <input
                   type="tel"
-                  placeholder="+7 (___) ___-__-__"
+                  placeholder="+7 (900) 123-45-67"
                   value={form.phone}
-                  onChange={(e) => set({ phone: e.target.value })}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '');
+                    let body = digits;
+                    if (digits.length > 0 && ['7', '8'].includes(digits[0])) body = digits.slice(1);
+                    body = body.slice(0, 10);
+                    let formatted = '+7';
+                    if (body.length > 0) formatted += ` (${body.slice(0, 3)}`;
+                    if (body.length >= 3) formatted += `) ${body.slice(3, 6)}`;
+                    if (body.length >= 6) formatted += `-${body.slice(6, 8)}`;
+                    if (body.length >= 8) formatted += `-${body.slice(8, 10)}`;
+                    set({ phone: formatted });
+                  }}
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-3 sm:py-4 px-4 sm:px-5 text-white text-base focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-zinc-600"
                   required
                 />

@@ -4,7 +4,16 @@ import React, { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import StepTimeline from '@/components/StepTimeline';
 
-const PLANS = [
+interface Plan {
+  id: string;
+  name: string;
+  price: string;
+  period: string;
+  features: string[];
+  highlighted: boolean;
+}
+
+const PLANS: Plan[] = [
   {
     id: 'start',
     name: 'Старт',
@@ -37,6 +46,36 @@ const PLANS = [
   },
 ];
 
+const TEST_PLAN: Plan = {
+  id: 'test',
+  name: 'Тест',
+  price: '0',
+  period: 'пробный',
+  features: [
+    'Готовый сайт на субдомене',
+    'Админ-панель для редактирования',
+    'Квиз с лидогенерацией',
+    'Форма записи в футере',
+    'Адаптивный дизайн (мобилки)',
+    '7 дней бесплатно',
+  ],
+  highlighted: true,
+};
+
+function formatPhoneInput(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  let body = digits;
+  if (digits.length > 0 && ['7', '8'].includes(digits[0])) body = digits.slice(1);
+  body = body.slice(0, 10);
+
+  let formatted = '+7';
+  if (body.length > 0) formatted += ` (${body.slice(0, 3)}`;
+  if (body.length >= 3) formatted += `) ${body.slice(3, 6)}`;
+  if (body.length >= 6) formatted += `-${body.slice(6, 8)}`;
+  if (body.length >= 8) formatted += `-${body.slice(8, 10)}`;
+  return formatted;
+}
+
 export default function OrderPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-zinc-950" />}>
@@ -49,23 +88,31 @@ function OrderPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const slug = searchParams.get('slug') || 'studio-energy';
-  const brandName = 'Studio Energy';
+  const isTestMode = searchParams.get('test') === '1';
+  const brandName = searchParams.get('brand') || 'Studio Energy';
 
-  const [selectedPlan, setSelectedPlan] = useState('business');
+  const plans = isTestMode ? [TEST_PLAN] : PLANS;
+  const [selectedPlan, setSelectedPlan] = useState(isTestMode ? 'test' : 'business');
   const [form, setForm] = useState({ name: '', phone: '', email: '' });
   const [processing, setProcessing] = useState(false);
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm((p) => ({ ...p, phone: formatPhoneInput(e.target.value) }));
+  };
+
+  const isPhoneValid = form.phone.replace(/\D/g, '').length === 11;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.phone) return;
+    if (!form.name || !isPhoneValid) return;
 
     setProcessing(true);
     // Simulate payment processing
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, isTestMode ? 800 : 2000));
     router.push(`/order/success?slug=${slug}&plan=${selectedPlan}`);
   };
 
-  const currentPlan = PLANS.find((p) => p.id === selectedPlan)!;
+  const currentPlan = plans.find((p) => p.id === selectedPlan) || plans[0];
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white font-sans">
@@ -179,9 +226,9 @@ function OrderPageContent() {
                   </label>
                   <input
                     type="tel"
-                    placeholder="+7 (___) ___-__-__"
+                    placeholder="+7 (900) 123-45-67"
                     value={form.phone}
-                    onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                    onChange={handlePhoneChange}
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-violet-500 transition-colors placeholder:text-zinc-600"
                     required
                   />
@@ -219,7 +266,7 @@ function OrderPageContent() {
 
                 <button
                   type="submit"
-                  disabled={processing || !form.name || !form.phone}
+                  disabled={processing || !form.name || !isPhoneValid}
                   className="w-full py-4 bg-violet-500 hover:bg-violet-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm uppercase tracking-wider rounded-xl transition-all shadow-xl shadow-violet-500/20 flex items-center justify-center gap-2"
                 >
                   {processing ? (
@@ -228,7 +275,12 @@ function OrderPageContent() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
-                      Обработка платежа...
+                      {isTestMode ? 'Активация...' : 'Обработка платежа...'}
+                    </>
+                  ) : isTestMode ? (
+                    <>
+                      <CheckIcon />
+                      Активировать бесплатно
                     </>
                   ) : (
                     <>
@@ -265,6 +317,14 @@ function OrderPageContent() {
         </div>
       </div>
     </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path d="M3 8L7 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

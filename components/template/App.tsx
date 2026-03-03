@@ -212,6 +212,14 @@ export default function TemplateApp({ initialConfig, adminConfig }: TemplateAppP
               data={(data as any)[blockConfig.type]}
               editable={isEditing}
               onDataChange={(d: any) => handleBlockDataChange(blockConfig.type, d)}
+              onCTAClick={(action: string) => {
+                const targetId = action === 'quiz' ? 'quiz'
+                  : action === 'direction-signup' ? 'quiz'
+                  : action === 'pricing' ? 'pricing'
+                  : action === 'directions' ? 'directions'
+                  : 'footer';
+                document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth' });
+              }}
               onVariantChange={(v: 1 | 2 | 3) => handleVariantChange(blockConfig.type, v)}
               quizAnswersUpdate={
                 blockConfig.type === 'quiz' ? setQuizAnswers : undefined
