@@ -77,7 +77,7 @@ export default function DirectorV3({ data, editable, onDataChange, className = '
                   <span className="text-primary font-black text-lg sm:text-xl tabular-nums shrink-0 w-7 sm:w-8 text-right">
                     {String(i + 1).padStart(2, '0')}
                   </span>
-                  <div className="pt-0.5 sm:pt-1 border-t border-zinc-800 flex-1">
+                  <div className="pt-0.5 sm:pt-1 border-t border-zinc-700/50 flex-1">
                     <EditableText
                       value={achievement}
                       onChange={(v) => handleAchievementChange(i, v)}

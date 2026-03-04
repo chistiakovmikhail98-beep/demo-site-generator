@@ -101,7 +101,7 @@ const StoriesV3: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
         editable={editable}
         as="p"
         multiline
-        className="text-zinc-400 text-sm sm:text-base leading-relaxed mb-4 sm:mb-5"
+        className="text-zinc-300 text-sm sm:text-base leading-relaxed mb-4 sm:mb-5"
       />
       <Button
         size="sm"
@@ -200,7 +200,7 @@ const StoriesV3: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="text-zinc-400 text-base sm:text-lg max-w-2xl mx-auto"
+            className="text-zinc-300 text-base sm:text-lg max-w-2xl mx-auto"
             placeholder="Описание секции..."
           />
         )}

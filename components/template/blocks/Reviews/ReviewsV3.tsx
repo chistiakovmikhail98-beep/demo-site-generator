@@ -64,7 +64,7 @@ export default function ReviewsV3({ data, editable, onDataChange, className = ''
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto"
+            className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-300 max-w-2xl mx-auto"
             placeholder="Добавить описание..."
           />
         )}
@@ -122,7 +122,7 @@ export default function ReviewsV3({ data, editable, onDataChange, className = ''
                 <Star
                   key={s}
                   className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                    s <= (current.rating || 5) ? 'text-yellow-400 fill-yellow-400' : 'text-zinc-600'
+                    s <= (current.rating || 5) ? 'text-yellow-400 fill-yellow-400' : 'text-zinc-500'
                   } ${editable ? 'cursor-pointer' : ''}`}
                   onClick={
                     editable
@@ -138,7 +138,7 @@ export default function ReviewsV3({ data, editable, onDataChange, className = ''
             </div>
 
             {current.source && (
-              <p className="text-xs sm:text-sm text-zinc-500">{current.source}</p>
+              <p className="text-xs sm:text-sm text-zinc-400">{current.source}</p>
             )}
           </div>
         </div>

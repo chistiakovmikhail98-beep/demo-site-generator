@@ -39,7 +39,7 @@ export default function PricingV2({ data, editable, onDataChange, onCTAClick }: 
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="text-zinc-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
+            className="text-zinc-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
           />
         )}
       </div>
@@ -53,8 +53,8 @@ export default function PricingV2({ data, editable, onDataChange, onCTAClick }: 
               key={plan.id}
               className={`relative rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col transition-all duration-300 ${
                 isFeatured
-                  ? 'bg-primary text-zinc-900 shadow-[0_0_40px_-10px_rgba(var(--color-primary-rgb),0.4)]'
-                  : 'bg-zinc-900 border border-zinc-800 hover:border-zinc-600'
+                  ? 'bg-gradient-to-br from-primary to-accent text-zinc-900 shadow-[0_0_40px_-10px_rgba(var(--color-primary-rgb),0.4)] scale-[1.02]'
+                  : 'bg-zinc-900 border border-zinc-700/50 shadow-lg shadow-black/20 hover:border-zinc-600 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 transition-all duration-300'
               }`}
             >
               {/* Popular badge */}
@@ -90,7 +90,7 @@ export default function PricingV2({ data, editable, onDataChange, onCTAClick }: 
               </div>
 
               {plan.validity && (
-                <span className={`text-xs sm:text-sm mb-5 ${isFeatured ? 'text-zinc-900/60' : 'text-zinc-500'}`}>
+                <span className={`text-xs sm:text-sm mb-5 ${isFeatured ? 'text-zinc-900/60' : 'text-zinc-400'}`}>
                   {plan.validity}
                 </span>
               )}

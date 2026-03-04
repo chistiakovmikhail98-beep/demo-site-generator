@@ -30,7 +30,7 @@ export default function Header({ data }: Props) {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${
         scrolled
-          ? 'bg-zinc-950/90 backdrop-blur-md border-zinc-800 py-2 sm:py-3'
+          ? 'bg-zinc-950/90 backdrop-blur-md border-zinc-700/50 py-2 sm:py-3'
           : 'bg-transparent border-transparent py-3 sm:py-5'
       }`}
     >
@@ -52,7 +52,7 @@ export default function Header({ data }: Props) {
               key={item.href}
               href={item.href}
               className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${
-                scrolled ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-primary'
+                scrolled ? 'text-zinc-300 hover:text-white' : 'text-zinc-400 hover:text-primary'
               }`}
             >
               {item.label}
@@ -86,7 +86,7 @@ export default function Header({ data }: Props) {
                 key={item.href}
                 href={item.href}
                 onClick={close}
-                className="text-lg font-bold text-zinc-200 uppercase tracking-widest py-3 border-b border-zinc-800/50 transition-colors active:text-primary"
+                className="text-lg font-bold text-zinc-200 uppercase tracking-widest py-3 border-b border-zinc-700/50 transition-colors active:text-primary"
               >
                 {item.label}
               </a>

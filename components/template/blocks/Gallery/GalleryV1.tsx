@@ -41,7 +41,7 @@ const GalleryV1: React.FC<BlockProps<GalleryData>> = ({
                 onChange={(v) => onDataChange?.({ ...data, subtitle: v })}
                 editable={editable}
                 as="p"
-                className="mt-2 text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto"
+                className="mt-2 text-sm sm:text-base text-zinc-300 max-w-2xl mx-auto"
                 placeholder="Добавить описание..."
               />
             )}
@@ -93,7 +93,7 @@ const GalleryV1: React.FC<BlockProps<GalleryData>> = ({
             {title}
           </h2>
           {subtitle && (
-            <p className="mt-2 text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto">
+            <p className="mt-2 text-sm sm:text-base text-zinc-300 max-w-2xl mx-auto">
               {subtitle}
             </p>
           )}

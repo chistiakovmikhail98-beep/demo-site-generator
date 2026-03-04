@@ -45,7 +45,7 @@ export default function ObjectionsV2({ data, editable, onDataChange }: BlockProp
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="text-zinc-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
+            className="text-zinc-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
           />
         )}
       </div>
@@ -90,7 +90,7 @@ export default function ObjectionsV2({ data, editable, onDataChange }: BlockProp
                     />
                   </div>
                 </div>
-                <p className="text-zinc-600 text-xs sm:text-sm mt-3 text-right">
+                <p className="text-zinc-500 text-xs sm:text-sm mt-3 text-right">
                   Нажмите, чтобы узнать правду
                 </p>
               </div>
@@ -125,7 +125,7 @@ export default function ObjectionsV2({ data, editable, onDataChange }: BlockProp
                     />
                   </div>
                 </div>
-                <p className="text-zinc-600 text-xs sm:text-sm mt-3 text-right">
+                <p className="text-zinc-500 text-xs sm:text-sm mt-3 text-right">
                   Нажмите, чтобы вернуться
                 </p>
               </div>

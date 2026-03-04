@@ -39,7 +39,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
                 onChange={(v) => update({ subtitle: v })}
                 editable={editable}
                 as="p"
-                className="text-zinc-400 text-sm sm:text-base md:text-lg leading-relaxed"
+                className="text-zinc-300 text-sm sm:text-base md:text-lg leading-relaxed"
               />
             )}
           </div>
@@ -52,7 +52,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
             return (
               <div
                 key={idx}
-                className="bg-[#121215] border border-zinc-800 rounded-2xl overflow-hidden transition-colors hover:border-zinc-700"
+                className="bg-[#121215] border border-zinc-700/50 rounded-2xl overflow-hidden transition-colors hover:border-zinc-700"
               >
                 <button
                   onClick={() => toggle(idx)}
@@ -73,7 +73,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
                     {isOpen ? (
                       <Minus className="w-4 h-4 text-primary" />
                     ) : (
-                      <Plus className="w-4 h-4 text-zinc-400" />
+                      <Plus className="w-4 h-4 text-zinc-300" />
                     )}
                   </span>
                 </button>
@@ -96,7 +96,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
                       editable={editable}
                       as="p"
                       multiline
-                      className="text-zinc-400 text-sm sm:text-base leading-relaxed"
+                      className="text-zinc-300 text-sm sm:text-base leading-relaxed"
                     />
                   </div>
                 </div>

@@ -88,7 +88,7 @@ export default function HeroV2({ data, editable, onDataChange, onCTAClick }: Blo
             onChange={(v) => update({ heroSubtitle: v })}
             editable={editable}
             as="p"
-            className="mt-4 sm:mt-6 text-base sm:text-lg md:text-xl lg:text-2xl text-zinc-300 max-w-2xl leading-relaxed"
+            className="mt-4 sm:mt-6 text-base sm:text-lg md:text-xl lg:text-2xl text-zinc-200 max-w-2xl leading-relaxed"
           />
         )}
 
@@ -99,7 +99,7 @@ export default function HeroV2({ data, editable, onDataChange, onCTAClick }: Blo
             editable={editable}
             as="p"
             multiline
-            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-400 max-w-xl leading-relaxed"
+            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-300 max-w-xl leading-relaxed"
           />
         )}
 
@@ -128,7 +128,7 @@ export default function HeroV2({ data, editable, onDataChange, onCTAClick }: Blo
             {data.advantages.slice(0, 4).map((text, idx) => (
               <span
                 key={idx}
-                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-white/5 border border-white/10 backdrop-blur-sm rounded-full text-xs sm:text-sm text-zinc-300 whitespace-nowrap"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary/15 border border-primary/30 backdrop-blur-sm rounded-full text-xs sm:text-sm text-white whitespace-nowrap"
               >
                 {text}
               </span>
@@ -147,7 +147,7 @@ export default function HeroV2({ data, editable, onDataChange, onCTAClick }: Blo
                 <span className="text-lg sm:text-2xl md:text-3xl font-black text-white leading-none">
                   {stat.value}
                 </span>
-                <span className="text-[10px] sm:text-xs text-zinc-400 mt-0.5 sm:mt-1 uppercase tracking-wider">
+                <span className="text-[10px] sm:text-xs text-zinc-300 mt-0.5 sm:mt-1 uppercase tracking-wider">
                   {stat.label}
                 </span>
               </div>
@@ -158,8 +158,8 @@ export default function HeroV2({ data, editable, onDataChange, onCTAClick }: Blo
 
       {/* --- Scroll indicator --- */}
       <div className="absolute bottom-20 sm:bottom-24 left-1/2 -translate-x-1/2 z-10 hero-v2-bounce hidden sm:flex flex-col items-center gap-1">
-        <span className="text-[10px] text-zinc-500 uppercase tracking-widest">листайте</span>
-        <ChevronDown className="w-5 h-5 text-zinc-500" />
+        <span className="text-[10px] text-zinc-400 uppercase tracking-widest">листайте</span>
+        <ChevronDown className="w-5 h-5 text-zinc-400" />
       </div>
     </div>
   );

@@ -51,7 +51,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
             onChange={v => onDataChange?.({ ...data, subtitle: v })}
             editable={editable}
             as="p"
-            className="text-sm sm:text-base md:text-lg text-zinc-500 max-w-2xl mx-auto"
+            className="text-sm sm:text-base md:text-lg text-zinc-400 max-w-2xl mx-auto"
           />
         )}
       </div>
@@ -71,7 +71,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
               />
             ) : placeholder ? (
               <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center">
-                <span className="text-zinc-500 font-bold text-lg uppercase tracking-wider text-center px-8">
+                <span className="text-zinc-400 font-bold text-lg uppercase tracking-wider text-center px-8">
                   {current.title}
                 </span>
               </div>
@@ -141,7 +141,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
             editable={editable}
             as="p"
             multiline
-            className="text-sm sm:text-base text-zinc-400 leading-relaxed mb-6 sm:mb-8"
+            className="text-sm sm:text-base text-zinc-300 leading-relaxed mb-6 sm:mb-8"
           />
 
           {/* Metrics */}
@@ -152,7 +152,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
                 <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </div>
               <div>
-                <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wider">Длительность</p>
+                <p className="text-[10px] sm:text-xs text-zinc-400 uppercase tracking-wider">Длительность</p>
                 <EditableText
                   value={current.duration}
                   onChange={v => updateCurrent({ ...current, duration: v })}
@@ -170,7 +170,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
                   <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" />
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wider">Калории</p>
+                  <p className="text-[10px] sm:text-xs text-zinc-400 uppercase tracking-wider">Калории</p>
                   <EditableText
                     value={current.calories}
                     onChange={v => updateCurrent({ ...current, calories: v })}
@@ -189,7 +189,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
               {current.tags.map((tag, i) => (
                 <span
                   key={i}
-                  className="px-3 py-1.5 bg-zinc-900 text-zinc-400 text-xs sm:text-sm rounded-full border border-zinc-800"
+                  className="px-3 py-1.5 bg-zinc-900 text-zinc-300 text-xs sm:text-sm rounded-full border border-zinc-700/50"
                 >
                   {tag}
                 </span>
@@ -240,7 +240,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
                 >
                   {thumbPlaceholder ? (
                     <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center">
-                      <span className="text-zinc-500 font-bold text-[7px] sm:text-[8px] uppercase text-center leading-tight px-1">
+                      <span className="text-zinc-400 font-bold text-[7px] sm:text-[8px] uppercase text-center leading-tight px-1">
                         {dir.title.slice(0, 10)}
                       </span>
                     </div>

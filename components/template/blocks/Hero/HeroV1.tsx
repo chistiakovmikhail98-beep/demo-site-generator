@@ -66,10 +66,10 @@ export default function HeroV1({ data, editable, onDataChange, onCTAClick }: Blo
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* --- Left: dark card --- */}
-          <div className="bg-zinc-900 rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col justify-center items-start shadow-xl border border-zinc-800/50 relative overflow-hidden min-h-[420px] sm:min-h-[480px] lg:min-h-[560px]">
+          <div className="bg-zinc-900/90 rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col justify-center items-start shadow-2xl border border-zinc-700/50 relative overflow-hidden min-h-[420px] sm:min-h-[480px] lg:min-h-[560px]">
             {/* Gradient orb */}
-            <div className="absolute top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-accent/10 blur-[80px] rounded-full pointer-events-none" />
+            <div className="absolute top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-primary/30 blur-[100px] rounded-full pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-accent/15 blur-[80px] rounded-full pointer-events-none" />
 
             {/* City badge */}
             {data.city && (
@@ -105,7 +105,7 @@ export default function HeroV1({ data, editable, onDataChange, onCTAClick }: Blo
                 editable={editable}
                 as="p"
                 multiline
-                className="text-zinc-400 text-sm sm:text-base md:text-lg mb-5 sm:mb-6 max-w-md leading-relaxed"
+                className="text-zinc-300 text-sm sm:text-base md:text-lg mb-5 sm:mb-6 max-w-md leading-relaxed"
               />
             )}
 
@@ -145,7 +145,7 @@ export default function HeroV1({ data, editable, onDataChange, onCTAClick }: Blo
           </div>
 
           {/* --- Right: image --- */}
-          <div className="rounded-3xl sm:rounded-[2.5rem] overflow-hidden relative shadow-xl border border-zinc-800/50 group aspect-[4/5] sm:aspect-[3/4] lg:aspect-auto lg:min-h-[560px]">
+          <div className="rounded-3xl sm:rounded-[2.5rem] overflow-hidden relative shadow-xl border border-zinc-700/50 group aspect-[4/5] sm:aspect-[3/4] lg:aspect-auto lg:min-h-[560px]">
             {isPlaceholder(data.heroImage) ? (
               <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 transition-transform duration-700 group-hover:scale-105" />
             ) : editable ? (

@@ -40,7 +40,7 @@ export default function AdvantagesV1({ data, editable, onDataChange }: BlockProp
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-400 max-w-lg"
+            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-300 max-w-lg"
           />
         )}
       </div>

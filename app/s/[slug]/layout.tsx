@@ -10,6 +10,28 @@ function getDefaultColorScheme(): ColorScheme {
   return { primary: '#ba000f', accent: '#ff4444', background: '#0c0c0f', surface: '#18181b', text: '#ffffff' };
 }
 
+/** Hex → "R, G, B" string for use in rgba() */
+function hexToRgb(hex: string): string {
+  const h = hex.replace('#', '');
+  return `${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)}`;
+}
+
+/** If primary color is too dark (L < 30%), brighten to ~45% lightness */
+function ensureBright(hex: string): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (l >= 0.3) return hex;
+  // Brighten: scale RGB so lightness ≈ 0.45
+  const factor = 0.45 / Math.max(l, 0.05);
+  const clamp = (v: number) => Math.min(255, Math.round(v * factor * 255));
+  const toHex2 = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${toHex2(clamp(r))}${toHex2(clamp(g))}${toHex2(clamp(b))}`;
+}
+
 /** Compute adaptive background based on primary color lightness */
 function getAdaptiveBackground(primaryHex: string): { background: string; surface: string; text: string } {
   const hex = primaryHex.replace('#', '');
@@ -81,7 +103,7 @@ export default async function SiteLayout({ children, params }: LayoutProps) {
       base.background !== '#0c0c0e';
 
     colorScheme = {
-      primary: base.primary,
+      primary: ensureBright(base.primary),
       accent: base.accent,
       background: userExplicitBg ? base.background : adaptive.background,
       surface: userExplicitBg ? (base.surface || adaptive.surface) : adaptive.surface,
@@ -96,6 +118,7 @@ export default async function SiteLayout({ children, params }: LayoutProps) {
       <style>{`
         :root {
           --color-primary: ${colorScheme.primary};
+          --color-primary-rgb: ${hexToRgb(colorScheme.primary)};
           --color-accent: ${colorScheme.accent};
           --color-background: ${colorScheme.background};
           --color-surface: ${colorScheme.surface};

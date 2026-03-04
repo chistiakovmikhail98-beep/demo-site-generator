@@ -38,7 +38,7 @@ export default function RequestsV2({ data, editable, onDataChange, onCTAClick }:
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-400 max-w-lg mx-auto"
+            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-300 max-w-lg mx-auto"
           />
         )}
       </div>
@@ -50,7 +50,7 @@ export default function RequestsV2({ data, editable, onDataChange, onCTAClick }:
           return (
             <div
               key={`${item.text}-${idx}`}
-              className={`group flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2.5 sm:px-5 sm:py-3 cursor-default transition-all duration-300 hover:border-primary hover:text-primary ${sizeClass}`}
+              className={`group flex items-center gap-2 bg-zinc-900 border border-zinc-700/50 rounded-full px-4 py-2.5 sm:px-5 sm:py-3 cursor-default transition-all duration-300 hover:border-primary hover:text-primary ${sizeClass}`}
             >
               {item.image && !isPlaceholder(item.image) ? (
                 <img
@@ -60,7 +60,7 @@ export default function RequestsV2({ data, editable, onDataChange, onCTAClick }:
                   loading="lazy"
                 />
               ) : (
-                <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-500 group-hover:text-primary transition-colors duration-300 shrink-0" />
+                <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400 group-hover:text-primary transition-colors duration-300 shrink-0" />
               )}
               <span className="text-zinc-300 group-hover:text-primary font-medium whitespace-nowrap transition-colors duration-300">
                 {item.text}

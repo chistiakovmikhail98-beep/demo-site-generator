@@ -46,7 +46,7 @@ export default function FAQV3({ data, editable, onDataChange }: BlockProps<FAQDa
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="text-zinc-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
+            className="text-zinc-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
           />
         )}
       </div>
@@ -91,7 +91,7 @@ export default function FAQV3({ data, editable, onDataChange }: BlockProps<FAQDa
                     <Bot className="w-4 h-4 text-primary" />
                   </div>
 
-                  <div className="max-w-[85%] sm:max-w-[75%] bg-zinc-900 border border-zinc-800 rounded-2xl rounded-tl-sm px-4 sm:px-5 py-3 sm:py-4">
+                  <div className="max-w-[85%] sm:max-w-[75%] bg-zinc-900 border border-zinc-700/50 rounded-2xl rounded-tl-sm px-4 sm:px-5 py-3 sm:py-4">
                     <EditableText
                       value={item.answer}
                       onChange={(v) => {

@@ -39,7 +39,7 @@ export default function FAQV2({ data, editable, onDataChange }: BlockProps<FAQDa
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="text-zinc-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
+            className="text-zinc-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
           />
         )}
       </div>
@@ -51,7 +51,7 @@ export default function FAQV2({ data, editable, onDataChange }: BlockProps<FAQDa
           return (
             <div
               key={idx}
-              className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden transition-colors hover:border-zinc-700"
+              className="bg-zinc-900 border border-zinc-700/50 rounded-xl overflow-hidden transition-colors hover:border-zinc-700"
             >
               <button
                 onClick={() => toggle(idx)}
@@ -75,7 +75,7 @@ export default function FAQV2({ data, editable, onDataChange }: BlockProps<FAQDa
                 />
 
                 <ChevronDown
-                  className={`w-5 h-5 text-zinc-500 shrink-0 transition-transform duration-300 ${
+                  className={`w-5 h-5 text-zinc-400 shrink-0 transition-transform duration-300 ${
                     isOpen ? 'rotate-180 text-primary' : ''
                   }`}
                 />
@@ -99,7 +99,7 @@ export default function FAQV2({ data, editable, onDataChange }: BlockProps<FAQDa
                     editable={editable}
                     as="p"
                     multiline
-                    className="text-zinc-400 text-sm sm:text-base leading-relaxed"
+                    className="text-zinc-300 text-sm sm:text-base leading-relaxed"
                   />
                 </div>
               </div>

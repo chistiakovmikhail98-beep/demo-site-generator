@@ -44,7 +44,7 @@ export default function ReviewsV1({ data, editable, onDataChange, className = ''
               onChange={(v) => update({ subtitle: v })}
               editable={editable}
               as="p"
-              className="mt-2 text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto"
+              className="mt-2 text-sm sm:text-base text-zinc-300 max-w-2xl mx-auto"
               placeholder="Добавить описание..."
             />
           )}
@@ -77,7 +77,7 @@ export default function ReviewsV1({ data, editable, onDataChange, className = ''
                       as="h4"
                       className="font-bold text-zinc-900 text-base sm:text-lg"
                     />
-                    <div className="flex items-center gap-1 text-xs font-medium text-zinc-400 mt-1">
+                    <div className="flex items-center gap-1 text-xs font-medium text-zinc-300 mt-1">
                       <MapPin className="w-3 h-3 shrink-0" />
                       <EditableText
                         value={review.source || 'Яндекс Карты'}
@@ -104,7 +104,7 @@ export default function ReviewsV1({ data, editable, onDataChange, className = ''
                   editable={editable}
                   as="p"
                   multiline
-                  className="text-zinc-600 leading-relaxed text-sm italic"
+                  className="text-zinc-500 leading-relaxed text-sm italic"
                 />
               </div>
             )}
@@ -139,7 +139,7 @@ export default function ReviewsV1({ data, editable, onDataChange, className = ''
             {title}
           </h2>
           {subtitle && (
-            <p className="mt-2 text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto">
+            <p className="mt-2 text-sm sm:text-base text-zinc-300 max-w-2xl mx-auto">
               {subtitle}
             </p>
           )}
@@ -163,7 +163,7 @@ export default function ReviewsV1({ data, editable, onDataChange, className = ''
                   <div>
                     <h4 className="font-bold text-zinc-900 text-base sm:text-lg">{review.name}</h4>
                     {review.source && (
-                      <div className="flex items-center gap-1 text-xs font-medium text-zinc-400 mt-1">
+                      <div className="flex items-center gap-1 text-xs font-medium text-zinc-300 mt-1">
                         <MapPin className="w-3 h-3 shrink-0" />
                         <span className="underline decoration-primary/30 decoration-wavy underline-offset-2">
                           {review.source}
@@ -180,7 +180,7 @@ export default function ReviewsV1({ data, editable, onDataChange, className = ''
                     ))}
                   </div>
                 </div>
-                <p className="text-zinc-600 leading-relaxed text-sm italic">
+                <p className="text-zinc-500 leading-relaxed text-sm italic">
                   &laquo;{review.text}&raquo;
                 </p>
               </div>

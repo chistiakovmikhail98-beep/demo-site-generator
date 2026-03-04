@@ -25,7 +25,7 @@ export default function ReviewsV2({ data, editable, onDataChange, className = ''
     return (
       <div
         key={review.id}
-        className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 hover:border-zinc-700 transition-colors duration-300"
+        className="bg-zinc-900 border border-zinc-700/50 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 hover:border-zinc-700 transition-colors duration-300"
       >
         {/* Quote icon */}
         <MessageCircle className="w-7 h-7 sm:w-8 sm:h-8 text-primary/40" />
@@ -47,7 +47,7 @@ export default function ReviewsV2({ data, editable, onDataChange, className = ''
         )}
 
         {/* Footer: name + stars + source */}
-        <div className="pt-4 border-t border-zinc-800 space-y-2">
+        <div className="pt-4 border-t border-zinc-700/50 space-y-2">
           <div className="flex items-center justify-between gap-3">
             {isEdit ? (
               <EditableText
@@ -66,7 +66,7 @@ export default function ReviewsV2({ data, editable, onDataChange, className = ''
                 <Star
                   key={s}
                   className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${
-                    s <= (review.rating || 5) ? 'text-yellow-400 fill-yellow-400' : 'text-zinc-600'
+                    s <= (review.rating || 5) ? 'text-yellow-400 fill-yellow-400' : 'text-zinc-500'
                   } ${isEdit ? 'cursor-pointer' : ''}`}
                   onClick={isEdit ? () => onChange({ ...review, rating: s }) : undefined}
                 />
@@ -81,12 +81,12 @@ export default function ReviewsV2({ data, editable, onDataChange, className = ''
                 onChange={(v) => onChange({ ...review, source: v })}
                 editable={editable}
                 as="span"
-                className="text-xs text-zinc-500"
+                className="text-xs text-zinc-400"
                 placeholder="Источник (Яндекс Карты, 2ГИС...)"
               />
             ) : (
               review.source && (
-                <span className="text-xs text-zinc-500">{review.source}</span>
+                <span className="text-xs text-zinc-400">{review.source}</span>
               )
             )
           )}
@@ -112,7 +112,7 @@ export default function ReviewsV2({ data, editable, onDataChange, className = ''
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto"
+            className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-300 max-w-2xl mx-auto"
             placeholder="Добавить описание..."
           />
         )}

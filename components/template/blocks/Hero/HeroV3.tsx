@@ -58,9 +58,9 @@ export default function HeroV3({ data, editable, onDataChange, onCTAClick }: Blo
               </span>
               {data.city && (
                 <>
-                  <span className="text-zinc-600">|</span>
-                  <MapPin className="w-3 h-3 text-zinc-500" />
-                  <span className="text-[10px] sm:text-xs text-zinc-500">{data.city}</span>
+                  <span className="text-zinc-500">|</span>
+                  <MapPin className="w-3 h-3 text-zinc-400" />
+                  <span className="text-[10px] sm:text-xs text-zinc-400">{data.city}</span>
                 </>
               )}
             </div>
@@ -80,7 +80,7 @@ export default function HeroV3({ data, editable, onDataChange, onCTAClick }: Blo
                 onChange={(v) => update({ heroSubtitle: v })}
                 editable={editable}
                 as="p"
-                className="mt-3 sm:mt-5 text-base sm:text-lg md:text-xl text-zinc-400 max-w-lg leading-relaxed"
+                className="mt-3 sm:mt-5 text-base sm:text-lg md:text-xl text-zinc-200 max-w-lg leading-relaxed"
               />
             )}
 
@@ -91,7 +91,7 @@ export default function HeroV3({ data, editable, onDataChange, onCTAClick }: Blo
                 editable={editable}
                 as="p"
                 multiline
-                className="mt-3 text-sm sm:text-base text-zinc-500 max-w-md leading-relaxed"
+                className="mt-3 text-sm sm:text-base text-zinc-300 max-w-md leading-relaxed"
               />
             )}
 
@@ -101,7 +101,7 @@ export default function HeroV3({ data, editable, onDataChange, onCTAClick }: Blo
                 {data.advantages.map((text, idx) => (
                   <span
                     key={idx}
-                    className="flex items-center gap-1.5 text-xs sm:text-sm text-zinc-400"
+                    className="flex items-center gap-1.5 text-xs sm:text-sm text-zinc-300"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                     {text}
@@ -124,7 +124,7 @@ export default function HeroV3({ data, editable, onDataChange, onCTAClick }: Blo
                 size="lg"
                 variant="ghost"
                 onClick={() => onCTAClick?.('directions')}
-                className="w-full sm:w-auto text-zinc-400 hover:text-white"
+                className="w-full sm:w-auto text-zinc-300 hover:text-white"
               >
                 Подробнее
               </Button>
@@ -138,7 +138,7 @@ export default function HeroV3({ data, editable, onDataChange, onCTAClick }: Blo
                   <span className="text-lg sm:text-xl md:text-2xl font-black text-white leading-none">
                     {m.value}
                   </span>
-                  <span className="text-[10px] sm:text-xs text-zinc-500 mt-0.5 leading-tight">
+                  <span className="text-[10px] sm:text-xs text-zinc-400 mt-0.5 leading-tight">
                     {m.label}
                   </span>
                 </div>
@@ -182,7 +182,7 @@ export default function HeroV3({ data, editable, onDataChange, onCTAClick }: Blo
                     <p className="text-white font-bold text-xs sm:text-sm leading-tight">
                       {data.brandName}
                     </p>
-                    <p className="text-zinc-400 text-[10px] sm:text-xs">
+                    <p className="text-zinc-300 text-[10px] sm:text-xs">
                       {data.niche === 'dance' ? 'Танцевальная студия' :
                        data.niche === 'fitness' ? 'Фитнес-студия' :
                        data.niche === 'stretching' ? 'Студия растяжки' :

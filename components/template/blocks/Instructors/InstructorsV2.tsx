@@ -36,7 +36,7 @@ const InstructorsV2: React.FC<BlockProps<InstructorsData> & { variant?: never }>
       <div className="relative aspect-square rounded-3xl overflow-hidden bg-zinc-800 mb-4 sm:mb-5">
         {isPlaceholder(inst.image) ? (
           <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center transition-transform duration-700 group-hover:scale-105">
-            <User className="w-12 h-12 sm:w-16 sm:h-16 text-zinc-600" />
+            <User className="w-12 h-12 sm:w-16 sm:h-16 text-zinc-500" />
           </div>
         ) : editable ? (
           <EditableImage
@@ -118,7 +118,7 @@ const InstructorsV2: React.FC<BlockProps<InstructorsData> & { variant?: never }>
           onChange={(v) => updateInstructor(index, { experience: v })}
           editable={editable}
           as="p"
-          className="text-zinc-400 text-sm sm:text-base"
+          className="text-zinc-300 text-sm sm:text-base"
         />
       </div>
     </div>
@@ -149,7 +149,7 @@ const InstructorsV2: React.FC<BlockProps<InstructorsData> & { variant?: never }>
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="text-zinc-400 text-base sm:text-lg max-w-2xl mx-auto"
+            className="text-zinc-300 text-base sm:text-lg max-w-2xl mx-auto"
             placeholder="Описание команды..."
           />
         )}

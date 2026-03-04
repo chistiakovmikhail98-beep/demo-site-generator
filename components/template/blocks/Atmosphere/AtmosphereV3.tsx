@@ -65,7 +65,7 @@ export default function AtmosphereV3({ data, editable, onDataChange }: BlockProp
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-400 max-w-lg"
+            className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-300 max-w-lg"
             placeholder="Добавить описание..."
           />
         )}

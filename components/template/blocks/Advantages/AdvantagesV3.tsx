@@ -56,7 +56,7 @@ export default function AdvantagesV3({ data, editable, onDataChange }: BlockProp
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-400 max-w-lg"
+            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-300 max-w-lg"
           />
         )}
       </div>
@@ -70,7 +70,7 @@ export default function AdvantagesV3({ data, editable, onDataChange }: BlockProp
           return (
             <div
               key={item.id || idx}
-              className={`group relative ${getColSpan(idx)} ${getMinHeight(idx)} bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden cursor-default transition-all duration-500 hover:border-zinc-700`}
+              className={`group relative ${getColSpan(idx)} ${getMinHeight(idx)} bg-zinc-900 border border-zinc-700/50 rounded-2xl overflow-hidden cursor-default transition-all duration-500 hover:border-zinc-700`}
             >
               {/* Image background (for cards with images) */}
               {hasImage ? (
@@ -123,7 +123,7 @@ export default function AdvantagesV3({ data, editable, onDataChange }: BlockProp
                   editable={editable}
                   as="p"
                   multiline
-                  className="text-zinc-400 text-xs sm:text-sm leading-relaxed max-w-md"
+                  className="text-zinc-300 text-xs sm:text-sm leading-relaxed max-w-md"
                 />
               </div>
             </div>

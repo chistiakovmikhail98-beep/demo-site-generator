@@ -38,7 +38,7 @@ const InstructorsV1: React.FC<BlockProps<InstructorsData> & { variant?: never }>
   const renderInstructorCard = (inst: InstructorItem, index: number) => (
     <div key={inst.id} className="group relative">
       {/* Image card */}
-      <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800 mb-4">
+      <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-700/50 mb-4">
         {isPlaceholder(inst.image) ? (
           <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center transition-transform duration-700 group-hover:scale-105">
             <User className="w-12 h-12 sm:w-16 sm:h-16 text-zinc-700" />
@@ -101,7 +101,7 @@ const InstructorsV1: React.FC<BlockProps<InstructorsData> & { variant?: never }>
               }}
               editable={editable}
               as="p"
-              className="text-zinc-400 text-sm leading-snug"
+              className="text-zinc-300 text-sm leading-snug"
             />
           </div>
         ))}
@@ -116,7 +116,7 @@ const InstructorsV1: React.FC<BlockProps<InstructorsData> & { variant?: never }>
             onChange={(v) => updateInstructor(index, { experience: v.replace(/^Опыт:\s*/, '') })}
             editable={editable}
             as="p"
-            className="text-zinc-400 text-sm leading-snug"
+            className="text-zinc-300 text-sm leading-snug"
           />
         </div>
       </div>
@@ -148,7 +148,7 @@ const InstructorsV1: React.FC<BlockProps<InstructorsData> & { variant?: never }>
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-2 sm:mt-3 text-sm sm:text-base md:text-lg text-zinc-400 max-w-2xl"
+            className="mt-2 sm:mt-3 text-sm sm:text-base md:text-lg text-zinc-300 max-w-2xl"
             placeholder="Описание команды..."
           />
         )}
@@ -178,7 +178,7 @@ const InstructorsV1: React.FC<BlockProps<InstructorsData> & { variant?: never }>
             <div className="flex justify-center mb-12 sm:mb-16 md:mb-20 -mt-6 sm:-mt-8">
               <button
                 onClick={() => setShowAll(true)}
-                className="inline-flex items-center gap-2 px-6 h-11 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-300 text-sm font-medium hover:bg-zinc-800 hover:text-white transition-colors"
+                className="inline-flex items-center gap-2 px-6 h-11 bg-zinc-900 border border-zinc-700/50 rounded-full text-zinc-300 text-sm font-medium hover:bg-zinc-800 hover:text-white transition-colors"
               >
                 Показать всех ({data.instructors.length})
                 <ChevronDown className="w-4 h-4" />
@@ -204,7 +204,7 @@ const InstructorsV1: React.FC<BlockProps<InstructorsData> & { variant?: never }>
             editable={editable}
             as="p"
             multiline
-            className="text-zinc-600 text-base sm:text-lg leading-relaxed"
+            className="text-zinc-500 text-base sm:text-lg leading-relaxed"
           />
         </div>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full md:w-auto">

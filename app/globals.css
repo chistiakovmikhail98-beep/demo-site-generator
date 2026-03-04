@@ -4,6 +4,7 @@
 
 :root {
   --color-primary: #9d174d;
+  --color-primary-rgb: 157, 23, 77;
   --color-accent: #be185d;
   --color-background: #0c0c0e;
   --color-surface: #18181b;
@@ -14,4 +15,37 @@ body {
   background: var(--color-background);
   color: var(--color-text);
   font-family: 'Manrope', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scroll-reveal animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-up {
+  animation: fadeUp 0.6s ease-out both;
+}
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out both;
+}
+
+/* Stagger delays for children */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+
+/* Section reveal via IntersectionObserver */
+.section-hidden {
+  opacity: 0;
+  transform: translateY(32px);
+}
+.section-visible {
+  animation: fadeUp 0.7s ease-out both;
 }

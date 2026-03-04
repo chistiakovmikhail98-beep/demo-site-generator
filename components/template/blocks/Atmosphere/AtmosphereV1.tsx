@@ -54,7 +54,7 @@ export default function AtmosphereV1({ data, editable, onDataChange }: BlockProp
       <div ref={containerRef} className="relative h-[350vh]">
         <div className="sticky top-0 h-screen flex items-center justify-center overflow-hidden">
           <div className="w-full h-full lg:max-w-7xl lg:mx-auto lg:px-4 lg:h-[85vh] flex items-center justify-center">
-            <div className="w-full h-full bg-zinc-900 lg:rounded-[2rem] overflow-hidden shadow-2xl relative flex border-0 lg:border lg:border-zinc-800/50">
+            <div className="w-full h-full bg-zinc-900 lg:rounded-[2rem] overflow-hidden shadow-2xl relative flex border-0 lg:border lg:border-zinc-700/50">
 
               {/* --- Text panel --- */}
               <div className="absolute bottom-0 left-0 right-0 p-5 pb-8 bg-gradient-to-t from-black via-black/90 to-transparent z-20 lg:static lg:w-[45%] lg:h-full lg:bg-none lg:p-0 lg:pl-12 lg:pr-8 lg:py-14 flex flex-col pointer-events-none lg:pointer-events-auto">
@@ -73,7 +73,7 @@ export default function AtmosphereV1({ data, editable, onDataChange }: BlockProp
                       onChange={(v) => update({ subtitle: v })}
                       editable={editable}
                       as="p"
-                      className="mt-3 text-sm xl:text-base text-zinc-400 max-w-md"
+                      className="mt-3 text-sm xl:text-base text-zinc-300 max-w-md"
                       placeholder="Добавить описание..."
                     />
                   )}
@@ -95,7 +95,7 @@ export default function AtmosphereV1({ data, editable, onDataChange }: BlockProp
                           className={`w-8 h-8 lg:w-11 lg:h-11 rounded-full border flex items-center justify-center text-sm lg:text-lg font-bold transition-colors duration-300 ${
                             activeStep === idx
                               ? 'bg-primary border-primary text-white'
-                              : 'border-zinc-700 text-zinc-600'
+                              : 'border-zinc-700 text-zinc-500'
                           }`}
                         >
                           {idx + 1}
@@ -123,7 +123,7 @@ export default function AtmosphereV1({ data, editable, onDataChange }: BlockProp
                         editable={editable}
                         as="p"
                         multiline
-                        className="text-sm lg:text-base text-zinc-300 lg:text-zinc-400 leading-relaxed mb-4 lg:mb-6 max-w-md"
+                        className="text-sm lg:text-base text-zinc-300 lg:text-zinc-300 leading-relaxed mb-4 lg:mb-6 max-w-md"
                       />
                       <div className="pointer-events-auto">
                         <Button

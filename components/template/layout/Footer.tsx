@@ -68,7 +68,7 @@ export default function Footer({ data }: Props) {
   const instagramLink = data.instagram || '#';
 
   return (
-    <footer id="footer" className="bg-[#121215] border-t border-zinc-900 text-zinc-200">
+    <footer id="footer" className="bg-[var(--color-background,#0c0c0e)] border-t border-zinc-800 text-zinc-200">
       <Section>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 lg:gap-16 mb-12 sm:mb-16 lg:mb-20">
 
@@ -78,15 +78,15 @@ export default function Footer({ data }: Props) {
               Запишитесь <br />
               <span className="text-primary italic">на занятие!</span>
             </h2>
-            <p className="text-zinc-400 mb-6 sm:mb-8 text-base sm:text-lg leading-relaxed max-w-md">
+            <p className="text-zinc-300 mb-6 sm:mb-8 text-base sm:text-lg leading-relaxed max-w-md">
               Оставьте заявку и мы свяжемся с вами для подбора удобного времени.
             </p>
 
             {submitted ? (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-8 text-center max-w-md">
+              <div className="bg-zinc-900 border border-zinc-700/50 rounded-2xl p-6 sm:p-8 text-center max-w-md">
                 <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-green-500 mx-auto mb-3 sm:mb-4 animate-in zoom-in duration-300" />
                 <h3 className="text-lg sm:text-xl font-bold text-white mb-2">Спасибо за заявку!</h3>
-                <p className="text-zinc-400 text-sm sm:text-base mb-4">Мы свяжемся с вами в ближайшее время.</p>
+                <p className="text-zinc-300 text-sm sm:text-base mb-4">Мы свяжемся с вами в ближайшее время.</p>
                 <a
                   href={(() => {
                     const host = typeof window !== 'undefined' ? window.location.hostname : '';
@@ -107,7 +107,7 @@ export default function Footer({ data }: Props) {
                   placeholder="Ваше имя"
                   value={form.name}
                   onChange={(e) => set({ name: e.target.value })}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-3 sm:py-4 px-4 sm:px-5 text-white text-base focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-zinc-600"
+                  className="w-full bg-zinc-800/80 border border-zinc-700/50 rounded-2xl py-3 sm:py-4 px-4 sm:px-5 text-white text-base focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-zinc-400"
                   required
                 />
                 <input
@@ -126,13 +126,13 @@ export default function Footer({ data }: Props) {
                     if (body.length >= 8) formatted += `-${body.slice(8, 10)}`;
                     set({ phone: formatted });
                   }}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-3 sm:py-4 px-4 sm:px-5 text-white text-base focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-zinc-600"
+                  className="w-full bg-zinc-800/80 border border-zinc-700/50 rounded-2xl py-3 sm:py-4 px-4 sm:px-5 text-white text-base focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-zinc-400"
                   required
                 />
 
                 {/* Messenger radio */}
                 <div className="flex gap-4 sm:gap-6 flex-wrap py-1">
-                  <label className="flex items-center gap-2 cursor-pointer text-zinc-400 text-sm min-h-[44px]">
+                  <label className="flex items-center gap-2 cursor-pointer text-zinc-300 text-sm min-h-[44px]">
                     <input
                       type="radio"
                       name="messenger"
@@ -142,7 +142,7 @@ export default function Footer({ data }: Props) {
                     />
                     Telegram
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-zinc-400 text-sm min-h-[44px]">
+                  <label className="flex items-center gap-2 cursor-pointer text-zinc-300 text-sm min-h-[44px]">
                     <input
                       type="radio"
                       name="messenger"
@@ -163,7 +163,7 @@ export default function Footer({ data }: Props) {
                   {submitting ? 'Отправка...' : 'Записаться'}
                 </Button>
 
-                <p className="text-[10px] text-zinc-600 text-center leading-tight pt-2">
+                <p className="text-[10px] text-zinc-500 text-center leading-tight pt-2">
                   Нажимая кнопку, вы соглашаетесь с политикой обработки персональных данных
                 </p>
               </form>
@@ -172,9 +172,9 @@ export default function Footer({ data }: Props) {
 
           {/* ---- Right: contact card ---- */}
           <div className="space-y-6 sm:space-y-8">
-            <div className="bg-zinc-900 border border-zinc-800 p-6 sm:p-8 md:p-10 rounded-2xl sm:rounded-[2.5rem] shadow-2xl relative overflow-hidden h-full flex flex-col">
+            <div className="bg-zinc-900 border border-zinc-700/50 p-6 sm:p-8 md:p-10 rounded-2xl sm:rounded-[2.5rem] shadow-2xl relative overflow-hidden h-full flex flex-col">
               {/* Decorative glow */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full pointer-events-none" />
+              <div className="absolute top-0 right-0 w-48 h-48 bg-primary/15 blur-[80px] rounded-full pointer-events-none" />
 
               <h3 className="text-lg sm:text-xl font-bold text-white mb-6 sm:mb-8 uppercase tracking-widest">
                 Контакты
@@ -188,7 +188,7 @@ export default function Footer({ data }: Props) {
                     <div>
                       <p className="text-white font-bold text-base sm:text-lg">{data.address}</p>
                       {(data as any).addressDetails && (
-                        <p className="text-zinc-500 text-xs sm:text-sm">{(data as any).addressDetails}</p>
+                        <p className="text-zinc-400 text-xs sm:text-sm">{(data as any).addressDetails}</p>
                       )}
                     </div>
                   </div>
@@ -202,14 +202,14 @@ export default function Footer({ data }: Props) {
                       <a href={`tel:${data.phone.replace(/\D/g, '')}`} className="text-white font-bold text-base sm:text-lg hover:text-primary transition-colors">
                         {formatPhone(data.phone)}
                       </a>
-                      <p className="text-zinc-500 text-xs">Администратор</p>
+                      <p className="text-zinc-400 text-xs">Администратор</p>
                     </div>
                   </div>
                 )}
 
                 {/* Social links */}
                 {(data.telegram || data.vk || data.instagram) && (
-                  <div className="flex items-center gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-zinc-800">
+                  <div className="flex items-center gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-zinc-700/50">
                     {data.telegram && (
                       <a
                         href={telegramLink}
@@ -243,7 +243,7 @@ export default function Footer({ data }: Props) {
                         <Instagram className="w-5 h-5 text-white" />
                       </a>
                     )}
-                    <span className="text-zinc-500 text-xs sm:text-sm font-bold uppercase tracking-wider ml-1 sm:ml-2">
+                    <span className="text-zinc-400 text-xs sm:text-sm font-bold uppercase tracking-wider ml-1 sm:ml-2">
                       Мы в соцсетях
                     </span>
                   </div>
@@ -253,7 +253,7 @@ export default function Footer({ data }: Props) {
               {/* Yandex Map */}
               {data.mapCoords && (
                 <div className="mt-auto flex flex-col gap-2 sm:gap-3">
-                  <div className="overflow-hidden rounded-xl sm:rounded-2xl border border-zinc-800 shadow-inner h-40 sm:h-48 md:h-64 relative group">
+                  <div className="overflow-hidden rounded-xl sm:rounded-2xl border border-zinc-700/50 shadow-inner h-40 sm:h-48 md:h-64 relative group">
                     <iframe
                       src={`https://yandex.ru/map-widget/v1/?ll=${data.mapCoords}&z=16`}
                       width="100%"
@@ -283,7 +283,7 @@ export default function Footer({ data }: Props) {
         </div>
 
         {/* Copyright bar */}
-        <div className="text-center pt-6 sm:pt-8 border-t border-zinc-900 text-zinc-600 text-xs sm:text-sm font-medium">
+        <div className="text-center pt-6 sm:pt-8 border-t border-zinc-900 text-zinc-500 text-xs sm:text-sm font-medium">
           &copy; {new Date().getFullYear()} {data.brandName}. <br className="sm:hidden" /> Все права защищены.
         </div>
       </Section>

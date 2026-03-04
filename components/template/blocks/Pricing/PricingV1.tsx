@@ -43,7 +43,7 @@ export default function PricingV1({ data, editable, onDataChange, onCTAClick }: 
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="text-zinc-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
+            className="text-zinc-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
           />
         )}
       </div>
@@ -55,7 +55,7 @@ export default function PricingV1({ data, editable, onDataChange, onCTAClick }: 
           {standardPlans.map((plan) => (
             <div
               key={plan.id}
-              className="relative bg-white/[0.03] border border-zinc-800 rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col hover:border-zinc-600 transition-colors"
+              className="relative bg-white/[0.06] border border-zinc-700/50 rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col shadow-lg shadow-black/20 hover:border-zinc-600 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 transition-all duration-300"
             >
               {plan.isPopular && (
                 <span className="absolute -top-3 left-5 inline-flex items-center gap-1 px-3 py-1 bg-primary text-white text-[10px] sm:text-xs font-bold rounded-full uppercase tracking-wider">
@@ -83,7 +83,7 @@ export default function PricingV1({ data, editable, onDataChange, onCTAClick }: 
               </div>
 
               {plan.validity && (
-                <span className="text-zinc-500 text-xs sm:text-sm mb-4">{plan.validity}</span>
+                <span className="text-zinc-400 text-xs sm:text-sm mb-4">{plan.validity}</span>
               )}
 
               {plan.features && plan.features.length > 0 && (
@@ -112,7 +112,7 @@ export default function PricingV1({ data, editable, onDataChange, onCTAClick }: 
 
         {/* Premium card */}
         {premiumPlan && (
-          <div className="lg:col-span-1 bg-primary rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col relative overflow-hidden">
+          <div className="lg:col-span-1 bg-gradient-to-br from-primary to-accent rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col relative overflow-hidden shadow-xl shadow-primary/20">
             {/* Glow */}
             <div className="absolute -top-20 -right-20 w-40 h-40 bg-white/10 blur-[80px] rounded-full pointer-events-none" />
 

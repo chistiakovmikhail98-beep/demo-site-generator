@@ -69,7 +69,7 @@ export default function DirectionsV1({ data, editable, onDataChange, onCTAClick 
             onChange={v => onDataChange?.({ ...data, subtitle: v })}
             editable={editable}
             as="p"
-            className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-black text-zinc-400 uppercase tracking-tight leading-[0.95]"
+            className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-black text-zinc-300 uppercase tracking-tight leading-[0.95]"
           />
         )}
 
@@ -88,7 +88,7 @@ export default function DirectionsV1({ data, editable, onDataChange, onCTAClick 
                   transition-all duration-200 border-2 min-h-[44px]
                   ${activeTabKey === tab.key
                     ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
-                    : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-400 hover:text-white'
+                    : 'bg-transparent text-zinc-300 border-zinc-700 hover:border-zinc-400 hover:text-white'
                   }
                 `}
               >
@@ -170,7 +170,7 @@ function DirectionCard({ item, editable, onChange, onCTAClick, isPopular }: Card
   const placeholder = isPlaceholder(item.image);
 
   return (
-    <div className="group flex flex-col bg-zinc-800/80 border border-zinc-700/50 rounded-2xl overflow-hidden hover:border-zinc-600 transition-all duration-300">
+    <div className="group flex flex-col bg-zinc-800/80 border border-zinc-700/50 rounded-2xl overflow-hidden hover:border-zinc-600 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 transition-all duration-300">
       {/* Image */}
       <div className="aspect-[4/3] overflow-hidden relative m-2 rounded-t-[1.4rem] rounded-b-xl">
         {isPopular && (
@@ -190,7 +190,7 @@ function DirectionCard({ item, editable, onChange, onCTAClick, isPopular }: Card
           />
         ) : placeholder ? (
           <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center transition-transform duration-700 group-hover:scale-105">
-            <span className="text-zinc-500 font-bold text-sm uppercase tracking-wider text-center px-4">
+            <span className="text-zinc-400 font-bold text-sm uppercase tracking-wider text-center px-4">
               {item.title}
             </span>
           </div>
@@ -210,20 +210,20 @@ function DirectionCard({ item, editable, onChange, onCTAClick, isPopular }: Card
         <div className="flex gap-2 mb-3 sm:mb-4">
           {/* Duration */}
           <div className="bg-zinc-700/50 rounded-xl px-3 py-2 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+            <Clock className="w-4 h-4 text-zinc-400 flex-shrink-0" />
             <EditableText
               value={item.duration}
               onChange={v => onChange({ ...item, duration: v })}
               editable={editable}
               as="span"
-              className="text-xs font-semibold text-zinc-400 whitespace-nowrap"
+              className="text-xs font-semibold text-zinc-300 whitespace-nowrap"
             />
           </div>
 
           {/* Complexity */}
           <div className="bg-zinc-700/50 rounded-xl px-3 py-2 flex items-center gap-2 flex-grow">
             <Zap className="w-3 h-3 text-orange-400 flex-shrink-0" />
-            <span className="text-[10px] text-zinc-500 font-medium hidden sm:inline">Интенсивность</span>
+            <span className="text-[10px] text-zinc-400 font-medium hidden sm:inline">Интенсивность</span>
             <div className="flex gap-0.5 ml-auto">
               {[...Array(5)].map((_, i) => (
                 <div
@@ -241,7 +241,7 @@ function DirectionCard({ item, editable, onChange, onCTAClick, isPopular }: Card
 
         {/* Tags */}
         {item.tags.length > 0 && (
-          <div className="mb-2 sm:mb-3 text-xs text-zinc-400 leading-relaxed">
+          <div className="mb-2 sm:mb-3 text-xs text-zinc-300 leading-relaxed">
             {item.tags.join(' \u00b7 ')}
           </div>
         )}
@@ -262,7 +262,7 @@ function DirectionCard({ item, editable, onChange, onCTAClick, isPopular }: Card
           editable={editable}
           as="p"
           multiline
-          className="text-zinc-400 text-sm leading-relaxed mb-6 sm:mb-8 line-clamp-3 flex-grow"
+          className="text-zinc-300 text-sm leading-relaxed mb-6 sm:mb-8 line-clamp-3 flex-grow"
         />
 
         {/* CTA */}
