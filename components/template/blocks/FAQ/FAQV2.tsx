@@ -23,7 +23,7 @@ export default function FAQV2({ data, editable, onDataChange }: BlockProps<FAQDa
   const pad = (n: number) => String(n + 1).padStart(2, '0');
 
   return (
-    <Section id="faq" className="bg-[var(--color-background,#0c0c0e)]">
+    <Section id="faq" className="bg-[var(--color-background,#09090b)]">
       {/* Header */}
       <div className="text-center mb-10 sm:mb-14">
         <EditableText

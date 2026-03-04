@@ -29,7 +29,7 @@ export default function ObjectionsV2({ data, editable, onDataChange }: BlockProp
   };
 
   return (
-    <Section id="objections" className="bg-[var(--color-background,#0c0c0e)]">
+    <Section id="objections" className="bg-[var(--color-background,#09090b)]">
       {/* Header */}
       <div className="text-center mb-10 sm:mb-14">
         <EditableText

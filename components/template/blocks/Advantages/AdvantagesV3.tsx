@@ -40,7 +40,7 @@ export default function AdvantagesV3({ data, editable, onDataChange }: BlockProp
   };
 
   return (
-    <Section id="advantages" className="bg-[var(--color-background,#0c0c0e)]">
+    <Section id="advantages" className="bg-[var(--color-background,#09090b)]">
       {/* Title */}
       <div className="mb-8 sm:mb-10 md:mb-14">
         <EditableText

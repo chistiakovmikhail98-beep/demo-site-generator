@@ -10,7 +10,7 @@ import Section from '../../Section';
  *
  * Two-column on md+: title/subtitle sticky on the left (col-span-4),
  * accordion items on the right (col-span-8). Full-width stack on mobile.
- * Cards use bg-[#121215] with border, expand with smooth max-h transition.
+ * Cards use bg-zinc-900 with border, expand with smooth max-h transition.
  */
 export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQData>) {
   const update = (patch: Partial<FAQData>) => onDataChange?.({ ...data, ...patch });
@@ -21,7 +21,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
   };
 
   return (
-    <Section id="faq" className="bg-[var(--color-background,#0c0c0e)]">
+    <Section id="faq" className="bg-[var(--color-background,#09090b)]">
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10 lg:gap-16">
         {/* Left: title sidebar */}
         <div className="md:col-span-4">
@@ -52,7 +52,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
             return (
               <div
                 key={idx}
-                className="bg-[#121215] border border-zinc-700/50 rounded-2xl overflow-hidden transition-colors hover:border-zinc-700"
+                className="bg-zinc-900 border border-zinc-700/50 rounded-2xl overflow-hidden transition-colors hover:border-zinc-700"
               >
                 <button
                   onClick={() => toggle(idx)}

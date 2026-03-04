@@ -29,7 +29,7 @@ export default function AtmosphereV2({ data, editable, onDataChange }: BlockProp
   if (items.length === 0) return null;
 
   return (
-    <Section id="atmosphere" className="bg-[var(--color-background,#0c0c0e)]">
+    <Section id="atmosphere" className="bg-[var(--color-background,#09090b)]">
       {/* Header */}
       <div className="mb-8 sm:mb-10 md:mb-14">
         <EditableText

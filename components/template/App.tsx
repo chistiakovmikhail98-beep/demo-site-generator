@@ -188,7 +188,7 @@ export default function TemplateApp({ initialConfig, adminConfig }: TemplateAppP
   return (
     <ToastProvider>
       <div
-        className={`min-h-screen bg-[var(--color-background,#0c0c0e)] text-[var(--color-text,#f4f4f5)] font-sans selection:bg-primary/30 selection:text-white transition-[padding] duration-300 ${
+        className={`min-h-screen bg-[var(--color-background,#09090b)] text-[var(--color-text,#f4f4f5)] font-sans selection:bg-primary/30 selection:text-white transition-[padding] duration-300 ${
           admin.editMode ? 'lg:pr-80 pb-14 lg:pb-0' : ''
         }`}
       >

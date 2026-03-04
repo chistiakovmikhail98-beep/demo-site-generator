@@ -35,7 +35,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
   const placeholder = isPlaceholder(current.image);
 
   return (
-    <Section id="directions" className="bg-[var(--color-background,#0c0c0e)]">
+    <Section id="directions" className="bg-[var(--color-background,#09090b)]">
       {/* Header */}
       <div className="text-center mb-8 sm:mb-12">
         <EditableText
@@ -51,7 +51,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
             onChange={v => onDataChange?.({ ...data, subtitle: v })}
             editable={editable}
             as="p"
-            className="text-sm sm:text-base md:text-lg text-zinc-400 max-w-2xl mx-auto"
+            className="text-sm sm:text-base md:text-lg text-zinc-300 max-w-2xl mx-auto"
           />
         )}
       </div>
@@ -201,7 +201,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
           <Button
             variant="primary"
             size="lg"
-            className="rounded-2xl uppercase tracking-wide font-bold w-full sm:w-auto"
+            className="uppercase tracking-wide w-full sm:w-auto"
             onClick={() => onCTAClick?.('direction-signup')}
           >
             {current.buttonText || 'Записаться на занятие'}
@@ -232,7 +232,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
                     w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-xl overflow-hidden
                     transition-all duration-300 flex-shrink-0
                     ${isActive
-                      ? 'ring-2 ring-primary ring-offset-2 ring-offset-[#0c0c0e] scale-105'
+                      ? 'ring-2 ring-primary ring-offset-2 ring-offset-[#09090b] scale-105'
                       : 'opacity-50 hover:opacity-80'
                     }
                   `}

@@ -30,7 +30,7 @@ export default function FAQV3({ data, editable, onDataChange }: BlockProps<FAQDa
   };
 
   return (
-    <Section id="faq" className="bg-[var(--color-background,#0c0c0e)]">
+    <Section id="faq" className="bg-[var(--color-background,#09090b)]">
       {/* Header */}
       <div className="text-center mb-10 sm:mb-14">
         <EditableText

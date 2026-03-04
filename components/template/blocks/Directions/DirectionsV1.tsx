@@ -170,7 +170,7 @@ function DirectionCard({ item, editable, onChange, onCTAClick, isPopular }: Card
   const placeholder = isPlaceholder(item.image);
 
   return (
-    <div className="group flex flex-col bg-zinc-800/80 border border-zinc-700/50 rounded-2xl overflow-hidden hover:border-zinc-600 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 transition-all duration-300">
+    <div className="group flex flex-col bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-zinc-700 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 transition-all duration-300">
       {/* Image */}
       <div className="aspect-[4/3] overflow-hidden relative m-2 rounded-t-[1.4rem] rounded-b-xl">
         {isPopular && (
@@ -209,7 +209,7 @@ function DirectionCard({ item, editable, onChange, onCTAClick, isPopular }: Card
         {/* Meta Pills */}
         <div className="flex gap-2 mb-3 sm:mb-4">
           {/* Duration */}
-          <div className="bg-zinc-700/50 rounded-xl px-3 py-2 flex items-center gap-2">
+          <div className="bg-zinc-800 rounded-xl px-3 py-2 flex items-center gap-2">
             <Clock className="w-4 h-4 text-zinc-400 flex-shrink-0" />
             <EditableText
               value={item.duration}
@@ -221,7 +221,7 @@ function DirectionCard({ item, editable, onChange, onCTAClick, isPopular }: Card
           </div>
 
           {/* Complexity */}
-          <div className="bg-zinc-700/50 rounded-xl px-3 py-2 flex items-center gap-2 flex-grow">
+          <div className="bg-zinc-800 rounded-xl px-3 py-2 flex items-center gap-2 flex-grow">
             <Zap className="w-3 h-3 text-orange-400 flex-shrink-0" />
             <span className="text-[10px] text-zinc-400 font-medium hidden sm:inline">Интенсивность</span>
             <div className="flex gap-0.5 ml-auto">
@@ -269,7 +269,7 @@ function DirectionCard({ item, editable, onChange, onCTAClick, isPopular }: Card
         <Button
           variant="primary"
           fullWidth
-          className="rounded-2xl uppercase tracking-wide text-sm font-bold shadow-lg shadow-primary/20"
+          className="uppercase tracking-wide text-sm shadow-lg shadow-primary/20"
           onClick={() => onCTAClick?.('direction-signup')}
         >
           {item.buttonText || 'Записаться'}

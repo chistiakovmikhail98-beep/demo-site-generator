@@ -48,7 +48,7 @@ export default function ReviewsV3({ data, editable, onDataChange, className = ''
   if (!reviews || reviews.length === 0) return null;
 
   return (
-    <Section id="reviews" className={`bg-[var(--color-background,#0c0c0e)] ${className}`}>
+    <Section id="reviews" className={`bg-[var(--color-background,#09090b)] ${className}`}>
       {/* Title */}
       <div className="text-center mb-8 sm:mb-12">
         <EditableText

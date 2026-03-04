@@ -8,11 +8,12 @@ import { isPlaceholder } from '../../PlaceholderImg';
 import Button from '../../Button';
 
 /**
- * HeroV2 — Full-Screen Background Overlay
+ * HeroV2 — Full-Screen Background Overlay (Premium)
  *
- * Full-viewport background image with dark gradient overlay.
- * Centered content: badge, massive title, subtitle, dual buttons.
- * Stats row pinned to the bottom. Animated scroll indicator.
+ * Full-viewport background image with multi-layer gradient scrim.
+ * Centered content: city badge, bold title with text-shadow, subtitle, dual CTAs.
+ * Advantage pills with primary accent. Stats bar at bottom with glass effect.
+ * Animated scroll indicator.
  */
 export default function HeroV2({ data, editable, onDataChange, onCTAClick }: BlockProps<HeroData>) {
   const update = (patch: Partial<HeroData>) => onDataChange?.({ ...data, ...patch });
@@ -27,7 +28,7 @@ export default function HeroV2({ data, editable, onDataChange, onCTAClick }: Blo
   const stats = heroStats.slice(0, 3).map((s, i) => ({ icon: statIcons[i] || Sparkles, ...s }));
 
   return (
-    <div className="relative min-h-screen flex flex-col overflow-hidden bg-black">
+    <div className="relative min-h-screen flex flex-col overflow-hidden bg-[var(--color-background,#09090b)]">
       {/* --- Animated scroll-bounce --- */}
       <style>{`
         @keyframes hero-v2-bounce {
@@ -40,7 +41,7 @@ export default function HeroV2({ data, editable, onDataChange, onCTAClick }: Blo
       {/* --- Background image --- */}
       <div className="absolute inset-0 z-0">
         {isPlaceholder(data.heroImage) ? (
-          <div className="w-full h-full bg-gradient-to-br from-zinc-900 via-zinc-800 to-black" />
+          <div className="w-full h-full bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950" />
         ) : editable ? (
           <EditableImage
             src={data.heroImage}
@@ -58,28 +59,30 @@ export default function HeroV2({ data, editable, onDataChange, onCTAClick }: Blo
             loading="eager"
           />
         )}
-        {/* Multi-layer gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />
+        {/* Multi-layer gradient scrim — ensures text readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-background,#09090b)]/85 via-[var(--color-background,#09090b)]/40 to-[var(--color-background,#09090b)]/90" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-background,#09090b)]/50 to-transparent" />
+        {/* Subtle primary tint for mood */}
+        <div className="absolute inset-0 bg-primary/5" />
       </div>
 
       {/* --- Centered content --- */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-4 sm:px-6 lg:px-8 pt-24 sm:pt-32 pb-32 sm:pb-40">
         {/* City badge */}
         {data.city && (
-          <div className="inline-flex items-center gap-1.5 px-4 py-2 mb-5 sm:mb-8 border border-white/20 bg-white/10 backdrop-blur-md rounded-full text-[10px] sm:text-xs font-bold tracking-[0.2em] text-white uppercase">
+          <div className="inline-flex items-center gap-1.5 px-4 py-2 mb-5 sm:mb-8 border border-white/15 bg-white/10 backdrop-blur-md rounded-xl text-[10px] sm:text-xs font-bold tracking-[0.2em] text-white uppercase">
             <MapPin className="w-3 h-3 text-primary" />
             <span>г. {data.city}</span>
           </div>
         )}
 
-        {/* Title */}
+        {/* Title — with text-shadow for readability */}
         <EditableText
           value={data.heroTitle || `Добро пожаловать в ${data.brandName}`}
           onChange={(v) => update({ heroTitle: v })}
           editable={editable}
           as="h1"
-          className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-black text-white leading-[1.05] tracking-tight max-w-5xl"
+          className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-black text-white leading-[1.05] tracking-tight max-w-5xl text-shadow-hero"
         />
 
         {data.heroSubtitle && (
@@ -88,7 +91,7 @@ export default function HeroV2({ data, editable, onDataChange, onCTAClick }: Blo
             onChange={(v) => update({ heroSubtitle: v })}
             editable={editable}
             as="p"
-            className="mt-4 sm:mt-6 text-base sm:text-lg md:text-xl lg:text-2xl text-zinc-200 max-w-2xl leading-relaxed"
+            className="mt-4 sm:mt-6 text-base sm:text-lg md:text-xl lg:text-2xl text-zinc-100 max-w-2xl leading-relaxed text-shadow-sm"
           />
         )}
 
@@ -99,7 +102,7 @@ export default function HeroV2({ data, editable, onDataChange, onCTAClick }: Blo
             editable={editable}
             as="p"
             multiline
-            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-300 max-w-xl leading-relaxed"
+            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-200 max-w-xl leading-relaxed text-shadow-sm"
           />
         )}
 
@@ -128,7 +131,7 @@ export default function HeroV2({ data, editable, onDataChange, onCTAClick }: Blo
             {data.advantages.slice(0, 4).map((text, idx) => (
               <span
                 key={idx}
-                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary/15 border border-primary/30 backdrop-blur-sm rounded-full text-xs sm:text-sm text-white whitespace-nowrap"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary/15 border border-primary/30 backdrop-blur-sm rounded-xl text-xs sm:text-sm text-white whitespace-nowrap"
               >
                 {text}
               </span>
@@ -138,7 +141,7 @@ export default function HeroV2({ data, editable, onDataChange, onCTAClick }: Blo
       </div>
 
       {/* --- Stats row (bottom) --- */}
-      <div className="relative z-10 w-full border-t border-white/10 bg-black/40 backdrop-blur-md">
+      <div className="relative z-10 w-full border-t border-white/10 glass">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-3 divide-x divide-white/10">
             {stats.map((stat, idx) => (

@@ -43,7 +43,7 @@ const InstructorsV3: React.FC<BlockProps<InstructorsData> & { variant?: never }>
   };
 
   return (
-    <Section id="instructors" className={`bg-[var(--color-background,#0c0c0e)] ${className}`}>
+    <Section id="instructors" className={`bg-[var(--color-background,#09090b)] ${className}`}>
       {/* Header */}
       <div className="mb-8 sm:mb-10 md:mb-12">
         <EditableText
@@ -59,7 +59,7 @@ const InstructorsV3: React.FC<BlockProps<InstructorsData> & { variant?: never }>
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-400 max-w-xl"
+            className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-300 max-w-xl"
             placeholder="Описание команды..."
           />
         )}

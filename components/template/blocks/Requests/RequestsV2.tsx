@@ -22,7 +22,7 @@ export default function RequestsV2({ data, editable, onDataChange, onCTAClick }:
   const sizeClasses = ['text-xs', 'text-sm', 'text-xs', 'text-sm', 'text-xs'];
 
   return (
-    <Section id="requests" className="bg-[var(--color-background,#0c0c0e)]">
+    <Section id="requests" className="bg-[var(--color-background,#09090b)]">
       {/* Title */}
       <div className="text-center mb-8 sm:mb-10 md:mb-14">
         <EditableText

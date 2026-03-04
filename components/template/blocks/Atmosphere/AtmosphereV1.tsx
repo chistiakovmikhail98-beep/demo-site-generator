@@ -50,7 +50,7 @@ export default function AtmosphereV1({ data, editable, onDataChange }: BlockProp
   if (items.length === 0) return null;
 
   return (
-    <div className="bg-[var(--color-background,#0c0c0e)] relative" id="atmosphere">
+    <div className="bg-[var(--color-background,#09090b)] relative" id="atmosphere">
       <div ref={containerRef} className="relative h-[350vh]">
         <div className="sticky top-0 h-screen flex items-center justify-center overflow-hidden">
           <div className="w-full h-full lg:max-w-7xl lg:mx-auto lg:px-4 lg:h-[85vh] flex items-center justify-center">

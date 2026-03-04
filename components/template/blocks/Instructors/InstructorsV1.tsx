@@ -62,7 +62,7 @@ const InstructorsV1: React.FC<BlockProps<InstructorsData> & { variant?: never }>
         )}
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none" />
 
         {/* Founder badge */}
         {inst.isFounder && (
@@ -132,7 +132,7 @@ const InstructorsV1: React.FC<BlockProps<InstructorsData> & { variant?: never }>
   });
 
   return (
-    <Section id="instructors" className={`bg-[var(--color-background,#0c0c0e)] ${className}`}>
+    <Section id="instructors" className={`bg-[var(--color-background,#09090b)] ${className}`}>
       {/* Header */}
       <div className="mb-8 sm:mb-12">
         <EditableText
@@ -204,7 +204,7 @@ const InstructorsV1: React.FC<BlockProps<InstructorsData> & { variant?: never }>
             editable={editable}
             as="p"
             multiline
-            className="text-zinc-500 text-base sm:text-lg leading-relaxed"
+            className="text-zinc-300 text-base sm:text-lg leading-relaxed"
           />
         </div>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full md:w-auto">

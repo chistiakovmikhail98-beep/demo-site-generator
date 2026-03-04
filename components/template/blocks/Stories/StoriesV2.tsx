@@ -45,7 +45,7 @@ const StoriesV2: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
   };
 
   return (
-    <Section id="stories" className={`bg-[var(--color-background,#0c0c0e)] ${className}`}>
+    <Section id="stories" className={`bg-[var(--color-background,#09090b)] ${className}`}>
       {/* Header */}
       <div className="text-center mb-8 sm:mb-10 md:mb-12">
         <EditableText

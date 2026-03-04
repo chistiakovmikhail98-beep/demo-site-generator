@@ -68,7 +68,7 @@ export default function Footer({ data }: Props) {
   const instagramLink = data.instagram || '#';
 
   return (
-    <footer id="footer" className="bg-[var(--color-background,#0c0c0e)] border-t border-zinc-800 text-zinc-200">
+    <footer id="footer" className="bg-[var(--color-background,#09090b)] border-t border-zinc-800 text-zinc-200">
       <Section>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 lg:gap-16 mb-12 sm:mb-16 lg:mb-20">
 

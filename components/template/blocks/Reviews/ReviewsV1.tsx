@@ -29,7 +29,7 @@ export default function ReviewsV1({ data, editable, onDataChange, className = ''
   /* ---- Editable: static grid ---- */
   if (editable) {
     return (
-      <div className={`w-full py-8 sm:py-12 md:py-16 bg-[var(--color-background,#0c0c0e)] ${className}`}>
+      <div className={`w-full py-8 sm:py-12 md:py-16 bg-[var(--color-background,#09090b)] ${className}`}>
         <div className="text-center px-4 mb-6 sm:mb-8">
           <EditableText
             value={title || 'Отзывы наших учеников'}
@@ -104,7 +104,7 @@ export default function ReviewsV1({ data, editable, onDataChange, className = ''
                   editable={editable}
                   as="p"
                   multiline
-                  className="text-zinc-500 leading-relaxed text-sm italic"
+                  className="text-zinc-300 leading-relaxed text-sm italic"
                 />
               </div>
             )}
@@ -118,7 +118,7 @@ export default function ReviewsV1({ data, editable, onDataChange, className = ''
   const marqueeReviews = [...reviews, ...reviews, ...reviews, ...reviews];
 
   return (
-    <div className={`w-full py-8 sm:py-12 md:py-16 bg-[var(--color-background,#0c0c0e)] overflow-hidden ${className}`}>
+    <div className={`w-full py-8 sm:py-12 md:py-16 bg-[var(--color-background,#09090b)] overflow-hidden ${className}`}>
       <style>{`
         @keyframes reviews-marquee {
           0% { transform: translateX(-50%); }
@@ -149,8 +149,8 @@ export default function ReviewsV1({ data, editable, onDataChange, className = ''
       {/* Marquee */}
       <div className="relative reviews-marquee-container">
         {/* Edge fade gradients */}
-        <div className="absolute top-0 left-0 bottom-0 w-12 sm:w-24 md:w-32 bg-gradient-to-r from-[#0c0c0e] to-transparent z-10 pointer-events-none" />
-        <div className="absolute top-0 right-0 bottom-0 w-12 sm:w-24 md:w-32 bg-gradient-to-l from-[#0c0c0e] to-transparent z-10 pointer-events-none" />
+        <div className="absolute top-0 left-0 bottom-0 w-12 sm:w-24 md:w-32 bg-gradient-to-r from-[var(--color-background,#09090b)] to-transparent z-10 pointer-events-none" />
+        <div className="absolute top-0 right-0 bottom-0 w-12 sm:w-24 md:w-32 bg-gradient-to-l from-[var(--color-background,#09090b)] to-transparent z-10 pointer-events-none" />
 
         <div className="flex overflow-hidden">
           <div className="flex gap-4 sm:gap-6 reviews-marquee-track w-max px-2">

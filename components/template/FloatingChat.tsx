@@ -33,7 +33,7 @@ const FloatingChat: React.FC<FloatingChatProps> = ({ answers, chatConfig }) => {
         ) : (
           <>
             <MessageCircle className="w-7 h-7 text-white fill-white/20" />
-            <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-[#121215] rounded-full animate-bounce"></span>
+            <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-[var(--color-background,#09090b)] rounded-full animate-bounce"></span>
           </>
         )}
       </button>

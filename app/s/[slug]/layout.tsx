@@ -7,7 +7,7 @@ interface LayoutProps {
 }
 
 function getDefaultColorScheme(): ColorScheme {
-  return { primary: '#ba000f', accent: '#ff4444', background: '#0c0c0f', surface: '#18181b', text: '#ffffff' };
+  return { primary: '#f43f5e', accent: '#fb7185', background: '#09090b', surface: '#18181b', text: '#f4f4f5' };
 }
 
 /** Hex → "R, G, B" string for use in rgba() */
@@ -65,7 +65,7 @@ function getAdaptiveBackground(primaryHex: string): { background: string; surfac
     };
   }
 
-  return { background: '#0c0c0f', surface: '#18181b', text: '#ffffff' };
+  return { background: '#09090b', surface: '#18181b', text: '#f4f4f5' };
 }
 
 function hslToHex(h: number, s: number, l: number): string {

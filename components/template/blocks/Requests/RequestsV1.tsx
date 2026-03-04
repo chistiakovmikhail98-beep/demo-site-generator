@@ -23,7 +23,7 @@ export default function RequestsV1({ data, editable, onDataChange, onCTAClick }:
   const row3 = allItems.slice(third * 2);
 
   return (
-    <section className="relative bg-[var(--color-background,#0c0c0e)] py-12 sm:py-16 md:py-24 overflow-hidden">
+    <section className="relative bg-[var(--color-background,#09090b)] py-12 sm:py-16 md:py-24 overflow-hidden">
       <style>{`
         @keyframes requests-v1-marquee {
           0% { transform: translateX(0%); }

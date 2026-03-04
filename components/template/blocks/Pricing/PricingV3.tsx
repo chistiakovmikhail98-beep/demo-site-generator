@@ -31,7 +31,7 @@ export default function PricingV3({ data, editable, onDataChange, onCTAClick }: 
   };
 
   return (
-    <Section id="pricing" className="bg-[var(--color-background,#0c0c0e)]">
+    <Section id="pricing" className="bg-[var(--color-background,#09090b)]">
       {/* Header */}
       <div className="text-center mb-8 sm:mb-12">
         <EditableText
@@ -124,7 +124,7 @@ export default function PricingV3({ data, editable, onDataChange, onCTAClick }: 
 
             {/* Best value text */}
             {activePlan.pricePerClass && (
-              <p className="text-zinc-400 text-sm sm:text-base mb-6">
+              <p className="text-zinc-300 text-sm sm:text-base mb-6">
                 Стоимость одного занятия — <span className="text-primary font-semibold">{activePlan.pricePerClass}</span>
               </p>
             )}

@@ -10,7 +10,7 @@ import type { DirectionsData, DirectionItem } from './types';
 
 export default function DirectionsV2({ data, editable, onDataChange, onCTAClick }: BlockProps<DirectionsData>) {
   return (
-    <Section id="directions" className="bg-[var(--color-background,#0c0c0e)]">
+    <Section id="directions" className="bg-[var(--color-background,#09090b)]">
       {/* Header */}
       <div className="text-center mb-10 sm:mb-16">
         <EditableText

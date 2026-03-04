@@ -195,7 +195,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
               className="w-12 h-12 lg:w-24 lg:h-24 rounded-full object-cover border-2 lg:border-4 border-white/20"
             />
           )}
-          <div className="absolute -bottom-1 -right-1 w-3 h-3 lg:w-4 lg:h-4 bg-green-500 rounded-full border-2 border-[#0c0c0e]" />
+          <div className="absolute -bottom-1 -right-1 w-3 h-3 lg:w-4 lg:h-4 bg-green-500 rounded-full border-2 border-[#09090b]" />
         </div>
 
         {/* Mobile-only name */}
@@ -328,7 +328,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
 
   // ---- Main render ----
   return (
-    <div id="quiz" className="bg-[var(--color-background,#0c0c0e)] pt-8 pb-10 md:pt-16 md:pb-20 relative">
+    <div id="quiz" className="bg-[var(--color-background,#09090b)] pt-8 pb-10 md:pt-16 md:pb-20 relative">
       {/* Section header */}
       <div className="text-center mb-6 md:mb-12 max-w-3xl mx-auto px-4 relative z-10">
         <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-2 md:mb-4 leading-tight uppercase">
@@ -437,7 +437,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
         {showResults && (
           <>
             <div ref={resultsRef} className="animate-in fade-in slide-in-from-bottom-10 duration-700">
-              <div className="bg-[#121215] border border-zinc-700/50 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] p-4 sm:p-6 md:p-12 shadow-2xl relative overflow-hidden mb-6">
+              <div className="bg-zinc-900 border border-zinc-700/50 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] p-4 sm:p-6 md:p-12 shadow-2xl relative overflow-hidden mb-6">
                 {/* Glow */}
                 <div className="absolute top-0 right-0 w-[200px] sm:w-[300px] md:w-[500px] h-[200px] sm:h-[300px] md:h-[500px] bg-primary/10 rounded-full blur-[80px] md:blur-[100px] pointer-events-none" />
 

@@ -23,7 +23,7 @@ export default function PricingV2({ data, editable, onDataChange, onCTAClick }: 
   };
 
   return (
-    <Section id="pricing" className="bg-[var(--color-background,#0c0c0e)]">
+    <Section id="pricing" className="bg-[var(--color-background,#09090b)]">
       {/* Header */}
       <div className="text-center mb-10 sm:mb-14">
         <EditableText
