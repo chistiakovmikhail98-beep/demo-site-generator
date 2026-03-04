@@ -1,6 +1,6 @@
 // VK group parsing service
 
-const VK_API_VERSION = '5.199';
+const VK_API_VERSION = '5.131';
 
 export interface ParsedVKData {
   name: string;
@@ -58,7 +58,7 @@ export async function parseVKGroup(url: string): Promise<ParsedVKData> {
   console.log(`🔍 Парсинг группы ВК: ${groupId}`);
 
   const groupResponse = await fetch(
-    `https://api.vk.com/method/groups.getById?group_ids=${groupId}&fields=description,site,contacts,addresses,phone,photo_200,photo_max_orig&access_token=${VK_SERVICE_KEY}&v=${VK_API_VERSION}`
+    `https://api.vk.com/method/groups.getById?group_id=${groupId}&fields=description,site,contacts,addresses,phone,photo_200,photo_max_orig&access_token=${VK_SERVICE_KEY}&v=${VK_API_VERSION}`
   );
   const groupData = await groupResponse.json();
   if (groupData.error) throw new Error(`VK API Error: ${groupData.error.error_msg}`);
@@ -172,7 +172,7 @@ export async function parseVKPhotos(url: string, limit: number = 50): Promise<VK
 
   // Get numeric group ID
   const groupResponse = await fetch(
-    `https://api.vk.com/method/groups.getById?group_ids=${groupId}&access_token=${VK_SERVICE_KEY}&v=${VK_API_VERSION}`
+    `https://api.vk.com/method/groups.getById?group_id=${groupId}&access_token=${VK_SERVICE_KEY}&v=${VK_API_VERSION}`
   );
   const groupData = await groupResponse.json();
   if (groupData.error) throw new Error(`VK API Error: ${groupData.error.error_msg}`);
