@@ -95,6 +95,7 @@ function OrderPageContent() {
   const [selectedPlan, setSelectedPlan] = useState(isTestMode ? 'test' : 'managed');
   const [form, setForm] = useState({ name: '', phone: '', email: '' });
   const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState('');
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((p) => ({ ...p, phone: formatPhoneInput(e.target.value) }));
@@ -107,9 +108,34 @@ function OrderPageContent() {
     if (!form.name || !isPhoneValid) return;
 
     setProcessing(true);
-    // Simulate payment processing
-    await new Promise((r) => setTimeout(r, isTestMode ? 800 : 2000));
-    router.push(`/order/success?slug=${slug}&plan=${selectedPlan}`);
+    setError('');
+
+    try {
+      const res = await fetch('/api/payments/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, plan: selectedPlan, email: form.email }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Ошибка оплаты');
+      }
+
+      if (data.status === 'paid') {
+        // Demo mode: auto-activated
+        router.push(`/order/success?slug=${slug}&plan=${selectedPlan}`);
+      } else if (data.confirmationUrl) {
+        // Real YooKassa: redirect to payment
+        window.location.href = data.confirmationUrl;
+      } else {
+        router.push(`/order/success?slug=${slug}&plan=${selectedPlan}`);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Что-то пошло не так');
+      setProcessing(false);
+    }
   };
 
   const currentPlan = plans.find((p) => p.id === selectedPlan) || plans[0];
@@ -246,6 +272,12 @@ function OrderPageContent() {
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-violet-500 transition-colors placeholder:text-zinc-600"
                   />
                 </div>
+
+                {error && (
+                  <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">
+                    {error}
+                  </div>
+                )}
 
                 {/* Order summary */}
                 <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50">

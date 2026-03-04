@@ -200,7 +200,7 @@ export default function TemplateApp({ initialConfig, adminConfig }: TemplateAppP
           `}</style>
         )}
 
-        {!admin.editMode && <DemoBanner brandName={data.brand.name} phone={data.footer.phone} />}
+        {!admin.editMode && <DemoBanner brandName={data.brand.name} phone={data.footer.phone} slug={initialConfig.meta?.slug} />}
 
         <HeaderNew data={data.header} />
 

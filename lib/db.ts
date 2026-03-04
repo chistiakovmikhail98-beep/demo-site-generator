@@ -30,14 +30,14 @@ export async function getProjectBySlug(slug: string) {
 
   // Try slug column first
   let project = await queryOne(
-    `SELECT * FROM projects WHERE slug = $1 AND status = 'completed' LIMIT 1`,
+    `SELECT * FROM projects WHERE slug = $1 AND status IN ('completed', 'draft') LIMIT 1`,
     [slug]
   );
   if (project) return project;
 
   // Fallback: search in site_config->meta->slug
   project = await queryOne(
-    `SELECT * FROM projects WHERE status = 'completed' AND site_config->'meta'->>'slug' = $1 LIMIT 1`,
+    `SELECT * FROM projects WHERE status IN ('completed', 'draft') AND site_config->'meta'->>'slug' = $1 LIMIT 1`,
     [slug]
   );
   return project || null;

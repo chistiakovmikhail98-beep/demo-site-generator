@@ -6,9 +6,10 @@ import { Send, X, CheckCircle } from 'lucide-react';
 interface DemoBannerProps {
   brandName?: string;
   phone?: string;
+  slug?: string;
 }
 
-const DemoBanner: React.FC<DemoBannerProps> = ({ brandName = '', phone = '' }) => {
+const DemoBanner: React.FC<DemoBannerProps> = ({ brandName = '', phone = '', slug }) => {
   const [showForm, setShowForm] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,7 +98,7 @@ const DemoBanner: React.FC<DemoBannerProps> = ({ brandName = '', phone = '' }) =
                 <p className="text-zinc-400 mb-4">Хотите получить сайт прямо сейчас? Оформите за 2 минуты:</p>
                 <div className="flex flex-col gap-2">
                   <a
-                    href={`/order?slug=${encodeURIComponent(brandName.toLowerCase().replace(/\s+/g, '-'))}&test=1`}
+                    href={`/order?slug=${encodeURIComponent(slug || brandName.toLowerCase().replace(/\s+/g, '-'))}&brand=${encodeURIComponent(brandName)}`}
                     className="px-6 py-3 bg-primary hover:bg-accent text-white font-bold rounded-xl transition-colors shadow-lg shadow-primary/20"
                   >
                     Перейти к оформлению &rarr;

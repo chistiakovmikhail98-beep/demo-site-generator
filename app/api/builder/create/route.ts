@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { pool, queryOne, isSlugAvailable } from '@/lib/db';
+import { pool, isSlugAvailable } from '@/lib/db';
 import { builderToSiteConfig } from '@/lib/builder/to-site-config';
 import { nanoid } from '@/lib/utils';
+import { getDefaultBlocks } from '@/lib/builder/block-definitions';
 import type { BuilderState } from '@/lib/builder/store';
+import type { Niche } from '@/lib/types';
 
 function generatePassword(): string {
   const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
@@ -20,17 +22,48 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json() as BuilderState;
+    const body = await request.json();
 
-    if (!body.studioInfo?.name || !body.niche) {
-      return NextResponse.json({ error: 'Укажите название студии и нишу' }, { status: 400 });
+    // Support both minimal input { niche, name, city } and full BuilderState
+    const isMinimal = body.name && !body.studioInfo;
+
+    let builderState: BuilderState;
+
+    if (isMinimal) {
+      const { niche, name, city } = body as { niche: Niche; name: string; city: string };
+      if (!niche || !name) {
+        return NextResponse.json({ error: 'Укажите название и нишу' }, { status: 400 });
+      }
+      builderState = {
+        step: 0,
+        niche,
+        selectedBlocks: getDefaultBlocks(),
+        blockVariants: {},
+        studioInfo: {
+          name, city: city || '', phone: '', email: '', address: '', description: '',
+          telegram: '', vk: '', instagram: '', whatsapp: '',
+        },
+        heroTitle: '',
+        heroSubtitle: '',
+        pricingInfo: '',
+        colorPresetId: 'neon-rose',
+        customColors: null,
+        typographyPresetId: 'modern',
+        regEmail: '',
+        regPhone: '',
+        createdProjectSlug: null,
+        createdPassword: null,
+      };
+    } else {
+      builderState = body as BuilderState;
+      if (!builderState.studioInfo?.name || !builderState.niche) {
+        return NextResponse.json({ error: 'Укажите название студии и нишу' }, { status: 400 });
+      }
     }
 
-    // Generate SiteConfig from builder state
-    const config = builderToSiteConfig(body);
+    const config = builderToSiteConfig(builderState);
     let slug = config.meta.slug;
 
-    // Ensure slug is unique
     let available = await isSlugAvailable(slug);
     let attempt = 0;
     while (!available && attempt < 10) {
@@ -42,29 +75,25 @@ export async function POST(request: NextRequest) {
       slug = `studio-${nanoid(6).toLowerCase()}`;
     }
 
-    // Update config with final slug
     config.meta.slug = slug;
 
-    // Generate password
     const password = generatePassword();
     const passwordHash = await bcrypt.hash(password, 10);
-
     const projectId = nanoid(10);
 
-    // Insert into projects
     await pool.query(
       `INSERT INTO projects (id, name, slug, niche, status, site_config, edit_password_hash, edit_password_plain, email, phone, created_at, updated_at)
        VALUES ($1, $2, $3, $4, 'draft', $5, $6, $7, $8, $9, NOW(), NOW())`,
       [
         projectId,
-        body.studioInfo.name,
+        builderState.studioInfo.name,
         slug,
-        body.niche,
+        builderState.niche,
         JSON.stringify(config),
         passwordHash,
         password,
-        body.regEmail || body.studioInfo.email || '',
-        body.regPhone || body.studioInfo.phone || '',
+        builderState.regEmail || builderState.studioInfo.email || '',
+        builderState.regPhone || builderState.studioInfo.phone || '',
       ]
     );
 
