@@ -51,7 +51,7 @@ const CalculatorV1: React.FC<BlockProps<CalculatorData>> = ({ data }) => {
   }, [duration, frequency, stages]);
 
   return (
-    <Section className="bg-[#0c0c0e] relative overflow-hidden !py-10 md:!py-24" id="calculator">
+    <Section className="bg-[var(--color-background,#0c0c0e)] relative overflow-hidden !py-10 md:!py-24" id="calculator">
       {/* Background blurs */}
       <div className="absolute top-0 right-0 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-primary/10 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[200px] sm:w-[300px] h-[200px] sm:h-[300px] bg-blue-900/10 blur-[100px] rounded-full pointer-events-none" />

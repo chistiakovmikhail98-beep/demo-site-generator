@@ -21,7 +21,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
   };
 
   return (
-    <Section id="faq" className="bg-[#0c0c0e]">
+    <Section id="faq" className="bg-[var(--color-background,#0c0c0e)]">
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10 lg:gap-16">
         {/* Left: title sidebar */}
         <div className="md:col-span-4">

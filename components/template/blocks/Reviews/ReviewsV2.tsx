@@ -96,7 +96,7 @@ export default function ReviewsV2({ data, editable, onDataChange, className = ''
   };
 
   return (
-    <Section id="reviews" className={`bg-[#0c0c0e] ${className}`}>
+    <Section id="reviews" className={`bg-[var(--color-background,#0c0c0e)] ${className}`}>
       {/* Title */}
       <div className="text-center mb-8 sm:mb-12">
         <EditableText

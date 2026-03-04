@@ -23,7 +23,7 @@ export default function ObjectionsV3({ data, editable, onDataChange }: BlockProp
   const pad = (n: number) => String(n + 1).padStart(2, '0');
 
   return (
-    <Section id="objections" className="bg-[#0c0c0e]">
+    <Section id="objections" className="bg-[var(--color-background,#0c0c0e)]">
       {/* Header */}
       <div className="text-center mb-10 sm:mb-14">
         <EditableText

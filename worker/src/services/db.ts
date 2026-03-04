@@ -1,8 +1,6 @@
 // Worker PostgreSQL client + DB operations
 
 import { Pool } from 'pg';
-import fs from 'fs';
-import path from 'path';
 
 const DATABASE_URL = process.env.DATABASE_URL || '';
 
@@ -185,23 +183,37 @@ export async function getProject(id: string): Promise<DbProject | null> {
 
 // === Storage operations ===
 
-const UPLOADS_DIR = process.env.UPLOADS_DIR || '/var/www/fitwebai/uploads';
 const SITE_DOMAIN = process.env.SITE_DOMAIN || 'fitwebai.ru';
+const UPLOAD_SECRET = process.env.UPLOAD_SECRET || 'fitwebai-upload-2026';
 
 export async function uploadImage(
   projectId: string,
   file: Buffer,
   filename: string,
-  _contentType: string
+  contentType: string
 ): Promise<string> {
-  const dir = path.join(UPLOADS_DIR, projectId);
-  await fs.promises.mkdir(dir, { recursive: true });
-
   const safeName = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-  const filePath = path.join(dir, safeName);
-  await fs.promises.writeFile(filePath, file);
 
-  return `https://${SITE_DOMAIN}/uploads/${projectId}/${safeName}`;
+  // Upload to VPS via API
+  const formData = new FormData();
+  formData.append('file', new Blob([new Uint8Array(file)], { type: contentType }), safeName);
+  formData.append('projectId', projectId);
+  formData.append('filename', safeName);
+
+  const apiUrl = `https://${SITE_DOMAIN}/api/upload`;
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${UPLOAD_SECRET}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Upload failed (${response.status}): ${text}`);
+  }
+
+  const result = await response.json();
+  return result.url;
 }
 
 // === AI cost tracking ===

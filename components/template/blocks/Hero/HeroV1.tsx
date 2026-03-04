@@ -28,7 +28,7 @@ export default function HeroV1({ data, editable, onDataChange, onCTAClick }: Blo
   const marqueeText = `${data.brandName} \u2022 ${nicheWords[data.niche] || nicheWords.wellness} \u2022 `;
 
   return (
-    <div className="relative min-h-screen flex items-center bg-[#0c0c0e] pt-20 pb-8 sm:pt-28 md:pt-36 lg:pt-40 md:pb-12 overflow-hidden">
+    <div className="relative min-h-screen flex items-center bg-[var(--color-background,#0c0c0e)] pt-20 pb-8 sm:pt-28 md:pt-36 lg:pt-40 md:pb-12 overflow-hidden">
       {/* --- Floating marquee text background --- */}
       <style>{`
         @keyframes hero-v1-float {

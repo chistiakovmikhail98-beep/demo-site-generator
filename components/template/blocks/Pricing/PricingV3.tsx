@@ -31,7 +31,7 @@ export default function PricingV3({ data, editable, onDataChange, onCTAClick }: 
   };
 
   return (
-    <Section id="pricing" className="bg-[#0c0c0e]">
+    <Section id="pricing" className="bg-[var(--color-background,#0c0c0e)]">
       {/* Header */}
       <div className="text-center mb-8 sm:mb-12">
         <EditableText

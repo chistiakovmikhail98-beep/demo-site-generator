@@ -132,7 +132,7 @@ const InstructorsV1: React.FC<BlockProps<InstructorsData> & { variant?: never }>
   });
 
   return (
-    <Section id="instructors" className={`bg-[#0c0c0e] ${className}`}>
+    <Section id="instructors" className={`bg-[var(--color-background,#0c0c0e)] ${className}`}>
       {/* Header */}
       <div className="mb-8 sm:mb-12">
         <EditableText

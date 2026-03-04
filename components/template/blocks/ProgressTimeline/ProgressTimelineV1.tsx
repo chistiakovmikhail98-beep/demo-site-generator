@@ -51,7 +51,7 @@ const RadarChart: React.FC<RadarProps> = ({ stats }) => {
   ];
 
   return (
-    <div className="w-full h-full bg-[#0c0c0e] relative overflow-hidden flex flex-col items-center justify-center">
+    <div className="w-full h-full bg-[var(--color-background,#0c0c0e)] relative overflow-hidden flex flex-col items-center justify-center">
       {/* Background ambience */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[400px] bg-primary/10 blur-[80px] pointer-events-none" />
       <div
@@ -169,7 +169,7 @@ const ProgressTimelineV1: React.FC<BlockProps<ProgressTimelineData>> = ({ data }
   const activeStats = activeStage?.stats || {};
 
   return (
-    <div className="relative bg-[#0c0c0e]" id="progress-timeline">
+    <div className="relative bg-[var(--color-background,#0c0c0e)]" id="progress-timeline">
       <div ref={containerRef} className="relative h-[400vh]">
         <div className="sticky top-0 h-screen flex flex-col lg:flex-row items-center justify-center overflow-hidden py-6 sm:py-8 lg:py-10">
           <div className="w-full h-full lg:h-[85vh] max-w-7xl mx-auto px-3 sm:px-4 md:px-8">

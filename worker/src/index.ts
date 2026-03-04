@@ -110,7 +110,7 @@ async function processQueueItem(item: QueueItem): Promise<void> {
       description: vkData.description,
       slug,
       color_scheme: colorScheme as Record<string, string> | undefined,
-      ai_model: 'openrouter/gemini',
+      ai_model: 'gemini-2.5-flash',
       vk_group_url: vkUrl,
       vk_admins: vkData.admins,
       vk_contacts: {
@@ -122,6 +122,22 @@ async function processQueueItem(item: QueueItem): Promise<void> {
     });
     // Save project_id to queue item so retries can find the existing project
     await setQueueItemProject(item.id, projectId);
+  }
+
+  // 5b. Upload VK avatar as logo
+  let logoUrl: string | undefined;
+  if (vkData.avatarUrl) {
+    try {
+      const avatarResp = await fetch(vkData.avatarUrl);
+      if (avatarResp.ok) {
+        const avatarBuf = Buffer.from(await avatarResp.arrayBuffer());
+        const avatarExt = vkData.avatarUrl.match(/\.(jpg|jpeg|png|webp)/i)?.[0] || '.jpg';
+        logoUrl = await uploadImage(projectId, avatarBuf, `logo${avatarExt}`, `image/${avatarExt.replace('.', '')}`);
+        console.log(`🖼️ Логотип загружен: ${logoUrl}`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ Логотип не загружен:`, err);
+    }
   }
 
   // 6. AI analyze photos & upload to Storage
@@ -198,6 +214,11 @@ async function processQueueItem(item: QueueItem): Promise<void> {
 
   // Inject real photo URLs into config
   injectPhotos(siteConfig, uploadedFiles);
+
+  // Inject logo
+  if (logoUrl) {
+    siteConfig.brand.logo = logoUrl;
+  }
 
   // Inject real contacts from VK
   if (siteConfig.sections.contacts) {

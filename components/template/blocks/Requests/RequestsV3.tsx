@@ -20,7 +20,7 @@ export default function RequestsV3({ data, editable, onDataChange, onCTAClick }:
   const allItems = data.rows.flat();
 
   return (
-    <Section id="requests" className="bg-[#0c0c0e]">
+    <Section id="requests" className="bg-[var(--color-background,#0c0c0e)]">
       {/* Title */}
       <div className="text-center mb-8 sm:mb-10 md:mb-14">
         <EditableText

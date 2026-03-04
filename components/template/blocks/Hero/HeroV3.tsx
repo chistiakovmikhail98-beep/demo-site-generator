@@ -25,7 +25,7 @@ export default function HeroV3({ data, editable, onDataChange, onCTAClick }: Blo
   ];
 
   return (
-    <div className="relative min-h-screen flex items-center bg-[#0c0c0e] pt-20 pb-8 sm:pt-28 md:pt-36 lg:pt-40 md:pb-12 overflow-hidden">
+    <div className="relative min-h-screen flex items-center bg-[var(--color-background,#0c0c0e)] pt-20 pb-8 sm:pt-28 md:pt-36 lg:pt-40 md:pb-12 overflow-hidden">
       {/* --- CSS grid-line pattern --- */}
       <div
         className="absolute inset-0 z-0 opacity-[0.07] pointer-events-none"

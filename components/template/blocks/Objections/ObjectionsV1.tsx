@@ -16,7 +16,7 @@ export default function ObjectionsV1({ data, editable, onDataChange }: BlockProp
   const update = (patch: Partial<ObjectionsData>) => onDataChange?.({ ...data, ...patch });
 
   return (
-    <Section id="objections" className="bg-[#0c0c0e]">
+    <Section id="objections" className="bg-[var(--color-background,#0c0c0e)]">
       {/* Header */}
       <div className="text-center mb-10 sm:mb-14">
         <EditableText

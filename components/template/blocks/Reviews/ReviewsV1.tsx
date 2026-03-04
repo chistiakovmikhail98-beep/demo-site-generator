@@ -29,7 +29,7 @@ export default function ReviewsV1({ data, editable, onDataChange, className = ''
   /* ---- Editable: static grid ---- */
   if (editable) {
     return (
-      <div className={`w-full py-8 sm:py-12 md:py-16 bg-[#0c0c0e] ${className}`}>
+      <div className={`w-full py-8 sm:py-12 md:py-16 bg-[var(--color-background,#0c0c0e)] ${className}`}>
         <div className="text-center px-4 mb-6 sm:mb-8">
           <EditableText
             value={title || 'Отзывы наших учеников'}
@@ -118,7 +118,7 @@ export default function ReviewsV1({ data, editable, onDataChange, className = ''
   const marqueeReviews = [...reviews, ...reviews, ...reviews, ...reviews];
 
   return (
-    <div className={`w-full py-8 sm:py-12 md:py-16 bg-[#0c0c0e] overflow-hidden ${className}`}>
+    <div className={`w-full py-8 sm:py-12 md:py-16 bg-[var(--color-background,#0c0c0e)] overflow-hidden ${className}`}>
       <style>{`
         @keyframes reviews-marquee {
           0% { transform: translateX(-50%); }

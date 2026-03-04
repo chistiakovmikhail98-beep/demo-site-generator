@@ -135,7 +135,7 @@ const StoriesV1: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
   });
 
   return (
-    <Section id="stories" className={`bg-[#0c0c0e] ${className}`}>
+    <Section id="stories" className={`bg-[var(--color-background,#0c0c0e)] ${className}`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8 sm:mb-10 md:mb-12">
         <div>

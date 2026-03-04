@@ -35,7 +35,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
   const placeholder = isPlaceholder(current.image);
 
   return (
-    <Section id="directions" className="bg-[#0c0c0e]">
+    <Section id="directions" className="bg-[var(--color-background,#0c0c0e)]">
       {/* Header */}
       <div className="text-center mb-8 sm:mb-12">
         <EditableText

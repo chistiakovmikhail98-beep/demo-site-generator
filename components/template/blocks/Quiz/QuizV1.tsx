@@ -328,7 +328,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
 
   // ---- Main render ----
   return (
-    <div id="quiz" className="bg-[#0c0c0e] pt-8 pb-10 md:pt-16 md:pb-20 relative">
+    <div id="quiz" className="bg-[var(--color-background,#0c0c0e)] pt-8 pb-10 md:pt-16 md:pb-20 relative">
       {/* Section header */}
       <div className="text-center mb-6 md:mb-12 max-w-3xl mx-auto px-4 relative z-10">
         <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-2 md:mb-4 leading-tight uppercase">

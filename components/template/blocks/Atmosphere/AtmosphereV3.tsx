@@ -49,7 +49,7 @@ export default function AtmosphereV3({ data, editable, onDataChange }: BlockProp
   if (items.length === 0) return null;
 
   return (
-    <div className="relative w-full bg-[#0c0c0e] overflow-hidden" id="atmosphere">
+    <div className="relative w-full bg-[var(--color-background,#0c0c0e)] overflow-hidden" id="atmosphere">
       {/* Title bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-6 sm:pb-8">
         <EditableText
