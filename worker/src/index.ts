@@ -42,9 +42,9 @@ function generatePassword(): string {
   return pw;
 }
 
-// Hash password with bcrypt (dynamic import)
+// Hash password with bcrypt
+import bcrypt from 'bcryptjs';
 async function hashPassword(password: string): Promise<string> {
-  const bcrypt = await import('bcryptjs');
   return bcrypt.hash(password, 10);
 }
 
