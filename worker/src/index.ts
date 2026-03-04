@@ -16,6 +16,7 @@ import {
   completeQueueItem,
   failQueueItem,
   requeueItem,
+  setQueueItemProject,
   resetStuckItems,
   createProject,
   updateProject,
@@ -63,8 +64,6 @@ async function processQueueItem(item: QueueItem): Promise<void> {
   const vkUrl = item.vk_url;
   console.log(`\n🔄 Обработка VK группы: ${vkUrl}`);
 
-  const projectId = nanoid(10);
-
   // 1. Parse VK group
   console.log(`[1/7] Парсинг VK группы...`);
   const vkData = await parseVKGroup(vkUrl);
@@ -91,27 +90,39 @@ async function processQueueItem(item: QueueItem): Promise<void> {
   // 4. Detect niche
   const niche = item.options.niche || detectNiche(vkData.name, vkData.description, vkData.posts);
 
-  // 5. Create project in Supabase
+  // 5. Create project (or reuse existing from previous failed attempt)
   console.log(`[4/7] Создание проекта...`);
   const slug = generateSlug(vkData.name);
-  await createProject({
-    id: projectId,
-    name: vkData.name,
-    niche,
-    status: 'processing',
-    description: vkData.description,
-    slug,
-    color_scheme: colorScheme as Record<string, string> | undefined,
-    ai_model: 'openrouter/gemini',
-    vk_group_url: vkUrl,
-    vk_admins: vkData.admins,
-    vk_contacts: {
-      phone: vkData.contacts.phone,
-      email: vkData.contacts.email,
-      address: vkData.contacts.address,
-      site: vkData.contacts.site,
-    },
-  });
+  let projectId: string;
+
+  // Check if project already exists (from a previous retry)
+  const existing = item.project_id ? await getProject(item.project_id) : null;
+  if (existing) {
+    projectId = existing.id;
+    console.log(`♻️ Проект уже существует: ${projectId}`);
+  } else {
+    projectId = nanoid(10);
+    await createProject({
+      id: projectId,
+      name: vkData.name,
+      niche,
+      status: 'processing',
+      description: vkData.description,
+      slug,
+      color_scheme: colorScheme as Record<string, string> | undefined,
+      ai_model: 'openrouter/gemini',
+      vk_group_url: vkUrl,
+      vk_admins: vkData.admins,
+      vk_contacts: {
+        phone: vkData.contacts.phone,
+        email: vkData.contacts.email,
+        address: vkData.contacts.address,
+        site: vkData.contacts.site,
+      },
+    });
+    // Save project_id to queue item so retries can find the existing project
+    await setQueueItemProject(item.id, projectId);
+  }
 
   // 6. AI analyze photos & upload to Storage
   let distributedPhotos: ReturnType<typeof distributePhotos> | null = null;

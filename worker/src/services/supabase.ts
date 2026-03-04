@@ -5,6 +5,7 @@ export {
   completeQueueItem,
   failQueueItem,
   requeueItem,
+  setQueueItemProject,
   resetStuckItems,
   createProject,
   updateProject,

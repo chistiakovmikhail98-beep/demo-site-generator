@@ -79,6 +79,13 @@ export async function requeueItem(id: string, error: string, retryCount: number)
   );
 }
 
+export async function setQueueItemProject(id: string, projectId: string): Promise<void> {
+  await pool.query(
+    `UPDATE queue_items SET project_id = $2 WHERE id = $1`,
+    [id, projectId]
+  );
+}
+
 export async function resetStuckItems(minutesOld: number = 30): Promise<number> {
   const { rowCount } = await pool.query(
     `UPDATE queue_items SET status = 'pending', started_at = NULL
