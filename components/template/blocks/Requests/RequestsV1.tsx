@@ -64,7 +64,7 @@ export default function RequestsV1({ data, editable, onDataChange, onCTAClick }:
       </div>
 
       {/* Marquee rows */}
-      <div className="flex flex-col gap-3 sm:gap-4 md:gap-5 mb-10 sm:mb-14 md:mb-16">
+      <div className="flex flex-col gap-3 sm:gap-4 md:gap-5 mb-10 sm:mb-14 md:mb-16 overflow-hidden">
         {[row1, row2, row3].map((row, rowIdx) => (
           <div key={rowIdx} className="flex overflow-hidden py-1 sm:py-2">
             <div className={`flex gap-3 sm:gap-4 md:gap-6 px-1.5 sm:px-3 w-max ${rowIdx === 1 ? 'requests-v1-scroll-reverse' : 'requests-v1-scroll'}`}>
