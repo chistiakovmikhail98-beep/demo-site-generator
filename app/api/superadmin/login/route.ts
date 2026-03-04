@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 
-const ADMIN_LOGIN = process.env.ADMIN_LOGIN || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
-const JWT_SECRET = process.env.JWT_SECRET || 'fitwebai-secret';
-
 export async function POST(request: NextRequest) {
   try {
+    const ADMIN_LOGIN = process.env.ADMIN_LOGIN || 'admin';
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+    const JWT_SECRET = process.env.JWT_SECRET || 'fitwebai-secret';
+
     const { login, password } = await request.json();
 
     if (!ADMIN_PASSWORD) {
@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch {
+  } catch (err) {
+    console.error('[superadmin/login] error:', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
