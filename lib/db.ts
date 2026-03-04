@@ -121,19 +121,31 @@ export async function insertQueueItem(data: { vk_url: string }): Promise<{ id: s
 
 // === Admin ===
 
-export async function getProjectForLogin(id: string) {
-  return queryOne<{ name: string; site_config: any; edit_password_hash: string }>(
-    `SELECT name, site_config, edit_password_hash FROM projects WHERE id = $1`,
-    [id]
+/** Lookup by id first, fallback to slug */
+export async function getProjectForLogin(idOrSlug: string) {
+  const byId = await queryOne<{ id: string; name: string; site_config: any; edit_password_hash: string }>(
+    `SELECT id, name, site_config, edit_password_hash FROM projects WHERE id = $1`,
+    [idOrSlug]
+  );
+  if (byId) return byId;
+  return queryOne<{ id: string; name: string; site_config: any; edit_password_hash: string }>(
+    `SELECT id, name, site_config, edit_password_hash FROM projects WHERE slug = $1`,
+    [idOrSlug]
   );
 }
 
-export async function getProjectName(id: string) {
-  return queryOne<{ name: string }>(`SELECT name FROM projects WHERE id = $1`, [id]);
+/** Lookup by id first, fallback to slug */
+export async function getProjectName(idOrSlug: string) {
+  const byId = await queryOne<{ name: string }>(`SELECT name FROM projects WHERE id = $1`, [idOrSlug]);
+  if (byId) return byId;
+  return queryOne<{ name: string }>(`SELECT name FROM projects WHERE slug = $1`, [idOrSlug]);
 }
 
-export async function getProjectConfig(id: string) {
-  return queryOne<{ site_config: any }>(`SELECT site_config FROM projects WHERE id = $1`, [id]);
+/** Lookup by id first, fallback to slug */
+export async function getProjectConfig(idOrSlug: string) {
+  const byId = await queryOne<{ id: string; site_config: any }>(`SELECT id, site_config FROM projects WHERE id = $1`, [idOrSlug]);
+  if (byId) return byId;
+  return queryOne<{ id: string; site_config: any }>(`SELECT id, site_config FROM projects WHERE slug = $1`, [idOrSlug]);
 }
 
 export async function updateProjectConfig(id: string, config: any): Promise<void> {

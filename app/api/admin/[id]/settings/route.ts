@@ -4,12 +4,12 @@ import { isSlugAvailable, updateProjectSlug } from '@/lib/db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fitwebai-secret';
 
-function verifyJwt(request: NextRequest, projectId: string): boolean {
+function verifyJwt(request: NextRequest, idOrSlug: string): boolean {
   const auth = request.headers.get('Authorization');
   if (!auth?.startsWith('Bearer ')) return false;
   try {
     const payload = jwt.verify(auth.slice(7), JWT_SECRET) as any;
-    return payload.projectId === projectId;
+    return payload.projectId === idOrSlug || payload.slug === idOrSlug;
   } catch {
     return false;
   }

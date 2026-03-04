@@ -11,13 +11,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const payload = verifyJwt(token);
-  if (!payload || payload.projectId !== id) {
+  if (!payload || (payload.projectId !== id && payload.slug !== id)) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
   try {
     const body = await request.json();
-    await saveAdminEdits(id, body);
+    await saveAdminEdits(payload.projectId, body);
     return NextResponse.json({ success: true });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

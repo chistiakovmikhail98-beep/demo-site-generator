@@ -25,29 +25,35 @@ export function verifyJwt(token: string): JwtPayload | null {
 }
 
 export async function loginAdmin(
-  projectId: string,
+  projectIdOrSlug: string,
   password: string
 ): Promise<{ token: string; projectName: string; slug: string } | null> {
-  const project = await getProjectForLogin(projectId);
+  const project = await getProjectForLogin(projectIdOrSlug);
   if (!project?.edit_password_hash) return null;
 
   const valid = await bcrypt.compare(password, project.edit_password_hash);
   if (!valid) return null;
 
-  const slug = (project.site_config as any)?.meta?.slug || projectId;
-  const token = createJwt(projectId, slug);
+  const realId = project.id;
+  const slug = (project.site_config as any)?.meta?.slug || projectIdOrSlug;
+  const token = createJwt(realId, slug);
 
   return { token, projectName: project.name, slug };
 }
 
 export async function verifyAdminAccess(
-  projectId: string,
+  projectIdOrSlug: string,
   token: string
 ): Promise<{ valid: boolean; projectName?: string; slug?: string }> {
   const payload = verifyJwt(token);
-  if (!payload || payload.projectId !== projectId) return { valid: false };
+  if (!payload) return { valid: false };
 
-  const project = await getProjectName(projectId);
+  // Accept if JWT projectId matches the param OR the param is the slug
+  if (payload.projectId !== projectIdOrSlug && payload.slug !== projectIdOrSlug) {
+    return { valid: false };
+  }
+
+  const project = await getProjectName(payload.projectId);
   if (!project) return { valid: false };
 
   return { valid: true, projectName: project.name, slug: payload.slug };
@@ -155,10 +161,11 @@ export function siteDataToConfig(existing: SiteConfig, payload: AdminSavePayload
 }
 
 /** Save admin edits — just update SiteConfig in PostgreSQL (instant!) */
-export async function saveAdminEdits(projectId: string, payload: AdminSavePayload): Promise<void> {
-  const project = await getProjectConfig(projectId);
+export async function saveAdminEdits(projectIdOrSlug: string, payload: AdminSavePayload): Promise<void> {
+  const project = await getProjectConfig(projectIdOrSlug);
   if (!project?.site_config) throw new Error('Project not found');
 
+  const realId = (project as any).id || projectIdOrSlug;
   const updatedConfig = siteDataToConfig(project.site_config as unknown as SiteConfig, payload);
-  await updateProjectConfig(projectId, updatedConfig);
+  await updateProjectConfig(realId, updatedConfig);
 }

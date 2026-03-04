@@ -37,7 +37,8 @@ export default async function SitePage({ params }: PageProps) {
   }
 
   const config = project.site_config as SiteConfig;
-  const apiUrl = process.env.PUBLIC_API_URL || `https://fitwebai.ru`;
+  // Empty apiUrl = relative URLs (works on any subdomain, no CORS)
+  const apiUrl = '';
 
   return (
     <TemplateApp
