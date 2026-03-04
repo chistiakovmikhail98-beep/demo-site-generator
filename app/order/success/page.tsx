@@ -2,7 +2,6 @@
 
 import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import StepTimeline from '@/components/StepTimeline';
 
 export default function OrderSuccessPage() {
@@ -17,11 +16,21 @@ function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const slug = searchParams.get('slug') || 'studio-energy';
   const plan = searchParams.get('plan') || 'business';
-  const planName = plan === 'managed' ? 'Через нас' : 'Сам';
+  const planName = plan === 'managed' ? 'Через нас' : plan === 'monthly' ? 'Месяц' : plan === 'yearly' ? 'Год' : 'Сам';
 
   const siteUrl = `${slug}.fitwebai.ru`;
-  const adminUrl = `/demo?admin&dev`;
-  const password = 'SE-2026-xK7m9p';
+  const adminUrl = `https://${siteUrl}?admin`;
+
+  // Try to get password from builder store (localStorage)
+  let password = 'SE-2026-xK7m9p';
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = JSON.parse(localStorage.getItem('fitwebai-builder') || '{}');
+      if (stored?.state?.createdPassword) {
+        password = stored.state.createdPassword;
+      }
+    } catch { /* ignore */ }
+  }
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
@@ -149,15 +158,17 @@ function OrderSuccessContent() {
 
         {/* CTA */}
         <div className="text-center space-y-3">
-          <Link
+          <a
             href={adminUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-10 py-4 bg-violet-500 hover:bg-violet-400 text-white font-bold text-sm uppercase tracking-wider rounded-xl transition-all shadow-xl shadow-violet-500/20 hover:shadow-violet-500/40"
           >
             Войти в админку
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </Link>
+          </a>
           <p className="text-xs text-zinc-600">
             Данные для входа также отправлены на ваш email и в Telegram
           </p>

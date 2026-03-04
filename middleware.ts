@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Top-level app routes that should NOT be rewritten to /s/[slug]/...
-const APP_ROUTES = new Set(['/order', '/order/success', '/demo', '/sim', '/api']);
+const APP_ROUTES = new Set(['/order', '/order/success', '/demo', '/sim', '/api', '/builder']);
 
 function isAppRoute(pathname: string): boolean {
   if (APP_ROUTES.has(pathname)) return true;
