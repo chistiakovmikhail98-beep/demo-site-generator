@@ -76,10 +76,57 @@ body {
 
 /* ---- Glass card effect ---- */
 .glass {
-  background: rgba(24, 24, 27, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(24, 24, 27, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* ---- Card surface for dark theme ---- */
+.card-surface {
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.card-surface:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.4);
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
+/* ---- Contained image (no text overlay) ---- */
+.image-contained {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.image-contained img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.7s ease;
+}
+.image-contained:hover img {
+  transform: scale(1.03);
+}
+
+/* ---- Section badge (niche/category label) ---- */
+.section-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: 9999px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
 }
 
 /* ---- Glow orb (decorative) ---- */

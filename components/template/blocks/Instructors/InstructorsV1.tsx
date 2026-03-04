@@ -62,7 +62,7 @@ const InstructorsV1: React.FC<BlockProps<InstructorsData> & { variant?: never }>
         )}
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent pointer-events-none" />
 
         {/* Founder badge */}
         {inst.isFounder && (
@@ -79,7 +79,7 @@ const InstructorsV1: React.FC<BlockProps<InstructorsData> & { variant?: never }>
             onChange={(v) => updateInstructor(index, { name: v })}
             editable={editable}
             as="h3"
-            className="text-lg sm:text-xl md:text-2xl font-bold text-white leading-tight"
+            className="text-lg sm:text-xl md:text-2xl font-bold text-white leading-tight text-shadow-hero"
           />
         </div>
       </div>

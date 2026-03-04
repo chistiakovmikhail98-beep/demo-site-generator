@@ -34,7 +34,7 @@ const StoriesV1: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
   const renderStoryCard = (story: StoryItem, index: number) => (
     <div
       key={story.id}
-      className="bg-zinc-900 border border-zinc-700/50 rounded-2xl sm:rounded-[2.5rem] p-2 flex flex-col"
+      className="bg-zinc-900 border border-zinc-700/50 rounded-2xl sm:rounded-3xl p-2 flex flex-col"
     >
       {/* Before / After image pair */}
       <div className="grid grid-cols-2 gap-2 mb-4">

@@ -36,8 +36,8 @@ export default function HeroV3({ data, editable, onDataChange, onCTAClick }: Blo
       />
 
       {/* --- Gradient orbs --- */}
-      <div className="glow-orb top-20 left-10 w-72 h-72 sm:w-96 sm:h-96 bg-primary/25" />
-      <div className="glow-orb bottom-20 right-10 w-60 h-60 sm:w-80 sm:h-80 bg-accent/15" />
+      <div className="glow-orb top-20 left-10 w-72 h-72 sm:w-96 sm:h-96 bg-primary/15" />
+      <div className="glow-orb bottom-20 right-10 w-60 h-60 sm:w-80 sm:h-80 bg-accent/10" />
       <div className="glow-orb top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-primary/8" />
 
       {/* --- Content --- */}
@@ -172,7 +172,7 @@ export default function HeroV3({ data, editable, onDataChange, onCTAClick }: Blo
 
             {/* Floating glass card */}
             <div className="absolute -bottom-4 -left-4 sm:-bottom-6 sm:-left-6 lg:-bottom-8 lg:-left-8 z-20 max-w-[240px] sm:max-w-[280px]">
-              <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-2xl">
+              <div className="bg-zinc-900/85 backdrop-blur-xl border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-2xl">
                 <div className="flex items-center gap-3 mb-2 sm:mb-3">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
                     <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />

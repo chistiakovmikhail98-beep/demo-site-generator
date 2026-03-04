@@ -66,10 +66,10 @@ export default function HeroV1({ data, editable, onDataChange, onCTAClick }: Blo
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* --- Left: dark card (elevated surface) --- */}
-          <div className="bg-zinc-900 rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col justify-center items-start shadow-2xl shadow-black/40 border border-zinc-800 relative overflow-hidden min-h-[420px] sm:min-h-[480px] lg:min-h-[560px]">
+          <div className="bg-[var(--color-surface,#18181b)] rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col justify-center items-start shadow-2xl shadow-black/40 border border-zinc-800 relative overflow-hidden min-h-[420px] sm:min-h-[480px] lg:min-h-[560px]">
             {/* Gradient orbs */}
-            <div className="glow-orb top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-primary/25" />
-            <div className="glow-orb bottom-0 left-0 w-32 h-32 bg-accent/15" />
+            <div className="glow-orb top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-primary/15" />
+            <div className="glow-orb bottom-0 left-0 w-32 h-32 bg-accent/10" />
 
             {/* City badge */}
             {data.city && (
@@ -167,12 +167,12 @@ export default function HeroV1({ data, editable, onDataChange, onCTAClick }: Blo
             )}
 
             {/* Gradient overlay — stronger for readability */}
-            <div className="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-t from-[var(--color-background,#09090b)]/90 via-[var(--color-background,#09090b)]/30 to-transparent pointer-events-none" />
+            <div className="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-t from-[var(--color-background,#09090b)]/60 via-[var(--color-background,#09090b)]/20 to-transparent pointer-events-none" />
 
             {/* Quote overlay with glass */}
             {data.heroQuote && (
               <div className="absolute bottom-4 left-4 right-4 sm:bottom-8 sm:left-8 sm:right-8">
-                <div className="glass rounded-xl sm:rounded-2xl p-3 sm:p-4">
+                <div className="bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl p-3 sm:p-4">
                   <EditableText
                     value={`\u00ab${data.heroQuote}\u00bb`}
                     onChange={(v) => update({ heroQuote: v.replace(/[\u00ab\u00bb]/g, '') })}

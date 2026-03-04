@@ -55,7 +55,7 @@ export default function PricingV1({ data, editable, onDataChange, onCTAClick }: 
           {standardPlans.map((plan) => (
             <div
               key={plan.id}
-              className="relative bg-white/[0.06] border border-zinc-700/50 rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col shadow-lg shadow-black/20 hover:border-zinc-600 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 transition-all duration-300"
+              className="relative bg-[var(--color-surface,#18181b)] border border-zinc-700/50 rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col shadow-lg shadow-black/10 hover:border-zinc-600 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
             >
               {plan.isPopular && (
                 <span className="absolute -top-3 left-5 inline-flex items-center gap-1 px-3 py-1 bg-primary text-white text-[10px] sm:text-xs font-bold rounded-full uppercase tracking-wider">

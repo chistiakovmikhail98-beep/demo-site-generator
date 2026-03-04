@@ -57,7 +57,7 @@ export default function AtmosphereV1({ data, editable, onDataChange }: BlockProp
             <div className="w-full h-full bg-zinc-900 lg:rounded-[2rem] overflow-hidden shadow-2xl relative flex border-0 lg:border lg:border-zinc-700/50">
 
               {/* --- Text panel --- */}
-              <div className="absolute bottom-0 left-0 right-0 p-5 pb-8 bg-gradient-to-t from-black via-black/90 to-transparent z-20 lg:static lg:w-[45%] lg:h-full lg:bg-none lg:p-0 lg:pl-12 lg:pr-8 lg:py-14 flex flex-col pointer-events-none lg:pointer-events-auto">
+              <div className="absolute bottom-0 left-0 right-0 p-5 pb-8 bg-gradient-to-t from-black via-black/95 to-black/40 z-20 lg:static lg:w-[45%] lg:h-full lg:bg-none lg:p-0 lg:pl-12 lg:pr-8 lg:py-14 flex flex-col pointer-events-none lg:pointer-events-auto">
                 {/* Desktop heading */}
                 <div className="hidden lg:block mb-auto">
                   <EditableText
@@ -181,7 +181,7 @@ export default function AtmosphereV1({ data, editable, onDataChange }: BlockProp
                         loading="lazy"
                       />
                     )}
-                    <div className="absolute inset-0 bg-black/40 lg:bg-gradient-to-t lg:from-black/70 lg:via-transparent lg:to-transparent pointer-events-none" />
+                    <div className="absolute inset-0 bg-black/50 lg:bg-gradient-to-t lg:from-black/70 lg:via-transparent lg:to-transparent pointer-events-none" />
 
                     {/* Step label badge */}
                     <div className="absolute top-5 right-5 lg:bottom-8 lg:left-8 lg:top-auto lg:right-auto z-20">
