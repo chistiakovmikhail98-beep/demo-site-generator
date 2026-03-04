@@ -3,8 +3,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveAiCost } from './supabase.js';
 
-const VISION_MODEL = 'gemini-2.0-flash';
-const PRICING = { input: 0.075, output: 0.30 };
+const VISION_MODEL = 'gemini-2.5-flash';
+const PRICING = { input: 0.15, output: 0.60 };
 
 let genAI: GoogleGenerativeAI | null = null;
 

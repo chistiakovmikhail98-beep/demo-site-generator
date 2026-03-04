@@ -5,8 +5,8 @@ import { saveAiCost, saveTokenStats } from './supabase.js';
 
 type Niche = 'fitness' | 'dance' | 'stretching' | 'yoga' | 'wellness';
 
-const MODEL_ID = 'gemini-2.0-flash';
-const PRICING = { input: 0.075, output: 0.30 }; // per 1M tokens
+const MODEL_ID = 'gemini-2.5-flash';
+const PRICING = { input: 0.15, output: 0.60 }; // per 1M tokens (gemini-2.5-flash)
 
 let genAI: GoogleGenerativeAI | null = null;
 
