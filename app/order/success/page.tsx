@@ -17,7 +17,7 @@ function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const slug = searchParams.get('slug') || 'studio-energy';
   const plan = searchParams.get('plan') || 'business';
-  const planName = plan === 'business' ? 'Бизнес' : 'Старт';
+  const planName = plan === 'managed' ? 'Через нас' : 'Сам';
 
   const siteUrl = `${slug}.fitwebai.ru`;
   const adminUrl = `/demo?admin&dev`;

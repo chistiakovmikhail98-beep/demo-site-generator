@@ -6,6 +6,7 @@ import BlockManager from './admin/BlockManager';
 import ThemeEditor from './admin/ThemeEditor';
 import ContactEditor from './admin/ContactEditor';
 import LeadsTab from './admin/LeadsTab';
+import SettingsTab from './admin/SettingsTab';
 import PublishModal from './admin/PublishModal';
 
 interface ThemeConfig {
@@ -33,15 +34,17 @@ interface AdminToolbarProps {
   projectId?: string;
   jwt?: string | null;
   apiUrl?: string;
+  slug?: string;
 }
 
-type Panel = 'blocks' | 'theme' | 'contacts' | 'leads' | null;
+type Panel = 'blocks' | 'theme' | 'contacts' | 'leads' | 'settings' | null;
 
 const PANEL_LABELS: Record<string, string> = {
   blocks: 'Блоки',
   theme: 'Тема',
   contacts: 'Контакты',
   leads: 'Заявки',
+  settings: 'Настройки',
 };
 
 export default function AdminToolbar({
@@ -58,6 +61,7 @@ export default function AdminToolbar({
   projectId,
   jwt,
   apiUrl,
+  slug,
 }: AdminToolbarProps) {
   const [activePanel, setActivePanel] = useState<Panel>('blocks');
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -125,6 +129,9 @@ export default function AdminToolbar({
       )}
       {activePanel === 'leads' && projectId && jwt && (
         <LeadsTab projectId={projectId} jwt={jwt} apiUrl={apiUrl || ''} />
+      )}
+      {activePanel === 'settings' && projectId && jwt && slug && (
+        <SettingsTab projectId={projectId} jwt={jwt} apiUrl={apiUrl || ''} currentSlug={slug} />
       )}
       {!activePanel && (
         <div className="p-5 text-center">
@@ -200,6 +207,12 @@ export default function AdminToolbar({
             active={activePanel === 'leads'}
             onClick={() => togglePanel('leads')}
           />
+          <SidebarTab
+            icon={<SettingsIcon />}
+            label="Настр."
+            active={activePanel === 'settings'}
+            onClick={() => togglePanel('settings')}
+          />
         </div>
 
         {/* Panel content (scrollable) */}
@@ -272,6 +285,7 @@ export default function AdminToolbar({
           <MobileTab icon={<PaletteIcon />} label="Тема" active={activePanel === 'theme'} onClick={() => togglePanel('theme')} />
           <MobileTab icon={<PhoneIcon />} label="Конт." active={activePanel === 'contacts'} onClick={() => togglePanel('contacts')} />
           <MobileTab icon={<LeadsIcon />} label="Заявки" active={activePanel === 'leads'} onClick={() => togglePanel('leads')} />
+          <MobileTab icon={<SettingsIcon />} label="Настр." active={activePanel === 'settings'} onClick={() => togglePanel('settings')} />
 
           <div className="w-px h-6 bg-zinc-700 mx-0.5 shrink-0" />
 
@@ -467,6 +481,15 @@ function LeadsIcon() {
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
       <path d="M8 8C9.657 8 11 6.657 11 5C11 3.343 9.657 2 8 2C6.343 2 5 3.343 5 5C5 6.657 6.343 8 8 8Z" stroke="currentColor" strokeWidth="1.5" />
       <path d="M3 14C3 11.239 5.239 9 8 9C10.761 9 13 11.239 13 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M8 1V3M8 13V15M1 8H3M13 8H15M3.05 3.05L4.46 4.46M11.54 11.54L12.95 12.95M12.95 3.05L11.54 4.46M4.46 11.54L3.05 12.95" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }

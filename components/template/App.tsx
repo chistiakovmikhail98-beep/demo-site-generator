@@ -269,6 +269,7 @@ export default function TemplateApp({ initialConfig, adminConfig }: TemplateAppP
             projectId={admin.config?.projectId}
             jwt={admin.jwt}
             apiUrl={admin.config?.apiUrl}
+            slug={admin.config?.slug}
           />
         )}
       </div>

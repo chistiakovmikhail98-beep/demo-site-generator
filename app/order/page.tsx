@@ -15,9 +15,9 @@ interface Plan {
 
 const PLANS: Plan[] = [
   {
-    id: 'start',
-    name: 'Старт',
-    price: '4 900',
+    id: 'self',
+    name: 'Сам',
+    price: '3 000',
     period: 'разово',
     features: [
       'Готовый сайт на субдомене',
@@ -30,17 +30,17 @@ const PLANS: Plan[] = [
     highlighted: false,
   },
   {
-    id: 'business',
-    name: 'Бизнес',
-    price: '9 900',
-    period: 'разово',
+    id: 'managed',
+    name: 'Через нас',
+    price: '6 000',
+    period: '+ 1 000 ₽/мес',
     features: [
-      'Всё из тарифа "Старт"',
-      'AI чат-бот на сайте',
-      'SEO-оптимизация',
+      'Всё из тарифа "Сам"',
+      'Настройка и запуск под ключ',
+      'Техническая поддержка',
+      'Обновления и обслуживание',
       'Подключение своего домена',
-      'Интеграция с CRM',
-      'Приоритетная поддержка',
+      'Приоритетная помощь',
     ],
     highlighted: true,
   },
@@ -92,7 +92,7 @@ function OrderPageContent() {
   const brandName = searchParams.get('brand') || 'Studio Energy';
 
   const plans = isTestMode ? [TEST_PLAN] : PLANS;
-  const [selectedPlan, setSelectedPlan] = useState(isTestMode ? 'test' : 'business');
+  const [selectedPlan, setSelectedPlan] = useState(isTestMode ? 'test' : 'managed');
   const [form, setForm] = useState({ name: '', phone: '', email: '' });
   const [processing, setProcessing] = useState(false);
 
@@ -307,9 +307,9 @@ function OrderPageContent() {
                 <path d="M7 10L9 12L13 8" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <div>
-                <p className="text-xs font-bold text-emerald-400 mb-0.5">7 дней бесплатно</p>
+                <p className="text-xs font-bold text-emerald-400 mb-0.5">Гарантия возврата</p>
                 <p className="text-[11px] text-zinc-400 leading-snug">
-                  Попробуйте сайт и админку. Не понравится — вернём деньги без вопросов.
+                  Не понравится сайт — вернём деньги в течение 7 дней без вопросов.
                 </p>
               </div>
             </div>
