@@ -302,9 +302,9 @@ function injectPhotos(config: SiteConfig, files: UploadedFile[]): void {
     config.sections.gallery = byBlock.gallery;
   }
 
-  // Instructors — dedicated photos, fallback to hero overflow
+  // Instructors — dedicated photos, fallback to hero overflow, then gallery
   if (Array.isArray(config.sections.instructors)) {
-    const instrPhotos = pool(byBlock.instructors || [], byBlock.hero?.slice(1));
+    const instrPhotos = pool(byBlock.instructors || [], byBlock.hero?.slice(1), byBlock.gallery);
     config.sections.instructors.forEach((inst: any, i: number) => {
       if (instrPhotos[i]) inst.image = instrPhotos[i];
     });

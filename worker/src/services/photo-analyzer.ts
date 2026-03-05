@@ -168,7 +168,7 @@ export async function analyzePhotos(
     }
 
     if (i + batchSize < filtered.length) {
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 2000));
     }
   }
 
