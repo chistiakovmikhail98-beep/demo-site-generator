@@ -26,7 +26,7 @@ async function fetchImageAsBase64(url: string): Promise<{ mimeType: string; data
   return { mimeType, data };
 }
 
-export type PhotoCategory = 'hero' | 'gallery' | 'instructors' | 'atmosphere' | 'stories' | 'skip';
+export type PhotoCategory = 'hero' | 'gallery' | 'instructors' | 'atmosphere' | 'directions' | 'stories' | 'skip';
 
 export interface AnalyzedPhoto {
   url: string;
@@ -82,12 +82,14 @@ async function analyzeBatch(
     text: `Analyse ${photos.length} photos for a ${nicheContext[niche] || 'fitness studio'} website.
 
 For EACH photo determine:
-- category: hero (main banner - beautiful wide shot), instructors (trainer portrait), gallery (classes in session), atmosphere (interior/space), skip (not suitable)
+- category: hero (main banner - beautiful wide/landscape shot of studio), instructors (trainer portrait - one person posing), directions (group class in action showing a specific discipline), gallery (other good photos of classes/events), atmosphere (interior/space/equipment without people), stories (before/after transformation), skip (logos, flyers, text images, low quality)
 - confidence: 0-1
 - isChild: true/false
 - isGroup: true/false
 - quality: high/medium/low
 - description: 5-10 words in Russian
+
+IMPORTANT: Distribute photos across categories! Don't put everything into gallery. Prioritize: 1-2 hero, 2-4 instructors (individual portraits), 3-6 directions (group training shots), 2-4 atmosphere (interior).
 
 Answer is a JSON array (one object per photo, in same order):
 [{"category":"gallery","confidence":0.9,"isChild":false,"isGroup":true,"quality":"high","description":"групповое занятие по йоге"}]
@@ -179,6 +181,8 @@ export function distributePhotos(analyzed: AnalyzedPhoto[]): {
   gallery: AnalyzedPhoto[];
   instructors: AnalyzedPhoto[];
   atmosphere: AnalyzedPhoto[];
+  directions: AnalyzedPhoto[];
+  stories: AnalyzedPhoto[];
 } {
   const valid = analyzed
     .filter(p => p.category !== 'skip' && p.quality !== 'low')
@@ -189,6 +193,8 @@ export function distributePhotos(analyzed: AnalyzedPhoto[]): {
     gallery: [] as AnalyzedPhoto[],
     instructors: [] as AnalyzedPhoto[],
     atmosphere: [] as AnalyzedPhoto[],
+    directions: [] as AnalyzedPhoto[],
+    stories: [] as AnalyzedPhoto[],
   };
 
   for (const photo of valid) {
@@ -203,6 +209,14 @@ export function distributePhotos(analyzed: AnalyzedPhoto[]): {
         break;
       case 'atmosphere':
         if (result.atmosphere.length < 8) result.atmosphere.push(photo);
+        else result.gallery.push(photo);
+        break;
+      case 'directions':
+        if (result.directions.length < 10) result.directions.push(photo);
+        else result.gallery.push(photo);
+        break;
+      case 'stories':
+        if (result.stories.length < 4) result.stories.push(photo);
         else result.gallery.push(photo);
         break;
       default:

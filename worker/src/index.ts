@@ -50,7 +50,7 @@ async function hashPassword(password: string): Promise<string> {
 
 // === Main processing pipeline ===
 
-type PhotoBlockType = 'hero' | 'gallery' | 'instructors' | 'atmosphere';
+type PhotoBlockType = 'hero' | 'gallery' | 'instructors' | 'atmosphere' | 'directions' | 'stories';
 
 interface UploadedFile {
   path: string;
@@ -148,7 +148,7 @@ async function processQueueItem(item: QueueItem): Promise<void> {
       console.log(`[5/7] AI анализ фото...`);
       const analysis = await analyzePhotos(photos, niche, 25, projectId);
       distributedPhotos = distributePhotos(analysis.photos);
-      console.log(`✅ hero=${distributedPhotos.hero.length}, gallery=${distributedPhotos.gallery.length}, instructors=${distributedPhotos.instructors.length}`);
+      console.log(`✅ hero=${distributedPhotos.hero.length}, gallery=${distributedPhotos.gallery.length}, instructors=${distributedPhotos.instructors.length}, directions=${distributedPhotos.directions.length}, atmosphere=${distributedPhotos.atmosphere.length}, stories=${distributedPhotos.stories.length}`);
     } catch (err) {
       console.warn(`⚠️ AI анализ не удался:`, err);
     }
@@ -163,10 +163,14 @@ async function processQueueItem(item: QueueItem): Promise<void> {
   if (distributedPhotos) {
     distributedPhotos.hero.slice(0, 3).forEach((p, i) =>
       photosToUpload.push({ url: p.url, block: 'hero', order: i }));
-    distributedPhotos.instructors.slice(0, 4).forEach((p, i) =>
+    distributedPhotos.instructors.slice(0, 6).forEach((p, i) =>
       photosToUpload.push({ url: p.url, block: 'instructors', order: 100 + i }));
     distributedPhotos.atmosphere.slice(0, 6).forEach((p, i) =>
       photosToUpload.push({ url: p.url, block: 'atmosphere', order: 200 + i }));
+    distributedPhotos.directions.slice(0, 10).forEach((p, i) =>
+      photosToUpload.push({ url: p.url, block: 'directions', order: 400 + i }));
+    distributedPhotos.stories.slice(0, 4).forEach((p, i) =>
+      photosToUpload.push({ url: p.url, block: 'stories', order: 500 + i }));
     distributedPhotos.gallery.slice(0, 12).forEach((p, i) =>
       photosToUpload.push({ url: p.url, block: 'gallery', order: 300 + i }));
   } else {
@@ -278,6 +282,16 @@ function injectPhotos(config: SiteConfig, files: UploadedFile[]): void {
     byBlock[f.block].push(f.path);
   }
 
+  // Collect ALL available photos for fallback pool
+  const allPhotos = files.sort((a, b) => a.order - b.order).map(f => f.path);
+  const pool = (preferred: string[], ...fallbacks: (string[] | undefined)[]): string[] => {
+    const result = [...preferred];
+    for (const fb of fallbacks) {
+      if (fb) result.push(...fb);
+    }
+    return result;
+  };
+
   // Hero image
   if (byBlock.hero?.[0]) {
     config.brand.heroImage = byBlock.hero[0];
@@ -288,25 +302,72 @@ function injectPhotos(config: SiteConfig, files: UploadedFile[]): void {
     config.sections.gallery = byBlock.gallery;
   }
 
-  // Instructors
-  if (byBlock.instructors?.length && Array.isArray(config.sections.instructors)) {
+  // Instructors — dedicated photos, fallback to hero overflow
+  if (Array.isArray(config.sections.instructors)) {
+    const instrPhotos = pool(byBlock.instructors || [], byBlock.hero?.slice(1));
     config.sections.instructors.forEach((inst: any, i: number) => {
-      if (byBlock.instructors[i]) inst.image = byBlock.instructors[i];
+      if (instrPhotos[i]) inst.image = instrPhotos[i];
     });
   }
 
-  // Atmosphere
-  if (byBlock.atmosphere?.length && Array.isArray(config.sections.atmosphere)) {
+  // Atmosphere — dedicated photos, fallback to gallery
+  if (Array.isArray(config.sections.atmosphere)) {
+    const atmPhotos = pool(byBlock.atmosphere || [], byBlock.gallery);
     config.sections.atmosphere.forEach((atm: any, i: number) => {
-      if (byBlock.atmosphere[i]) atm.image = byBlock.atmosphere[i];
+      if (atmPhotos[i]) atm.image = atmPhotos[i];
     });
   }
 
-  // Hero advantages / stories could also get photos
-  if (byBlock.hero?.length > 1 && Array.isArray(config.sections.advantages)) {
-    config.sections.advantages.forEach((adv: any, i: number) => {
-      if (byBlock.hero[i + 1]) adv.image = byBlock.hero[i + 1];
+  // Directions — dedicated photos, fallback to gallery/atmosphere
+  if (Array.isArray(config.sections.directions)) {
+    const dirPhotos = pool(byBlock.directions || [], byBlock.gallery, byBlock.atmosphere);
+    config.sections.directions.forEach((dir: any, i: number) => {
+      if (dirPhotos[i]) dir.image = dirPhotos[i];
     });
+  }
+
+  // Director — use first instructor photo, or hero[1], or first available
+  if (config.sections.director && typeof config.sections.director === 'object') {
+    const directorPhoto = (byBlock.instructors?.[0]) || (byBlock.hero?.[1]) || allPhotos[0];
+    if (directorPhoto) {
+      (config.sections.director as any).image = directorPhoto;
+    }
+  }
+
+  // Stories — use stories photos, fallback to gallery
+  if (Array.isArray(config.sections.stories)) {
+    const storyPhotos = pool(byBlock.stories || [], byBlock.gallery, byBlock.atmosphere);
+    config.sections.stories.forEach((story: any, i: number) => {
+      // Stories have beforeImg/afterImg or just image
+      const photo1 = storyPhotos[i * 2];
+      const photo2 = storyPhotos[i * 2 + 1];
+      if (story.beforeImg !== undefined) {
+        if (photo1) story.beforeImg = photo1;
+        if (photo2) story.afterImg = photo2;
+      } else if (photo1) {
+        story.image = photo1;
+      }
+    });
+  }
+
+  // Advantages — hero overflow photos
+  if (byBlock.hero?.length > 1 && Array.isArray(config.sections.advantages)) {
+    const advPhotos = pool(byBlock.hero.slice(1), byBlock.atmosphere, byBlock.gallery);
+    config.sections.advantages.forEach((adv: any, i: number) => {
+      if (advPhotos[i]) adv.image = advPhotos[i];
+    });
+  }
+
+  // Requests — use gallery/directions photos cyclically
+  if (Array.isArray(config.sections.requests)) {
+    const reqPhotos = pool(byBlock.directions || [], byBlock.gallery, byBlock.atmosphere);
+    if (reqPhotos.length > 0) {
+      config.sections.requests.forEach((req: any, i: number) => {
+        if (req.image !== undefined) {
+          req.image = reqPhotos[i % reqPhotos.length];
+        }
+      });
+    }
   }
 }
 
