@@ -216,6 +216,9 @@ async function processQueueItem(item: QueueItem): Promise<void> {
   siteConfig.meta.projectId = projectId;
   siteConfig.meta.slug = slug;
 
+  // Clean fake AI-generated image URLs (imgur, placeholder, etc.)
+  cleanFakeImageUrls(siteConfig);
+
   // Inject real photo URLs into config
   injectPhotos(siteConfig, uploadedFiles);
 
@@ -271,6 +274,55 @@ async function processQueueItem(item: QueueItem): Promise<void> {
     });
   } catch (tgErr) {
     console.error('⚠️ Telegram notification failed:', tgErr);
+  }
+}
+
+// Remove fake AI-generated image URLs (imgur, placeholders, etc.)
+function cleanFakeImageUrls(config: SiteConfig): void {
+  const UPLOAD_PREFIX = 'https://fitwebai.ru/uploads/';
+
+  function isRealUrl(url: any): boolean {
+    if (!url || typeof url !== 'string') return false;
+    return url.startsWith(UPLOAD_PREFIX);
+  }
+
+  function cleanField(obj: any, field: string): void {
+    if (obj && typeof obj[field] === 'string' && !isRealUrl(obj[field])) {
+      obj[field] = '';
+    }
+  }
+
+  // Clean brand images
+  cleanField(config.brand, 'heroImage');
+  cleanField(config.brand, 'logo');
+
+  // Clean section arrays
+  const arrayFields = ['instructors', 'directions', 'atmosphere', 'advantages', 'stories', 'requests'];
+  for (const key of arrayFields) {
+    const arr = config.sections[key];
+    if (!Array.isArray(arr)) continue;
+    for (const item of arr) {
+      if (typeof item !== 'object') continue;
+      cleanField(item, 'image');
+      cleanField(item, 'beforeImg');
+      cleanField(item, 'afterImg');
+      cleanField(item, 'photo');
+    }
+  }
+
+  // Clean director
+  if (config.sections.director && typeof config.sections.director === 'object') {
+    cleanField(config.sections.director, 'image');
+  }
+
+  // Clean gallery (array of strings)
+  if (Array.isArray(config.sections.gallery)) {
+    config.sections.gallery = config.sections.gallery.filter((url: any) => isRealUrl(url));
+  }
+
+  // Clean quiz
+  if (config.sections.quiz) {
+    cleanField(config.sections.quiz, 'managerImage');
   }
 }
 
