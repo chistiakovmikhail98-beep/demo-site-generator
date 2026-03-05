@@ -99,38 +99,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
-      // If leaving contact step with name+phone, save the lead
-      if (stepConfig.key === 'contact' && answers.name && answers.phone) {
-        saveLead(answers);
-      }
       setCurrentStep((prev) => prev + 1);
-    }
-  };
-
-  /** Save lead to /api/site-leads */
-  const saveLead = async (ans: Record<string, string>) => {
-    try {
-      const host = window.location.hostname;
-      const parts = host.split('.');
-      const slug = parts.length >= 3 ? parts[0] : window.location.pathname.split('/s/')[1]?.split('/')[0] || '';
-      const quizAnswers: Record<string, string> = {};
-      for (const [k, v] of Object.entries(ans)) {
-        if (k.startsWith('step_')) quizAnswers[k] = v;
-      }
-      await fetch('/api/site-leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: ans.name,
-          phone: ans.phone,
-          source: 'quiz',
-          slug,
-          quiz_answers: quizAnswers,
-          source_url: window.location.href,
-        }),
-      });
-    } catch {
-      // Silently fail — don't block quiz UX
     }
   };
 
@@ -186,7 +155,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
         <div className="relative">
           {isPlaceholder(managerImage) ? (
             <div className="w-12 h-12 lg:w-24 lg:h-24 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-800 border-2 lg:border-4 border-white/20 flex items-center justify-center">
-              <User className="w-6 h-6 lg:w-10 lg:h-10 text-zinc-400" />
+              <User className="w-6 h-6 lg:w-10 lg:h-10 text-zinc-500" />
             </div>
           ) : (
             <img
@@ -195,7 +164,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
               className="w-12 h-12 lg:w-24 lg:h-24 rounded-full object-cover border-2 lg:border-4 border-white/20"
             />
           )}
-          <div className="absolute -bottom-1 -right-1 w-3 h-3 lg:w-4 lg:h-4 bg-green-500 rounded-full border-2 border-[#09090b]" />
+          <div className="absolute -bottom-1 -right-1 w-3 h-3 lg:w-4 lg:h-4 bg-green-500 rounded-full border-2 border-[#0c0c0e]" />
         </div>
 
         {/* Mobile-only name */}
@@ -214,8 +183,8 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
         <span className="text-base font-bold text-white uppercase tracking-wide hidden lg:block pl-2">
           {managerName}
         </span>
-        <div className="bg-white/10 lg:bg-zinc-800 rounded-2xl lg:rounded-3xl lg:rounded-tl-none p-3 lg:p-6 shadow-sm border border-white/10 lg:border-zinc-700 animate-in fade-in slide-in-from-left-2 duration-500">
-          <p className="text-white lg:text-zinc-100 text-xs lg:text-lg leading-snug font-medium">
+        <div className="bg-white/10 lg:bg-white rounded-2xl lg:rounded-3xl lg:rounded-tl-none p-3 lg:p-6 shadow-sm border border-white/10 lg:border-none animate-in fade-in slide-in-from-left-2 duration-500">
+          <p className="text-white lg:text-zinc-900 text-xs lg:text-lg leading-snug font-medium">
             {tips[currentStep] || tips[0] || 'Ответьте на несколько вопросов, и мы подберем для вас программу.'}
           </p>
         </div>
@@ -237,7 +206,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
               ${
                 answers[stepConfig.key] === option
                   ? 'border-primary bg-primary text-white shadow-lg font-bold ring-2 ring-primary/50'
-                  : 'border-zinc-700/50 bg-white/5 text-zinc-300 hover:bg-white/10 hover:border-zinc-700 active:scale-[0.98]'
+                  : 'border-zinc-800 bg-white/5 text-zinc-300 hover:bg-white/10 hover:border-zinc-700 active:scale-[0.98]'
               }
             `}
           >
@@ -256,35 +225,35 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
     <div className="space-y-3 sm:space-y-4 max-w-md w-full">
       {/* Name input */}
       <div>
-        <label className="text-[10px] sm:text-xs font-bold text-zinc-400 uppercase ml-4 mb-1 sm:mb-2 block">
+        <label className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase ml-4 mb-1 sm:mb-2 block">
           Ваше имя
         </label>
         <div className="relative">
-          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-zinc-500" />
+          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-zinc-600" />
           <input
             type="text"
             placeholder="Введите ваше имя"
             value={answers.name || ''}
             onChange={(e) => handleContactChange('name', e.target.value)}
-            className="w-full bg-white/5 border border-zinc-700/50 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-10 sm:pl-12 pr-4 text-white text-sm sm:text-base focus:outline-none focus:bg-white/10 focus:border-primary transition-all placeholder:text-zinc-700 min-h-[44px]"
+            className="w-full bg-white/5 border border-zinc-800 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-10 sm:pl-12 pr-4 text-white text-sm sm:text-base focus:outline-none focus:bg-white/10 focus:border-primary transition-all placeholder:text-zinc-700 min-h-[44px]"
           />
         </div>
       </div>
 
       {/* Phone input */}
       <div>
-        <label className="text-[10px] sm:text-xs font-bold text-zinc-400 uppercase ml-4 mb-1 sm:mb-2 block">
+        <label className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase ml-4 mb-1 sm:mb-2 block">
           Номер телефона
         </label>
         <div className="relative">
-          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-zinc-500" />
+          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-zinc-600" />
           <input
             type="tel"
             placeholder="+7 (___) ___-__-__"
             value={answers.phone || ''}
             onChange={handlePhoneChange}
             maxLength={18}
-            className="w-full bg-white/5 border border-zinc-700/50 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-10 sm:pl-12 pr-4 text-white text-sm sm:text-base focus:outline-none focus:bg-white/10 focus:border-primary transition-all placeholder:text-zinc-700 min-h-[44px]"
+            className="w-full bg-white/5 border border-zinc-800 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-10 sm:pl-12 pr-4 text-white text-sm sm:text-base focus:outline-none focus:bg-white/10 focus:border-primary transition-all placeholder:text-zinc-700 min-h-[44px]"
           />
         </div>
       </div>
@@ -305,12 +274,12 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
   // ---- Render: final confirmation ----
   const renderFinalStep = () => (
     <div className="w-full max-w-md">
-      <div className="bg-white/5 rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 border border-zinc-700/50">
-        <p className="text-zinc-400 mb-1 text-xs uppercase font-bold tracking-wider">Подборка для:</p>
+      <div className="bg-white/5 rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 border border-zinc-800">
+        <p className="text-zinc-500 mb-1 text-xs uppercase font-bold tracking-wider">Подборка для:</p>
         <p className="text-white font-bold text-base sm:text-lg mb-3 leading-tight">
           {answers.step_0 || 'вас'}
         </p>
-        <p className="text-zinc-400 mb-1 text-xs uppercase font-bold tracking-wider">Основная цель:</p>
+        <p className="text-zinc-500 mb-1 text-xs uppercase font-bold tracking-wider">Основная цель:</p>
         <p className="text-white font-bold text-base sm:text-lg leading-tight">
           {answers.step_1 || answers.step_0 || ''}
         </p>
@@ -328,14 +297,14 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
 
   // ---- Main render ----
   return (
-    <div id="quiz" className="bg-[var(--color-background,#09090b)] pt-8 pb-10 md:pt-16 md:pb-20 relative">
+    <div id="quiz" className="bg-[#0c0c0e] pt-8 pb-10 md:pt-16 md:pb-20 relative">
       {/* Section header */}
       <div className="text-center mb-6 md:mb-12 max-w-3xl mx-auto px-4 relative z-10">
         <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-2 md:mb-4 leading-tight uppercase">
           Подберем программу <br className="sm:hidden" />
           за 1 минуту
         </h2>
-        <p className="text-zinc-300 text-sm md:text-lg">
+        <p className="text-zinc-400 text-sm md:text-lg">
           Пройдите квиз и получите персональные рекомендации
         </p>
       </div>
@@ -343,7 +312,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
       <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10">
         {/* Main quiz card */}
         <div
-          className={`relative bg-zinc-900 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-2xl transition-all duration-500 border border-zinc-700/50 ${
+          className={`relative bg-zinc-900 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-2xl transition-all duration-500 border border-zinc-800/50 ${
             showResults ? 'mb-8 md:mb-12' : ''
           }`}
         >
@@ -378,7 +347,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
                   <h3 className="text-xl md:text-2xl font-bold text-white mb-2">
                     Обрабатываем ваши данные...
                   </h3>
-                  <p className="text-zinc-300 text-sm">
+                  <p className="text-zinc-400 text-sm">
                     Ищем оптимальное решение для вашего здоровья
                   </p>
                 </div>
@@ -391,7 +360,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
                   <h3 className="text-2xl md:text-3xl font-bold text-white mb-2 md:mb-4 uppercase tracking-tight">
                     Ваш план готов!
                   </h3>
-                  <p className="text-zinc-300 text-sm sm:text-base md:text-lg max-w-md mx-auto">
+                  <p className="text-zinc-400 text-sm sm:text-base md:text-lg max-w-md mx-auto">
                     Мы подобрали направления, которые помогут вам двигаться без боли.
                   </p>
                   <div className="mt-6 md:mt-8 animate-bounce">
@@ -410,7 +379,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
                       {stepConfig.title}
                     </h2>
                     {stepConfig.subtitle && (
-                      <p className="text-zinc-300 text-xs md:text-base mb-4 md:mb-8">
+                      <p className="text-zinc-400 text-xs md:text-base mb-4 md:mb-8">
                         {stepConfig.subtitle}
                       </p>
                     )}
@@ -437,7 +406,7 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
         {showResults && (
           <>
             <div ref={resultsRef} className="animate-in fade-in slide-in-from-bottom-10 duration-700">
-              <div className="bg-zinc-900 border border-zinc-700/50 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] p-4 sm:p-6 md:p-12 shadow-2xl relative overflow-hidden mb-6">
+              <div className="bg-[#121215] border border-zinc-800 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] p-4 sm:p-6 md:p-12 shadow-2xl relative overflow-hidden mb-6">
                 {/* Glow */}
                 <div className="absolute top-0 right-0 w-[200px] sm:w-[300px] md:w-[500px] h-[200px] sm:h-[300px] md:h-[500px] bg-primary/10 rounded-full blur-[80px] md:blur-[100px] pointer-events-none" />
 
@@ -447,13 +416,13 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
                     <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-white mb-1 md:mb-2 uppercase tracking-tighter italic">
                       Ваш путь к здоровью
                     </h2>
-                    <p className="text-zinc-400 text-xs sm:text-sm md:text-base">
+                    <p className="text-zinc-500 text-xs sm:text-sm md:text-base">
                       Персональные рекомендации
                     </p>
                   </div>
 
                   {/* Level tag + description */}
-                  <div className="bg-zinc-900/50 rounded-xl sm:rounded-2xl md:rounded-3xl p-4 sm:p-6 md:p-8 mb-6 md:mb-8 border border-zinc-700/50 flex flex-col sm:flex-row gap-3 sm:gap-6 items-start sm:items-center">
+                  <div className="bg-zinc-900/50 rounded-xl sm:rounded-2xl md:rounded-3xl p-4 sm:p-6 md:p-8 mb-6 md:mb-8 border border-zinc-800 flex flex-col sm:flex-row gap-3 sm:gap-6 items-start sm:items-center">
                     <div className="bg-primary px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-white font-bold text-xs sm:text-sm uppercase tracking-wide shrink-0 shadow-lg shadow-primary/30">
                       {resultData.levelTag}
                     </div>
@@ -473,12 +442,12 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
                         {resultData.directions.map((dir, idx) => (
                           <div
                             key={idx}
-                            className="bg-zinc-800/30 p-3 sm:p-4 md:p-5 rounded-xl md:rounded-2xl flex flex-col shadow-lg border border-zinc-700/50"
+                            className="bg-zinc-800/30 p-3 sm:p-4 md:p-5 rounded-xl md:rounded-2xl flex flex-col shadow-lg border border-zinc-800"
                           >
                             <span className="text-white font-bold text-sm md:text-lg mb-0.5">
                               {dir.title}
                             </span>
-                            <span className="text-zinc-400 text-[10px] sm:text-xs md:text-sm">
+                            <span className="text-zinc-500 text-[10px] sm:text-xs md:text-sm">
                               {dir.desc}
                             </span>
                           </div>
@@ -491,17 +460,17 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
                       <h3 className="text-white font-bold text-sm sm:text-base md:text-xl mb-3 md:mb-6 flex items-center gap-2 uppercase tracking-widest text-primary">
                         Дальнейшие шаги
                       </h3>
-                      <div className="bg-zinc-900/50 rounded-xl sm:rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 border border-zinc-700/50 h-full flex flex-col justify-between">
+                      <div className="bg-zinc-900/50 rounded-xl sm:rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 border border-zinc-800 h-full flex flex-col justify-between">
                         <ul className="space-y-2 sm:space-y-3 mb-4 md:mb-6">
-                          <li className="flex items-start gap-2 text-zinc-300 text-xs sm:text-sm">
+                          <li className="flex items-start gap-2 text-zinc-400 text-xs sm:text-sm">
                             <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
                             Запись на первичную диагностику ОДА
                           </li>
-                          <li className="flex items-start gap-2 text-zinc-300 text-xs sm:text-sm">
+                          <li className="flex items-start gap-2 text-zinc-400 text-xs sm:text-sm">
                             <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
                             Подбор графика ({resultData.schedule})
                           </li>
-                          <li className="flex items-start gap-2 text-zinc-300 text-xs sm:text-sm">
+                          <li className="flex items-start gap-2 text-zinc-400 text-xs sm:text-sm">
                             <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
                             Начало курса восстановления без боли
                           </li>
@@ -511,28 +480,20 @@ const QuizV1: React.FC<QuizV1Props> = ({ data, onAnswersUpdate }) => {
                   </div>
 
                   {/* CTA */}
-                  <div className="flex flex-col items-center gap-3">
+                  <div className="flex flex-col items-center">
                     <Button
                       size="md"
-                      className="w-full sm:w-auto sm:px-12 bg-primary hover:bg-accent"
-                      onClick={() => {
-                        const host = window.location.hostname;
-                        const parts = host.split('.');
-                        const slug = parts.length >= 3 ? parts[0] : window.location.pathname.split('/s/')[1]?.split('/')[0] || 'studio-energy';
-                        window.location.href = `/order?slug=${slug}&test=1`;
-                      }}
-                    >
-                      Оформить сайт
-                    </Button>
-                    <button
-                      className="text-zinc-400 hover:text-zinc-300 text-xs transition-colors"
+                      className="w-full sm:w-auto sm:px-12 mb-2 bg-primary hover:bg-accent"
                       onClick={() => {
                         const el = document.getElementById('footer');
                         el?.scrollIntoView({ behavior: 'smooth' });
                       }}
                     >
-                      или записаться на консультацию
-                    </button>
+                      Записаться на диагностику
+                    </Button>
+                    <p className="text-zinc-600 text-[10px] sm:text-xs text-center">
+                      Мы свяжемся с вами для подтверждения времени консультации.
+                    </p>
                   </div>
                 </div>
               </div>

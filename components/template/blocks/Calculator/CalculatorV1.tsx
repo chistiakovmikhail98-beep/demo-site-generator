@@ -51,7 +51,7 @@ const CalculatorV1: React.FC<BlockProps<CalculatorData>> = ({ data }) => {
   }, [duration, frequency, stages]);
 
   return (
-    <Section className="bg-[var(--color-background,#09090b)] relative overflow-hidden !py-10 md:!py-24" id="calculator">
+    <Section className="bg-[#0c0c0e] relative overflow-hidden !py-10 md:!py-24" id="calculator">
       {/* Background blurs */}
       <div className="absolute top-0 right-0 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-primary/10 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[200px] sm:w-[300px] h-[200px] sm:h-[300px] bg-blue-900/10 blur-[100px] rounded-full pointer-events-none" />
@@ -62,14 +62,14 @@ const CalculatorV1: React.FC<BlockProps<CalculatorData>> = ({ data }) => {
           <h2 className="text-2xl sm:text-3xl md:text-6xl font-black text-white uppercase tracking-tight mb-3 sm:mb-4">
             {data.title || 'Как меняется тело'}
           </h2>
-          <p className="text-zinc-300 text-sm sm:text-base md:text-xl max-w-2xl mx-auto font-medium">
+          <p className="text-zinc-400 text-sm sm:text-base md:text-xl max-w-2xl mx-auto font-medium">
             {data.subtitle || 'Узнай, чего ты достигнешь, занимаясь регулярно'}
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-12 items-stretch">
           {/* ---- Left column: Sliders ---- */}
-          <div className="lg:col-span-5 space-y-6 sm:space-y-8 md:space-y-12 bg-zinc-900/50 p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2.5rem] border border-zinc-700/50 backdrop-blur-sm">
+          <div className="lg:col-span-5 space-y-6 sm:space-y-8 md:space-y-12 bg-zinc-900/50 p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2.5rem] border border-zinc-800 backdrop-blur-sm">
             {/* Duration slider */}
             <div className="space-y-3 sm:space-y-4">
               <div className="flex justify-between items-end text-white">
@@ -78,7 +78,7 @@ const CalculatorV1: React.FC<BlockProps<CalculatorData>> = ({ data }) => {
                 </label>
                 <span className="font-mono text-xl sm:text-2xl md:text-3xl font-black text-primary">
                   {duration}{' '}
-                  <span className="text-xs sm:text-sm md:text-lg text-zinc-400 font-bold uppercase">
+                  <span className="text-xs sm:text-sm md:text-lg text-zinc-500 font-bold uppercase">
                     мес.
                   </span>
                 </span>
@@ -91,7 +91,7 @@ const CalculatorV1: React.FC<BlockProps<CalculatorData>> = ({ data }) => {
                 onChange={(e) => setDuration(Number(e.target.value))}
                 className="w-full h-3 md:h-4 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary hover:accent-red-500 transition-all min-h-[44px]"
               />
-              <div className="flex justify-between text-[10px] sm:text-xs text-zinc-500 font-bold uppercase tracking-wider">
+              <div className="flex justify-between text-[10px] sm:text-xs text-zinc-600 font-bold uppercase tracking-wider">
                 <span>1 мес</span>
                 <span>Полгода</span>
                 <span>Год</span>
@@ -116,7 +116,7 @@ const CalculatorV1: React.FC<BlockProps<CalculatorData>> = ({ data }) => {
                 onChange={(e) => setFrequency(Number(e.target.value))}
                 className="w-full h-3 md:h-4 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary hover:accent-red-500 transition-all min-h-[44px]"
               />
-              <div className="flex justify-between text-[10px] sm:text-xs text-zinc-500 font-bold uppercase tracking-wider">
+              <div className="flex justify-between text-[10px] sm:text-xs text-zinc-600 font-bold uppercase tracking-wider">
                 <span>Щадящий</span>
                 <span>Оптимальный</span>
                 <span>Активный</span>
@@ -124,13 +124,13 @@ const CalculatorV1: React.FC<BlockProps<CalculatorData>> = ({ data }) => {
             </div>
 
             {/* Summary row */}
-            <div className="pt-4 border-t border-zinc-700/50 flex items-center justify-between gap-4">
+            <div className="pt-4 border-t border-zinc-800 flex items-center justify-between gap-4">
               <div className="flex items-center gap-2 sm:gap-3">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-300 shrink-0">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 shrink-0">
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[10px] sm:text-xs text-zinc-400 font-bold uppercase tracking-wider">
+                  <span className="text-[10px] sm:text-xs text-zinc-500 font-bold uppercase tracking-wider">
                     Всего часов
                   </span>
                   <span className="text-lg sm:text-xl font-black text-white">
@@ -139,11 +139,11 @@ const CalculatorV1: React.FC<BlockProps<CalculatorData>> = ({ data }) => {
                 </div>
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-300 shrink-0">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 shrink-0">
                   <Target className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[10px] sm:text-xs text-zinc-400 font-bold uppercase tracking-wider">
+                  <span className="text-[10px] sm:text-xs text-zinc-500 font-bold uppercase tracking-wider">
                     Занятий
                   </span>
                   <span className="text-lg sm:text-xl font-black text-white">
@@ -156,7 +156,7 @@ const CalculatorV1: React.FC<BlockProps<CalculatorData>> = ({ data }) => {
 
           {/* ---- Right column: Result card ---- */}
           <div className="lg:col-span-7 h-full">
-            <div className="h-full bg-zinc-900 border border-zinc-700/50 rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-6 md:p-10 relative overflow-hidden flex flex-col justify-between shadow-2xl group transition-all duration-500 hover:border-zinc-700">
+            <div className="h-full bg-zinc-900 border border-zinc-800 rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-6 md:p-10 relative overflow-hidden flex flex-col justify-between shadow-2xl group transition-all duration-500 hover:border-zinc-700">
               {/* Progress bar top */}
               <div className="absolute top-0 left-0 w-full h-1.5 sm:h-2 bg-zinc-900">
                 <div
@@ -169,7 +169,7 @@ const CalculatorV1: React.FC<BlockProps<CalculatorData>> = ({ data }) => {
                 {/* Status header */}
                 <div className="flex items-start justify-between mb-6 sm:mb-8">
                   <div>
-                    <span className="inline-block py-1 px-3 rounded-lg bg-zinc-800 text-zinc-300 text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-2 sm:mb-3 border border-zinc-700">
+                    <span className="inline-block py-1 px-3 rounded-lg bg-zinc-800 text-zinc-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-2 sm:mb-3 border border-zinc-700">
                       Ваша цель
                     </span>
                     <h3 className="text-2xl sm:text-3xl md:text-5xl font-black text-white uppercase italic tracking-tighter leading-none">
@@ -182,20 +182,20 @@ const CalculatorV1: React.FC<BlockProps<CalculatorData>> = ({ data }) => {
                 </div>
 
                 {/* Description */}
-                <p className="text-zinc-300 text-sm sm:text-base md:text-lg leading-relaxed mb-6 sm:mb-8 border-l-2 border-primary/50 pl-3 sm:pl-4">
+                <p className="text-zinc-400 text-sm sm:text-base md:text-lg leading-relaxed mb-6 sm:mb-8 border-l-2 border-primary/50 pl-3 sm:pl-4">
                   {result.description}
                 </p>
 
                 {/* Tags */}
                 <div className="mb-6 sm:mb-8">
-                  <span className="text-[10px] sm:text-xs text-zinc-400 font-bold uppercase tracking-wider block mb-2 sm:mb-3">
+                  <span className="text-[10px] sm:text-xs text-zinc-500 font-bold uppercase tracking-wider block mb-2 sm:mb-3">
                     Что изменится:
                   </span>
                   <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     {result.tags.map((tag, i) => (
                       <span
                         key={i}
-                        className="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-zinc-900 rounded-lg text-zinc-300 text-[11px] sm:text-xs md:text-sm font-medium border border-zinc-700/50 flex items-center gap-1.5 sm:gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300"
+                        className="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-zinc-900 rounded-lg text-zinc-300 text-[11px] sm:text-xs md:text-sm font-medium border border-zinc-800 flex items-center gap-1.5 sm:gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300"
                         style={{ animationDelay: `${i * 100}ms` }}
                       >
                         <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary shrink-0" />
@@ -214,7 +214,7 @@ const CalculatorV1: React.FC<BlockProps<CalculatorData>> = ({ data }) => {
                       <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 fill-yellow-400 animate-pulse" />
                     </div>
                     <div>
-                      <span className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider block mb-0.5">
+                      <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block mb-0.5">
                         Главный результат
                       </span>
                       <span className="text-white font-bold text-sm sm:text-base md:text-xl leading-tight block">

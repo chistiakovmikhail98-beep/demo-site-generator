@@ -36,7 +36,7 @@ export default function DirectorV1({ data, editable, onDataChange, onCTAClick, c
         {/* Photo */}
         <div className="lg:col-span-5 relative">
           <div className="absolute inset-0 bg-primary/20 blur-[100px] rounded-full pointer-events-none -z-10" />
-          <div className="rounded-[2rem] sm:rounded-[3rem] overflow-hidden border-2 border-zinc-700/50 shadow-2xl aspect-[3/4]">
+          <div className="rounded-[2rem] sm:rounded-[3rem] overflow-hidden border-2 border-zinc-800 shadow-2xl aspect-[3/4]">
             {isPlaceholder(data.image) ? (
               <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
                 <User className="w-16 h-16 sm:w-24 sm:h-24 text-zinc-700" />
@@ -96,7 +96,7 @@ export default function DirectorV1({ data, editable, onDataChange, onCTAClick, c
             editable={editable}
             as="p"
             multiline
-            className="text-zinc-300 text-sm sm:text-base md:text-lg leading-relaxed max-w-2xl"
+            className="text-zinc-400 text-sm sm:text-base md:text-lg leading-relaxed max-w-2xl"
           />
 
           {/* Achievements 2-col grid */}
@@ -135,7 +135,7 @@ export default function DirectorV1({ data, editable, onDataChange, onCTAClick, c
           </div>
 
           {/* CTA */}
-          <div className="pt-6 sm:pt-8 border-t border-zinc-700/50">
+          <div className="pt-6 sm:pt-8 border-t border-zinc-800">
             <Button
               size="lg"
               onClick={() => onCTAClick?.('quiz')}

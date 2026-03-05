@@ -4,7 +4,8 @@ import GalleryV3 from './GalleryV3';
 import type { BlockProps } from '../../types';
 import type { GalleryData } from './types';
 
-export default function Gallery({ variant, ...rest }: BlockProps<GalleryData> & { variant?: 1 | 2 | 3 }) {
+export default function Gallery(props: BlockProps<GalleryData> & { variant?: 1 | 2 | 3 }) {
+  const { variant, ...rest } = props;
   switch (variant) {
     case 2: return <GalleryV2 {...rest} />;
     case 3: return <GalleryV3 {...rest} />;

@@ -41,7 +41,7 @@ const GalleryV1: React.FC<BlockProps<GalleryData>> = ({
                 onChange={(v) => onDataChange?.({ ...data, subtitle: v })}
                 editable={editable}
                 as="p"
-                className="mt-2 text-sm sm:text-base text-zinc-300 max-w-2xl mx-auto"
+                className="mt-2 text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto"
                 placeholder="Добавить описание..."
               />
             )}
@@ -55,7 +55,7 @@ const GalleryV1: React.FC<BlockProps<GalleryData>> = ({
               <EditableImage
                 key={i}
                 src={src}
-                alt={`Галерея ${i + 1}`}
+                alt={`Gallery ${i + 1}`}
                 onImageChange={(newSrc) => handleImageChange(i, newSrc)}
                 editable={editable}
                 className="w-full aspect-[3/2] object-cover rounded-2xl"
@@ -93,7 +93,7 @@ const GalleryV1: React.FC<BlockProps<GalleryData>> = ({
             {title}
           </h2>
           {subtitle && (
-            <p className="mt-2 text-sm sm:text-base text-zinc-300 max-w-2xl mx-auto">
+            <p className="mt-2 text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto">
               {subtitle}
             </p>
           )}
@@ -110,7 +110,7 @@ const GalleryV1: React.FC<BlockProps<GalleryData>> = ({
             >
               <img
                 src={src}
-                alt={`Галерея ${(idx % images.length) + 1}`}
+                alt={`Gallery ${(idx % images.length) + 1}`}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 loading="lazy"
               />

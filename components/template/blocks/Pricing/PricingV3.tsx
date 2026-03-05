@@ -31,7 +31,7 @@ export default function PricingV3({ data, editable, onDataChange, onCTAClick }: 
   };
 
   return (
-    <Section id="pricing" className="bg-[var(--color-background,#09090b)]">
+    <Section id="pricing" className="bg-[#0c0c0e]">
       {/* Header */}
       <div className="text-center mb-8 sm:mb-12">
         <EditableText
@@ -47,7 +47,7 @@ export default function PricingV3({ data, editable, onDataChange, onCTAClick }: 
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="text-zinc-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
+            className="text-zinc-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
           />
         )}
       </div>
@@ -62,7 +62,7 @@ export default function PricingV3({ data, editable, onDataChange, onCTAClick }: 
               className={`min-h-[44px] px-4 sm:px-6 py-2.5 rounded-full text-sm sm:text-base font-medium transition-all duration-300 ${
                 idx === activeIdx
                   ? 'bg-primary text-white shadow-[0_0_20px_-5px_rgba(var(--color-primary-rgb),0.5)]'
-                  : 'bg-zinc-900 text-zinc-300 border border-zinc-700/50 hover:border-zinc-600 hover:text-zinc-200'
+                  : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-zinc-600 hover:text-zinc-200'
               }`}
             >
               {plan.name}
@@ -71,7 +71,7 @@ export default function PricingV3({ data, editable, onDataChange, onCTAClick }: 
         </div>
 
         {/* Active plan card */}
-        <div className="bg-zinc-900 border border-zinc-700/50 rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-10 relative overflow-hidden">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-10 relative overflow-hidden">
           {/* Glow */}
           <div className="absolute top-0 right-0 w-48 h-48 bg-primary/15 blur-[100px] rounded-full pointer-events-none" />
 
@@ -105,7 +105,7 @@ export default function PricingV3({ data, editable, onDataChange, onCTAClick }: 
             </div>
 
             {activePlan.validity && (
-              <span className="text-zinc-400 text-sm sm:text-base block mb-6">
+              <span className="text-zinc-500 text-sm sm:text-base block mb-6">
                 {activePlan.validity}
               </span>
             )}
@@ -124,7 +124,7 @@ export default function PricingV3({ data, editable, onDataChange, onCTAClick }: 
 
             {/* Best value text */}
             {activePlan.pricePerClass && (
-              <p className="text-zinc-300 text-sm sm:text-base mb-6">
+              <p className="text-zinc-500 text-sm sm:text-base mb-6">
                 Стоимость одного занятия — <span className="text-primary font-semibold">{activePlan.pricePerClass}</span>
               </p>
             )}

@@ -20,7 +20,7 @@ export default function RequestsV3({ data, editable, onDataChange, onCTAClick }:
   const allItems = data.rows.flat();
 
   return (
-    <Section id="requests" className="bg-[var(--color-background,#09090b)]">
+    <Section id="requests" className="bg-[#0c0c0e]">
       {/* Title */}
       <div className="text-center mb-8 sm:mb-10 md:mb-14">
         <EditableText
@@ -36,7 +36,7 @@ export default function RequestsV3({ data, editable, onDataChange, onCTAClick }:
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-300 max-w-lg mx-auto"
+            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-400 max-w-lg mx-auto"
           />
         )}
       </div>
@@ -46,7 +46,7 @@ export default function RequestsV3({ data, editable, onDataChange, onCTAClick }:
         {allItems.map((item, idx) => (
           <div
             key={`${item.text}-${idx}`}
-            className="group bg-zinc-900 border border-zinc-700/50 rounded-xl p-4 sm:p-5 flex flex-col items-center text-center cursor-default transition-all duration-300 hover:bg-zinc-800"
+            className="group bg-zinc-900 border border-zinc-800 rounded-xl p-4 sm:p-5 flex flex-col items-center text-center cursor-default transition-all duration-300 hover:bg-zinc-800"
           >
             {item.image && !isPlaceholder(item.image) ? (
               <img
@@ -57,7 +57,7 @@ export default function RequestsV3({ data, editable, onDataChange, onCTAClick }:
               />
             ) : (
               <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-zinc-800 group-hover:bg-primary/10 border-2 border-zinc-700 group-hover:border-primary flex items-center justify-center mb-3 transition-all duration-300">
-                <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-zinc-400 group-hover:text-primary transition-colors duration-300" />
+                <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-zinc-500 group-hover:text-primary transition-colors duration-300" />
               </div>
             )}
             <span className="text-zinc-300 group-hover:text-white text-xs sm:text-sm font-medium leading-snug transition-colors duration-300">

@@ -10,7 +10,7 @@ import Section from '../../Section';
  *
  * Two-column on md+: title/subtitle sticky on the left (col-span-4),
  * accordion items on the right (col-span-8). Full-width stack on mobile.
- * Cards use bg-zinc-900 with border, expand with smooth max-h transition.
+ * Cards use bg-[#121215] with border, expand with smooth max-h transition.
  */
 export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQData>) {
   const update = (patch: Partial<FAQData>) => onDataChange?.({ ...data, ...patch });
@@ -21,7 +21,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
   };
 
   return (
-    <Section id="faq" className="bg-[var(--color-background,#09090b)]">
+    <Section id="faq" className="bg-[#0c0c0e]">
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10 lg:gap-16">
         {/* Left: title sidebar */}
         <div className="md:col-span-4">
@@ -39,7 +39,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
                 onChange={(v) => update({ subtitle: v })}
                 editable={editable}
                 as="p"
-                className="text-zinc-300 text-sm sm:text-base md:text-lg leading-relaxed"
+                className="text-zinc-400 text-sm sm:text-base md:text-lg leading-relaxed"
               />
             )}
           </div>
@@ -52,7 +52,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
             return (
               <div
                 key={idx}
-                className="bg-zinc-900 border border-zinc-700/50 rounded-2xl overflow-hidden transition-colors hover:border-zinc-700"
+                className="bg-[#121215] border border-zinc-800 rounded-2xl overflow-hidden transition-colors hover:border-zinc-700"
               >
                 <button
                   onClick={() => toggle(idx)}
@@ -73,7 +73,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
                     {isOpen ? (
                       <Minus className="w-4 h-4 text-primary" />
                     ) : (
-                      <Plus className="w-4 h-4 text-zinc-300" />
+                      <Plus className="w-4 h-4 text-zinc-400" />
                     )}
                   </span>
                 </button>
@@ -81,7 +81,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
                 <div
                   className="overflow-hidden transition-all duration-300 ease-in-out"
                   style={{
-                    maxHeight: isOpen ? '2000px' : '0px',
+                    maxHeight: isOpen ? '500px' : '0px',
                     opacity: isOpen ? 1 : 0,
                   }}
                 >
@@ -96,7 +96,7 @@ export default function FAQV1({ data, editable, onDataChange }: BlockProps<FAQDa
                       editable={editable}
                       as="p"
                       multiline
-                      className="text-zinc-300 text-sm sm:text-base leading-relaxed"
+                      className="text-zinc-400 text-sm sm:text-base leading-relaxed"
                     />
                   </div>
                 </div>

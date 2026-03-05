@@ -23,7 +23,7 @@ export default function ObjectionsV3({ data, editable, onDataChange }: BlockProp
   const pad = (n: number) => String(n + 1).padStart(2, '0');
 
   return (
-    <Section id="objections" className="bg-[var(--color-background,#09090b)]">
+    <Section id="objections" className="bg-[#0c0c0e]">
       {/* Header */}
       <div className="text-center mb-10 sm:mb-14">
         <EditableText
@@ -39,7 +39,7 @@ export default function ObjectionsV3({ data, editable, onDataChange }: BlockProp
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="text-zinc-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
+            className="text-zinc-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
           />
         )}
       </div>
@@ -52,7 +52,7 @@ export default function ObjectionsV3({ data, editable, onDataChange }: BlockProp
             <div
               key={idx}
               className={`bg-zinc-900 rounded-xl sm:rounded-2xl overflow-hidden transition-colors duration-200 ${
-                isOpen ? 'border border-zinc-700' : 'border border-zinc-700/50 hover:bg-zinc-800'
+                isOpen ? 'border border-zinc-700' : 'border border-zinc-800 hover:bg-zinc-800'
               }`}
             >
               <button
@@ -63,7 +63,7 @@ export default function ObjectionsV3({ data, editable, onDataChange }: BlockProp
                 <span className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 text-xs sm:text-sm font-bold transition-colors duration-200 ${
                   isOpen
                     ? 'bg-primary text-white'
-                    : 'bg-zinc-800 text-zinc-400'
+                    : 'bg-zinc-800 text-zinc-500'
                 }`}>
                   {pad(idx)}
                 </span>
@@ -83,7 +83,7 @@ export default function ObjectionsV3({ data, editable, onDataChange }: BlockProp
 
                 {/* Arrow */}
                 <ChevronRight
-                  className={`w-5 h-5 text-zinc-400 shrink-0 transition-transform duration-300 ${
+                  className={`w-5 h-5 text-zinc-500 shrink-0 transition-transform duration-300 ${
                     isOpen ? 'rotate-90 text-primary' : ''
                   }`}
                 />
@@ -109,7 +109,7 @@ export default function ObjectionsV3({ data, editable, onDataChange }: BlockProp
                       editable={editable}
                       as="p"
                       multiline
-                      className="text-zinc-300 text-sm sm:text-base leading-relaxed"
+                      className="text-zinc-400 text-sm sm:text-base leading-relaxed"
                     />
                   </div>
                 </div>

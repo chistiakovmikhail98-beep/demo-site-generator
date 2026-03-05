@@ -49,7 +49,7 @@ export default function AtmosphereV3({ data, editable, onDataChange }: BlockProp
   if (items.length === 0) return null;
 
   return (
-    <div className="relative w-full bg-[var(--color-background,#09090b)] overflow-hidden" id="atmosphere">
+    <div className="relative w-full bg-[#0c0c0e] overflow-hidden" id="atmosphere">
       {/* Title bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-6 sm:pb-8">
         <EditableText
@@ -65,7 +65,7 @@ export default function AtmosphereV3({ data, editable, onDataChange }: BlockProp
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-300 max-w-lg"
+            className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-400 max-w-lg"
             placeholder="Добавить описание..."
           />
         )}
@@ -132,14 +132,14 @@ export default function AtmosphereV3({ data, editable, onDataChange }: BlockProp
           <>
             <button
               onClick={goPrev}
-              aria-label="Предыдущий слайд"
+              aria-label="Previous slide"
               className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-30 w-11 h-11 min-h-[44px] min-w-[44px] rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white hover:bg-black/60 transition-colors duration-200"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               onClick={goNext}
-              aria-label="Следующий слайд"
+              aria-label="Next slide"
               className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-30 w-11 h-11 min-h-[44px] min-w-[44px] rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white hover:bg-black/60 transition-colors duration-200"
             >
               <ChevronRight className="w-5 h-5" />
@@ -155,7 +155,7 @@ export default function AtmosphereV3({ data, editable, onDataChange }: BlockProp
             <button
               key={idx}
               onClick={() => goTo(idx)}
-              aria-label={`Перейти к слайду ${idx + 1}`}
+              aria-label={`Go to slide ${idx + 1}`}
               className="min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <span

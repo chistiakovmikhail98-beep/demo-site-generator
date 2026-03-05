@@ -35,7 +35,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
   const placeholder = isPlaceholder(current.image);
 
   return (
-    <Section id="directions" className="bg-[var(--color-background,#09090b)]">
+    <Section id="directions" className="bg-[#0c0c0e]">
       {/* Header */}
       <div className="text-center mb-8 sm:mb-12">
         <EditableText
@@ -51,7 +51,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
             onChange={v => onDataChange?.({ ...data, subtitle: v })}
             editable={editable}
             as="p"
-            className="text-sm sm:text-base md:text-lg text-zinc-300 max-w-2xl mx-auto"
+            className="text-sm sm:text-base md:text-lg text-zinc-500 max-w-2xl mx-auto"
           />
         )}
       </div>
@@ -71,7 +71,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
               />
             ) : placeholder ? (
               <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center">
-                <span className="text-zinc-400 font-bold text-lg uppercase tracking-wider text-center px-8">
+                <span className="text-zinc-500 font-bold text-lg uppercase tracking-wider text-center px-8">
                   {current.title}
                 </span>
               </div>
@@ -141,7 +141,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
             editable={editable}
             as="p"
             multiline
-            className="text-sm sm:text-base text-zinc-300 leading-relaxed mb-6 sm:mb-8"
+            className="text-sm sm:text-base text-zinc-400 leading-relaxed mb-6 sm:mb-8"
           />
 
           {/* Metrics */}
@@ -152,7 +152,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
                 <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </div>
               <div>
-                <p className="text-[10px] sm:text-xs text-zinc-400 uppercase tracking-wider">Длительность</p>
+                <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wider">Длительность</p>
                 <EditableText
                   value={current.duration}
                   onChange={v => updateCurrent({ ...current, duration: v })}
@@ -170,7 +170,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
                   <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" />
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs text-zinc-400 uppercase tracking-wider">Калории</p>
+                  <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wider">Калории</p>
                   <EditableText
                     value={current.calories}
                     onChange={v => updateCurrent({ ...current, calories: v })}
@@ -189,7 +189,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
               {current.tags.map((tag, i) => (
                 <span
                   key={i}
-                  className="px-3 py-1.5 bg-zinc-900 text-zinc-300 text-xs sm:text-sm rounded-full border border-zinc-700/50"
+                  className="px-3 py-1.5 bg-zinc-900 text-zinc-400 text-xs sm:text-sm rounded-full border border-zinc-800"
                 >
                   {tag}
                 </span>
@@ -201,7 +201,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
           <Button
             variant="primary"
             size="lg"
-            className="uppercase tracking-wide w-full sm:w-auto"
+            className="rounded-2xl uppercase tracking-wide font-bold w-full sm:w-auto"
             onClick={() => onCTAClick?.('direction-signup')}
           >
             {current.buttonText || 'Записаться на занятие'}
@@ -232,7 +232,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
                     w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-xl overflow-hidden
                     transition-all duration-300 flex-shrink-0
                     ${isActive
-                      ? 'ring-2 ring-primary ring-offset-2 ring-offset-[#09090b] scale-105'
+                      ? 'ring-2 ring-primary ring-offset-2 ring-offset-[#0c0c0e] scale-105'
                       : 'opacity-50 hover:opacity-80'
                     }
                   `}
@@ -240,7 +240,7 @@ export default function DirectionsV3({ data, editable, onDataChange, onCTAClick 
                 >
                   {thumbPlaceholder ? (
                     <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center">
-                      <span className="text-zinc-400 font-bold text-[7px] sm:text-[8px] uppercase text-center leading-tight px-1">
+                      <span className="text-zinc-500 font-bold text-[7px] sm:text-[8px] uppercase text-center leading-tight px-1">
                         {dir.title.slice(0, 10)}
                       </span>
                     </div>

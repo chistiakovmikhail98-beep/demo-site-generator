@@ -34,7 +34,7 @@ const StoriesV1: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
   const renderStoryCard = (story: StoryItem, index: number) => (
     <div
       key={story.id}
-      className="bg-zinc-900 border border-zinc-700/50 rounded-2xl sm:rounded-3xl p-2 flex flex-col"
+      className="bg-[#121215] border border-zinc-800 rounded-2xl sm:rounded-[2.5rem] p-2 flex flex-col"
     >
       {/* Before / After image pair */}
       <div className="grid grid-cols-2 gap-2 mb-4">
@@ -106,7 +106,7 @@ const StoriesV1: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
           editable={editable}
           as="p"
           multiline
-          className="text-zinc-300 text-sm sm:text-base mb-6 sm:mb-8 leading-relaxed flex-grow"
+          className="text-zinc-400 text-sm sm:text-base mb-6 sm:mb-8 leading-relaxed flex-grow"
         />
 
         <div className="flex flex-wrap items-center gap-3">
@@ -117,7 +117,7 @@ const StoriesV1: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
             Хочу также
           </Button>
           <button
-            className="text-sm font-medium text-zinc-300 hover:text-white flex items-center gap-2 transition-colors bg-zinc-900/50 hover:bg-zinc-900 border border-zinc-700/50 px-5 min-h-[44px] rounded-full w-full sm:w-auto justify-center"
+            className="text-sm font-medium text-zinc-400 hover:text-white flex items-center gap-2 transition-colors bg-zinc-900/50 hover:bg-zinc-900 border border-zinc-800 px-5 min-h-[44px] rounded-full w-full sm:w-auto justify-center"
           >
             Читать полностью <ArrowRight className="w-4 h-4" />
           </button>
@@ -135,7 +135,7 @@ const StoriesV1: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
   });
 
   return (
-    <Section id="stories" className={`bg-[var(--color-background,#09090b)] ${className}`}>
+    <Section id="stories" className={`bg-[#0c0c0e] ${className}`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8 sm:mb-10 md:mb-12">
         <div>
@@ -152,7 +152,7 @@ const StoriesV1: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
               onChange={(v) => update({ subtitle: v })}
               editable={editable}
               as="p"
-              className="mt-2 text-sm sm:text-base text-zinc-300 max-w-xl"
+              className="mt-2 text-sm sm:text-base text-zinc-400 max-w-xl"
               placeholder="Описание секции..."
             />
           )}

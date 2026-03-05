@@ -4,7 +4,8 @@ import HeroV3 from './HeroV3';
 import type { BlockProps } from '../../types';
 import type { HeroData } from './types';
 
-export default function Hero({ variant, ...rest }: BlockProps<HeroData> & { variant?: 1 | 2 | 3 }) {
+export default function Hero(props: BlockProps<HeroData> & { variant?: 1 | 2 | 3 }) {
+  const { variant, ...rest } = props;
   switch (variant) {
     case 2: return <HeroV2 {...rest} />;
     case 3: return <HeroV3 {...rest} />;

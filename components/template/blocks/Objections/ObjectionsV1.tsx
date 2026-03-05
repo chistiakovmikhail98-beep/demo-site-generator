@@ -16,7 +16,7 @@ export default function ObjectionsV1({ data, editable, onDataChange }: BlockProp
   const update = (patch: Partial<ObjectionsData>) => onDataChange?.({ ...data, ...patch });
 
   return (
-    <Section id="objections" className="bg-[var(--color-background,#09090b)]">
+    <Section id="objections" className="bg-[#0c0c0e]">
       {/* Header */}
       <div className="text-center mb-10 sm:mb-14">
         <EditableText
@@ -32,7 +32,7 @@ export default function ObjectionsV1({ data, editable, onDataChange }: BlockProp
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="text-zinc-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
+            className="text-zinc-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto"
           />
         )}
       </div>
@@ -42,11 +42,11 @@ export default function ObjectionsV1({ data, editable, onDataChange }: BlockProp
         {data.pairs.map((pair, idx) => (
           <div
             key={idx}
-            className="bg-[#18181b] border border-zinc-700/50 rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col hover:border-zinc-700 transition-colors"
+            className="bg-[#18181b] border border-zinc-800 rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col hover:border-zinc-700 transition-colors"
           >
             {/* Myth */}
             <div className="flex items-start gap-3 mb-4 sm:mb-5">
-              <MessageCircleQuestion className="w-5 h-5 text-zinc-400 mt-0.5 shrink-0" />
+              <MessageCircleQuestion className="w-5 h-5 text-zinc-500 mt-0.5 shrink-0" />
               <EditableText
                 value={pair.myth}
                 onChange={(v) => {
@@ -57,7 +57,7 @@ export default function ObjectionsV1({ data, editable, onDataChange }: BlockProp
                 editable={editable}
                 as="p"
                 multiline
-                className="text-zinc-300 text-sm sm:text-base italic leading-relaxed"
+                className="text-zinc-400 text-sm sm:text-base italic leading-relaxed"
               />
             </div>
 

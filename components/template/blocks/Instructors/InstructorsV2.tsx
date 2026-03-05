@@ -33,10 +33,10 @@ const InstructorsV2: React.FC<BlockProps<InstructorsData> & { variant?: never }>
   const renderInstructorCard = (inst: InstructorItem, index: number) => (
     <div key={inst.id} className="group">
       {/* Image */}
-      <div className="relative aspect-square rounded-3xl overflow-hidden bg-zinc-800 mb-4 sm:mb-5">
+      <div className="relative aspect-square rounded-3xl overflow-hidden bg-zinc-200 mb-4 sm:mb-5">
         {isPlaceholder(inst.image) ? (
-          <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center transition-transform duration-700 group-hover:scale-105">
-            <User className="w-12 h-12 sm:w-16 sm:h-16 text-zinc-500" />
+          <div className="w-full h-full bg-gradient-to-br from-zinc-200 to-zinc-300 flex items-center justify-center transition-transform duration-700 group-hover:scale-105">
+            <User className="w-12 h-12 sm:w-16 sm:h-16 text-zinc-400" />
           </div>
         ) : editable ? (
           <EditableImage
@@ -85,7 +85,7 @@ const InstructorsV2: React.FC<BlockProps<InstructorsData> & { variant?: never }>
           onChange={(v) => updateInstructor(index, { name: v })}
           editable={editable}
           as="h3"
-          className="text-xl sm:text-2xl font-bold text-white mb-1.5"
+          className="text-xl sm:text-2xl font-bold text-zinc-900 mb-1.5"
         />
 
         {/* Specialties: bullet-separated */}
@@ -118,7 +118,7 @@ const InstructorsV2: React.FC<BlockProps<InstructorsData> & { variant?: never }>
           onChange={(v) => updateInstructor(index, { experience: v })}
           editable={editable}
           as="p"
-          className="text-zinc-300 text-sm sm:text-base"
+          className="text-zinc-500 text-sm sm:text-base"
         />
       </div>
     </div>
@@ -133,7 +133,7 @@ const InstructorsV2: React.FC<BlockProps<InstructorsData> & { variant?: never }>
   });
 
   return (
-    <Section id="instructors" className={`bg-[var(--color-background,#09090b)] ${className}`}>
+    <Section id="instructors" className={`bg-zinc-50 ${className}`}>
       {/* Header */}
       <div className="text-center mb-8 sm:mb-10 md:mb-12">
         <EditableText
@@ -141,7 +141,7 @@ const InstructorsV2: React.FC<BlockProps<InstructorsData> & { variant?: never }>
           onChange={(v) => update({ title: v })}
           editable={editable}
           as="h2"
-          className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 sm:mb-4"
+          className="text-3xl sm:text-4xl md:text-5xl font-bold text-zinc-900 mb-3 sm:mb-4"
         />
         {(data.subtitle || editable) && (
           <EditableText
@@ -149,7 +149,7 @@ const InstructorsV2: React.FC<BlockProps<InstructorsData> & { variant?: never }>
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="text-zinc-300 text-base sm:text-lg max-w-2xl mx-auto"
+            className="text-zinc-500 text-base sm:text-lg max-w-2xl mx-auto"
             placeholder="Описание команды..."
           />
         )}

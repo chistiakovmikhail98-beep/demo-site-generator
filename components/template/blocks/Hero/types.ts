@@ -1,8 +1,3 @@
-export interface HeroStat {
-  value: string;
-  label: string;
-}
-
 export interface HeroData {
   brandName: string;
   city?: string;
@@ -14,5 +9,4 @@ export interface HeroData {
   advantages: string[];
   niche: string;
   buttonText?: string;
-  heroStats?: HeroStat[];
 }

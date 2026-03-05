@@ -10,7 +10,7 @@ import type { DirectionsData, DirectionItem } from './types';
 
 export default function DirectionsV2({ data, editable, onDataChange, onCTAClick }: BlockProps<DirectionsData>) {
   return (
-    <Section id="directions" className="bg-[var(--color-background,#09090b)]">
+    <Section id="directions" className="bg-[#0c0c0e]">
       {/* Header */}
       <div className="text-center mb-10 sm:mb-16">
         <EditableText
@@ -26,7 +26,7 @@ export default function DirectionsV2({ data, editable, onDataChange, onCTAClick 
             onChange={v => onDataChange?.({ ...data, subtitle: v })}
             editable={editable}
             as="p"
-            className="text-sm sm:text-base md:text-lg text-zinc-400 max-w-2xl mx-auto"
+            className="text-sm sm:text-base md:text-lg text-zinc-500 max-w-2xl mx-auto"
           />
         )}
       </div>
@@ -87,7 +87,7 @@ function DirectionRow({ item, index, editable, onChange, onCTAClick }: RowProps)
       onKeyDown={e => { if (e.key === 'Enter') onCTAClick?.('direction-signup'); }}
     >
       {/* Number Badge -- hidden on mobile */}
-      <span className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 text-xs sm:text-sm font-bold flex-shrink-0 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+      <span className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 items-center justify-center rounded-full bg-zinc-800 text-zinc-500 text-xs sm:text-sm font-bold flex-shrink-0 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
         {num}
       </span>
 
@@ -103,7 +103,7 @@ function DirectionRow({ item, index, editable, onChange, onCTAClick }: RowProps)
           />
         ) : placeholder ? (
           <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center">
-            <span className="text-zinc-400 font-bold text-[8px] sm:text-[10px] uppercase tracking-wider text-center leading-tight px-1">
+            <span className="text-zinc-500 font-bold text-[8px] sm:text-[10px] uppercase tracking-wider text-center leading-tight px-1">
               {item.title.slice(0, 12)}
             </span>
           </div>
@@ -127,13 +127,13 @@ function DirectionRow({ item, index, editable, onChange, onCTAClick }: RowProps)
           className="text-base sm:text-xl font-bold text-white group-hover:text-primary transition-colors duration-300 truncate"
         />
         {/* Tags -- visible on mobile as subtitle */}
-        <p className="text-xs sm:text-sm text-zinc-400 mt-0.5 sm:mt-1 truncate">
+        <p className="text-xs sm:text-sm text-zinc-500 mt-0.5 sm:mt-1 truncate">
           {item.tags.join(' \u00b7 ')}
         </p>
       </div>
 
       {/* Duration -- hidden on mobile */}
-      <div className="hidden sm:flex items-center gap-2 text-zinc-400 flex-shrink-0">
+      <div className="hidden sm:flex items-center gap-2 text-zinc-500 flex-shrink-0">
         <Clock className="w-4 h-4" />
         <EditableText
           value={item.duration}
@@ -153,7 +153,7 @@ function DirectionRow({ item, index, editable, onChange, onCTAClick }: RowProps)
         }}
         aria-label={`Подробнее: ${item.title}`}
       >
-        <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-300 group-hover:text-white transition-colors duration-300 group-hover:translate-x-0.5 transform" />
+        <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400 group-hover:text-white transition-colors duration-300 group-hover:translate-x-0.5 transform" />
       </button>
     </div>
   );

@@ -4,7 +4,8 @@ import DirectorV3 from './DirectorV3';
 import type { BlockProps } from '../../types';
 import type { DirectorData } from './types';
 
-export default function Director({ variant, ...rest }: BlockProps<DirectorData> & { variant?: 1 | 2 | 3 }) {
+export default function Director(props: BlockProps<DirectorData> & { variant?: 1 | 2 | 3 }) {
+  const { variant, ...rest } = props;
   switch (variant) {
     case 2: return <DirectorV2 {...rest} />;
     case 3: return <DirectorV3 {...rest} />;

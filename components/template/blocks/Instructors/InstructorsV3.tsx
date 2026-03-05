@@ -43,7 +43,7 @@ const InstructorsV3: React.FC<BlockProps<InstructorsData> & { variant?: never }>
   };
 
   return (
-    <Section id="instructors" className={`bg-[var(--color-background,#09090b)] ${className}`}>
+    <Section id="instructors" className={`bg-[#0c0c0e] ${className}`}>
       {/* Header */}
       <div className="mb-8 sm:mb-10 md:mb-12">
         <EditableText
@@ -59,7 +59,7 @@ const InstructorsV3: React.FC<BlockProps<InstructorsData> & { variant?: never }>
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-300 max-w-xl"
+            className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-500 max-w-xl"
             placeholder="Описание команды..."
           />
         )}
@@ -127,7 +127,7 @@ const InstructorsV3: React.FC<BlockProps<InstructorsData> & { variant?: never }>
             {current.specialties.map((spec, sIdx) => (
               <span
                 key={sIdx}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-zinc-900 border border-zinc-700/50 rounded-full text-xs sm:text-sm text-zinc-300 font-medium"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-zinc-900 border border-zinc-800 rounded-full text-xs sm:text-sm text-zinc-300 font-medium"
               >
                 {editable ? (
                   <EditableText
@@ -154,12 +154,12 @@ const InstructorsV3: React.FC<BlockProps<InstructorsData> & { variant?: never }>
             onChange={(v) => updateCurrent({ experience: v.replace(/^Опыт:\s*/, '') })}
             editable={editable}
             as="p"
-            className="text-zinc-300 text-sm sm:text-base mb-5 sm:mb-6"
+            className="text-zinc-400 text-sm sm:text-base mb-5 sm:mb-6"
           />
 
           {/* Quote */}
           {(current.quote || editable) && (
-            <div className="bg-zinc-900 border border-zinc-700/50 rounded-2xl p-4 sm:p-5 md:p-6 mb-6 sm:mb-8">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 sm:p-5 md:p-6 mb-6 sm:mb-8">
               <Quote className="w-5 h-5 sm:w-6 sm:h-6 text-primary mb-2 sm:mb-3" />
               <EditableText
                 value={current.quote || ''}
@@ -179,14 +179,14 @@ const InstructorsV3: React.FC<BlockProps<InstructorsData> & { variant?: never }>
               {/* Prev / Next buttons */}
               <button
                 onClick={() => goTo(activeIndex - 1)}
-                className="w-11 h-11 sm:w-12 sm:h-12 border border-zinc-700 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors"
+                className="w-11 h-11 sm:w-12 sm:h-12 border border-zinc-700 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
                 aria-label="Предыдущий"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={() => goTo(activeIndex + 1)}
-                className="w-11 h-11 sm:w-12 sm:h-12 border border-zinc-700 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors"
+                className="w-11 h-11 sm:w-12 sm:h-12 border border-zinc-700 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
                 aria-label="Следующий"
               >
                 <ChevronRight className="w-5 h-5" />

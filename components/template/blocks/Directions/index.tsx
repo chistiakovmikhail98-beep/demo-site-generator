@@ -5,7 +5,8 @@ import DirectionsV3 from './DirectionsV3';
 import type { BlockProps } from '../../types';
 import type { DirectionsData } from './types';
 
-export default function Directions({ variant, ...rest }: BlockProps<DirectionsData> & { variant?: 1 | 2 | 3 }) {
+export default function Directions(props: BlockProps<DirectionsData> & { variant?: 1 | 2 | 3 }) {
+  const { variant, ...rest } = props;
   switch (variant) {
     case 2: return <DirectionsV2 {...rest} />;
     case 3: return <DirectionsV3 {...rest} />;

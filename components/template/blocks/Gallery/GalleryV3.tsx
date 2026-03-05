@@ -78,7 +78,7 @@ const GalleryV3: React.FC<BlockProps<GalleryData>> = ({
                 onChange={(v) => onDataChange?.({ ...data, subtitle: v })}
                 editable={editable}
                 as="p"
-                className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-300 max-w-2xl mx-auto"
+                className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto"
                 placeholder="Добавить описание..."
               />
             )}
@@ -93,7 +93,7 @@ const GalleryV3: React.FC<BlockProps<GalleryData>> = ({
               {editable ? (
                 <EditableImage
                   src={images[activeIndex]}
-                  alt={`Галерея ${activeIndex + 1}`}
+                  alt={`Gallery ${activeIndex + 1}`}
                   onImageChange={(newSrc) => handleImageChange(activeIndex, newSrc)}
                   editable={editable}
                   className="w-full aspect-[4/3] sm:aspect-[3/2] object-cover"
@@ -102,7 +102,7 @@ const GalleryV3: React.FC<BlockProps<GalleryData>> = ({
               ) : (
                 <img
                   src={images[activeIndex]}
-                  alt={`Галерея ${activeIndex + 1}`}
+                  alt={`Gallery ${activeIndex + 1}`}
                   className="w-full aspect-[4/3] sm:aspect-[3/2] object-cover transition-opacity duration-300"
                   loading="lazy"
                 />
@@ -119,14 +119,14 @@ const GalleryV3: React.FC<BlockProps<GalleryData>> = ({
                   <button
                     onClick={goToPrev}
                     className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white hover:bg-black/60 transition-colors"
-                    aria-label="Предыдущее фото"
+                    aria-label="Previous image"
                   >
                     <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
                   <button
                     onClick={goToNext}
                     className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white hover:bg-black/60 transition-colors"
-                    aria-label="Следующее фото"
+                    aria-label="Next image"
                   >
                     <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
@@ -164,12 +164,12 @@ const GalleryV3: React.FC<BlockProps<GalleryData>> = ({
                         ? 'ring-2 ring-primary ring-offset-2 ring-offset-zinc-950 scale-[1.02]'
                         : 'opacity-60 hover:opacity-90'
                     }`}
-                    aria-label={`Показать фото ${i + 1}`}
+                    aria-label={`View image ${i + 1}`}
                   >
                     {editable ? (
                       <EditableImage
                         src={src}
-                        alt={`Миниатюра ${i + 1}`}
+                        alt={`Thumbnail ${i + 1}`}
                         onImageChange={(newSrc) => handleImageChange(i, newSrc)}
                         editable={editable}
                         className="w-full h-full object-cover"
@@ -178,7 +178,7 @@ const GalleryV3: React.FC<BlockProps<GalleryData>> = ({
                     ) : (
                       <img
                         src={src}
-                        alt={`Миниатюра ${i + 1}`}
+                        alt={`Thumbnail ${i + 1}`}
                         className="w-full h-full object-cover"
                         loading="lazy"
                       />

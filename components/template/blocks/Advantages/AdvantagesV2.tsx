@@ -57,7 +57,7 @@ export default function AdvantagesV2({ data, editable, onDataChange }: BlockProp
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-400 max-w-lg"
+            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-500 max-w-lg"
           />
         )}
       </div>
@@ -116,7 +116,7 @@ export default function AdvantagesV2({ data, editable, onDataChange }: BlockProp
                 editable={editable}
                 as="p"
                 multiline
-                className="text-sm text-zinc-500 leading-relaxed"
+                className="text-sm text-zinc-600 leading-relaxed"
               />
             </div>
           );

@@ -77,7 +77,7 @@ const GalleryV2: React.FC<BlockProps<GalleryData>> = ({
                 onChange={(v) => onDataChange?.({ ...data, subtitle: v })}
                 editable={editable}
                 as="p"
-                className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-300 max-w-2xl mx-auto"
+                className="mt-2 sm:mt-3 text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto"
                 placeholder="Добавить описание..."
               />
             )}
@@ -99,7 +99,7 @@ const GalleryV2: React.FC<BlockProps<GalleryData>> = ({
                 {editable ? (
                   <EditableImage
                     src={src}
-                    alt={`Галерея ${i + 1}`}
+                    alt={`Gallery ${i + 1}`}
                     onImageChange={(newSrc) => handleImageChange(i, newSrc)}
                     editable={editable}
                     className="w-full h-full object-cover"
@@ -109,7 +109,7 @@ const GalleryV2: React.FC<BlockProps<GalleryData>> = ({
                   <>
                     <img
                       src={src}
-                      alt={`Галерея ${i + 1}`}
+                      alt={`Gallery ${i + 1}`}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       loading="lazy"
                     />
@@ -139,7 +139,7 @@ const GalleryV2: React.FC<BlockProps<GalleryData>> = ({
           <button
             onClick={closeLightbox}
             className="absolute top-3 right-3 sm:top-5 sm:right-5 z-10 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 transition-colors"
-            aria-label="Закрыть"
+            aria-label="Close"
           >
             <X className="w-6 h-6" />
           </button>
@@ -156,7 +156,7 @@ const GalleryV2: React.FC<BlockProps<GalleryData>> = ({
           >
             <img
               src={images[lightboxIndex]}
-              alt={`Галерея ${lightboxIndex + 1}`}
+              alt={`Gallery ${lightboxIndex + 1}`}
               className="max-w-full max-h-[70vh] sm:max-h-[80vh] object-contain rounded-lg sm:rounded-xl select-none"
               draggable={false}
             />
@@ -169,7 +169,7 @@ const GalleryV2: React.FC<BlockProps<GalleryData>> = ({
                   goToPrev();
                 }}
                 className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/25 transition-colors"
-                aria-label="Предыдущее фото"
+                aria-label="Previous image"
               >
                 <ChevronLeft className="w-6 h-6 sm:w-7 sm:h-7" />
               </button>
@@ -183,7 +183,7 @@ const GalleryV2: React.FC<BlockProps<GalleryData>> = ({
                   goToNext();
                 }}
                 className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/25 transition-colors"
-                aria-label="Следующее фото"
+                aria-label="Next image"
               >
                 <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7" />
               </button>
@@ -201,7 +201,7 @@ const GalleryV2: React.FC<BlockProps<GalleryData>> = ({
                     setLightboxIndex(i);
                   }}
                   className="min-w-[44px] min-h-[44px] flex items-center justify-center"
-                  aria-label={`Перейти к фото ${i + 1}`}
+                  aria-label={`Go to image ${i + 1}`}
                 >
                   <span
                     className={`block rounded-full transition-all duration-300 ${

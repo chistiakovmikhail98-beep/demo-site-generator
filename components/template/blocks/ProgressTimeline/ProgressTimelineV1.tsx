@@ -51,7 +51,7 @@ const RadarChart: React.FC<RadarProps> = ({ stats }) => {
   ];
 
   return (
-    <div className="w-full h-full bg-[var(--color-background,#09090b)] relative overflow-hidden flex flex-col items-center justify-center">
+    <div className="w-full h-full bg-[#0c0c0e] relative overflow-hidden flex flex-col items-center justify-center">
       {/* Background ambience */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[400px] bg-primary/10 blur-[80px] pointer-events-none" />
       <div
@@ -109,7 +109,7 @@ const RadarChart: React.FC<RadarProps> = ({ stats }) => {
       <div className="absolute bottom-2 sm:bottom-4 md:bottom-6 left-3 sm:left-4 md:left-6 right-3 sm:right-4 md:right-6 grid grid-cols-4 gap-1 sm:gap-2 md:gap-4">
         {labels.slice(0, 4).map((label, i) => (
           <div key={i} className="flex flex-col gap-1 md:gap-2">
-            <span className="text-zinc-400 text-[7px] sm:text-[9px] md:text-[10px] font-bold uppercase tracking-wider truncate">
+            <span className="text-zinc-500 text-[7px] sm:text-[9px] md:text-[10px] font-bold uppercase tracking-wider truncate">
               {label}
             </span>
             <div className="h-0.5 md:h-1 bg-zinc-900 rounded-full overflow-hidden border border-white/5">
@@ -125,7 +125,7 @@ const RadarChart: React.FC<RadarProps> = ({ stats }) => {
       {/* Top-left label */}
       <div className="absolute top-4 sm:top-6 left-4 sm:left-6 flex items-center gap-2 border-l border-white/20 pl-3">
         <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-        <span className="text-[9px] sm:text-[10px] font-mono text-zinc-400 uppercase tracking-widest">
+        <span className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
           ДИНАМИКА РАЗВИТИЯ
         </span>
       </div>
@@ -169,11 +169,11 @@ const ProgressTimelineV1: React.FC<BlockProps<ProgressTimelineData>> = ({ data }
   const activeStats = activeStage?.stats || {};
 
   return (
-    <div className="relative bg-[var(--color-background,#09090b)]" id="progress-timeline">
+    <div className="relative bg-[#0c0c0e]" id="progress-timeline">
       <div ref={containerRef} className="relative h-[400vh]">
         <div className="sticky top-0 h-screen flex flex-col lg:flex-row items-center justify-center overflow-hidden py-6 sm:py-8 lg:py-10">
           <div className="w-full h-full lg:h-[85vh] max-w-7xl mx-auto px-3 sm:px-4 md:px-8">
-            <div className="w-full h-full bg-zinc-900 border border-zinc-700/50 rounded-2xl sm:rounded-[2rem] md:rounded-[3.5rem] shadow-2xl relative overflow-hidden flex flex-col">
+            <div className="w-full h-full bg-zinc-900 border border-zinc-800/50 rounded-2xl sm:rounded-[2rem] md:rounded-[3.5rem] shadow-2xl relative overflow-hidden flex flex-col">
 
               {/* ---- Desktop header with timeline dots ---- */}
               <div className="hidden lg:flex justify-between items-center p-8 lg:p-12 pb-0 relative z-20">
@@ -181,7 +181,7 @@ const ProgressTimelineV1: React.FC<BlockProps<ProgressTimelineData>> = ({ data }
                   <h2 className="text-3xl lg:text-4xl font-black text-white uppercase tracking-tighter italic">
                     {data.title || 'Как меняется тело'}
                   </h2>
-                  <p className="text-zinc-400 text-sm font-bold uppercase tracking-widest mt-1">
+                  <p className="text-zinc-500 text-sm font-bold uppercase tracking-widest mt-1">
                     {data.subtitle || 'Трансформация через системный подход'}
                   </p>
                 </div>
@@ -217,7 +217,7 @@ const ProgressTimelineV1: React.FC<BlockProps<ProgressTimelineData>> = ({ data }
               </div>
 
               {/* ---- Mobile header with progress bars ---- */}
-              <div className="lg:hidden p-4 sm:p-6 z-30 bg-zinc-900 border-b border-zinc-700/50">
+              <div className="lg:hidden p-4 sm:p-6 z-30 bg-zinc-900 border-b border-zinc-800/50">
                 <h2 className="text-lg sm:text-xl font-black text-white uppercase tracking-tighter italic mb-3">
                   {data.title || 'ПУТЬ К ЗДОРОВЬЮ'}
                 </h2>
@@ -237,7 +237,7 @@ const ProgressTimelineV1: React.FC<BlockProps<ProgressTimelineData>> = ({ data }
               <div className="flex-grow relative z-10 overflow-hidden flex flex-col lg:flex-row">
                 {/* Radar chart panel — top on mobile, right on desktop */}
                 <div className="w-full h-[50%] sm:h-[55%] lg:w-7/12 lg:h-full lg:order-2 lg:p-12 p-3 sm:p-4">
-                  <div className="w-full h-full rounded-xl sm:rounded-2xl lg:rounded-[2rem] overflow-hidden border border-zinc-700/50 shadow-inner">
+                  <div className="w-full h-full rounded-xl sm:rounded-2xl lg:rounded-[2rem] overflow-hidden border border-zinc-800/50 shadow-inner">
                     <RadarChart stats={activeStats} />
                   </div>
                 </div>
@@ -261,7 +261,7 @@ const ProgressTimelineV1: React.FC<BlockProps<ProgressTimelineData>> = ({ data }
                         <h3 className="text-xl sm:text-2xl lg:text-5xl font-bold text-white mb-2 sm:mb-4 lg:mb-8 tracking-tight">
                           {stage.title}
                         </h3>
-                        <p className="text-zinc-300 text-xs sm:text-sm lg:text-lg leading-relaxed font-medium">
+                        <p className="text-zinc-500 text-xs sm:text-sm lg:text-lg leading-relaxed font-medium">
                           {stage.description}
                         </p>
                       </div>
@@ -280,7 +280,7 @@ const ProgressTimelineV1: React.FC<BlockProps<ProgressTimelineData>> = ({ data }
 
                       {/* Achievements (if any) */}
                       {stage.achievements && stage.achievements.length > 0 && (
-                        <div className="mt-3 sm:mt-4 lg:mt-6 pt-3 sm:pt-4 border-t border-zinc-700/50">
+                        <div className="mt-3 sm:mt-4 lg:mt-6 pt-3 sm:pt-4 border-t border-zinc-800/50">
                           {stage.achievements.map((ach, aIdx) => (
                             <p key={aIdx} className="text-primary/80 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
                               {ach}

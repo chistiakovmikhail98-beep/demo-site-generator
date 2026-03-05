@@ -29,7 +29,7 @@ export default function AtmosphereV2({ data, editable, onDataChange }: BlockProp
   if (items.length === 0) return null;
 
   return (
-    <Section id="atmosphere" className="bg-[var(--color-background,#09090b)]">
+    <Section id="atmosphere" className="bg-[#0c0c0e]">
       {/* Header */}
       <div className="mb-8 sm:mb-10 md:mb-14">
         <EditableText
@@ -45,7 +45,7 @@ export default function AtmosphereV2({ data, editable, onDataChange }: BlockProp
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-300 max-w-lg"
+            className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-400 max-w-lg"
             placeholder="Добавить описание..."
           />
         )}

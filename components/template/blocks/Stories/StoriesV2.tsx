@@ -45,7 +45,7 @@ const StoriesV2: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
   };
 
   return (
-    <Section id="stories" className={`bg-[var(--color-background,#09090b)] ${className}`}>
+    <Section id="stories" className={`bg-[#0c0c0e] ${className}`}>
       {/* Header */}
       <div className="text-center mb-8 sm:mb-10 md:mb-12">
         <EditableText
@@ -61,7 +61,7 @@ const StoriesV2: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
             onChange={(v) => update({ subtitle: v })}
             editable={editable}
             as="p"
-            className="text-zinc-300 text-base sm:text-lg max-w-2xl mx-auto"
+            className="text-zinc-400 text-base sm:text-lg max-w-2xl mx-auto"
             placeholder="Описание секции..."
           />
         )}
@@ -143,7 +143,7 @@ const StoriesV2: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
             editable={editable}
             as="p"
             multiline
-            className="text-zinc-300 text-sm sm:text-base md:text-lg leading-relaxed mb-5 sm:mb-6"
+            className="text-zinc-400 text-sm sm:text-base md:text-lg leading-relaxed mb-5 sm:mb-6"
           />
           <Button
             onClick={() => onCTAClick?.('quiz')}
@@ -160,7 +160,7 @@ const StoriesV2: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
             {/* Prev */}
             <button
               onClick={() => goTo(activeIndex - 1)}
-              className="w-11 h-11 sm:w-12 sm:h-12 bg-zinc-900 border border-zinc-700/50 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:border-zinc-600 transition-colors"
+              className="w-11 h-11 sm:w-12 sm:h-12 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
               aria-label="Предыдущая история"
             >
               <ChevronLeft className="w-5 h-5" />
@@ -189,7 +189,7 @@ const StoriesV2: React.FC<BlockProps<StoriesData> & { variant?: never }> = ({
             {/* Next */}
             <button
               onClick={() => goTo(activeIndex + 1)}
-              className="w-11 h-11 sm:w-12 sm:h-12 bg-zinc-900 border border-zinc-700/50 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:border-zinc-600 transition-colors"
+              className="w-11 h-11 sm:w-12 sm:h-12 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
               aria-label="Следующая история"
             >
               <ChevronRight className="w-5 h-5" />
