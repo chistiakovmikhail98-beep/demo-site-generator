@@ -59,13 +59,21 @@ const DemoBanner: React.FC<DemoBannerProps> = ({ brandName = '', phone = '', slu
               {brandName}
             </span>
 
-            <button
-              onClick={() => setShowForm(true)}
+            <a
+              href={`/builder?project=${encodeURIComponent(slug || '')}`}
               className="ml-2 px-3 py-1 bg-primary hover:bg-accent text-white text-[10px] font-bold uppercase tracking-wider rounded-full transition-all flex items-center gap-1.5 shadow-lg shadow-primary/20"
             >
               <Send className="w-3 h-3" />
-              <span className="hidden sm:inline">Заказать сайт</span>
-              <span className="sm:hidden">Заявка</span>
+              <span className="hidden sm:inline">Доработать сайт</span>
+              <span className="sm:hidden">Доработать</span>
+            </a>
+
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-full transition-all flex items-center gap-1.5"
+            >
+              <span className="hidden sm:inline">Забрать как есть</span>
+              <span className="sm:hidden">Забрать</span>
             </button>
 
             <div className="hidden lg:flex items-center gap-2 ml-2 pl-3 border-l border-white/10">
@@ -95,13 +103,19 @@ const DemoBanner: React.FC<DemoBannerProps> = ({ brandName = '', phone = '', slu
               <div className="text-center py-8">
                 <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-white mb-2">Спасибо за заявку!</h3>
-                <p className="text-zinc-400 mb-4">Хотите получить сайт прямо сейчас? Оформите за 2 минуты:</p>
+                <p className="text-zinc-400 mb-4">Выберите, что хотите сделать:</p>
                 <div className="flex flex-col gap-2">
                   <a
-                    href={`/order?slug=${encodeURIComponent(slug || brandName.toLowerCase().replace(/\s+/g, '-'))}&brand=${encodeURIComponent(brandName)}`}
-                    className="px-6 py-3 bg-primary hover:bg-accent text-white font-bold rounded-xl transition-colors shadow-lg shadow-primary/20"
+                    href={`/builder?project=${encodeURIComponent(slug || '')}`}
+                    className="px-6 py-3 bg-primary hover:bg-accent text-white font-bold rounded-xl transition-colors shadow-lg shadow-primary/20 text-center"
                   >
-                    Перейти к оформлению &rarr;
+                    Доработать сайт &rarr;
+                  </a>
+                  <a
+                    href={`/order?slug=${encodeURIComponent(slug || brandName.toLowerCase().replace(/\s+/g, '-'))}&brand=${encodeURIComponent(brandName)}`}
+                    className="px-6 py-3 bg-zinc-700 hover:bg-zinc-600 text-white font-bold rounded-xl transition-colors text-center"
+                  >
+                    Забрать как есть
                   </a>
                   <button
                     onClick={() => { setShowForm(false); setFormSubmitted(false); }}

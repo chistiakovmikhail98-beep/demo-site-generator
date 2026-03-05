@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useBuilderStore } from '@/lib/builder/store';
 import BuilderProgress from '@/components/builder/BuilderProgress';
 import StepNiche from '@/components/builder/steps/StepNiche';
@@ -22,10 +24,54 @@ const STEP_COMPONENTS = [
 ];
 
 export default function BuilderPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-zinc-950" />}>
+      <BuilderPageContent />
+    </Suspense>
+  );
+}
+
+function BuilderPageContent() {
+  const searchParams = useSearchParams();
+  const projectSlug = searchParams.get('project');
+  const [loading, setLoading] = useState(!!projectSlug);
+
   const step = useBuilderStore(s => s.step);
   const setStep = useBuilderStore(s => s.setStep);
   const nextStep = useBuilderStore(s => s.nextStep);
   const prevStep = useBuilderStore(s => s.prevStep);
+  const existingSlug = useBuilderStore(s => s.existingProjectSlug);
+  const loadFromProject = useBuilderStore(s => s.loadFromProject);
+
+  // Load existing project data if ?project=SLUG
+  useEffect(() => {
+    if (!projectSlug) return;
+    if (existingSlug === projectSlug) {
+      setLoading(false);
+      return;
+    }
+
+    fetch(`/api/builder/load?slug=${encodeURIComponent(projectSlug)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.builderState) {
+          loadFromProject(data.builderState, data.slug, data.projectId);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [projectSlug, existingSlug, loadFromProject]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-white">
+        <div className="text-center">
+          <div className="mb-3 h-8 w-8 mx-auto animate-spin rounded-full border-2 border-rose-500 border-t-transparent" />
+          <p className="text-sm text-zinc-400">Загрузка проекта...</p>
+        </div>
+      </div>
+    );
+  }
 
   const StepComponent = STEP_COMPONENTS[step];
   const isPreviewStep = step === 4;

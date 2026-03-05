@@ -33,28 +33,48 @@ export default function StepPayment() {
   const studioInfo = useBuilderStore(s => s.studioInfo);
   const regEmail = useBuilderStore(s => s.regEmail);
   const createdProjectSlug = useBuilderStore(s => s.createdProjectSlug);
+  const existingProjectSlug = useBuilderStore(s => s.existingProjectSlug);
+
+  const isExistingProject = !!existingProjectSlug;
 
   const handlePay = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // First create the project if not created yet
-      let slug = createdProjectSlug;
-      if (!slug) {
+      let slug: string | null = null;
+
+      if (isExistingProject) {
+        // Update existing project first
+        slug = existingProjectSlug;
         const state = useBuilderStore.getState();
-        const res = await fetch('/api/builder/create', {
+        const updateRes = await fetch('/api/builder/update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(state),
+          body: JSON.stringify({ slug, builderState: state }),
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: 'Ошибка создания' }));
-          throw new Error(err.error || 'Ошибка создания проекта');
+        if (!updateRes.ok) {
+          const err = await updateRes.json().catch(() => ({ error: 'Ошибка сохранения' }));
+          throw new Error(err.error || 'Ошибка сохранения доработок');
         }
-        const data = await res.json();
-        slug = data.slug;
-        useBuilderStore.getState().setCreatedProject(data.slug, data.password);
+      } else {
+        // Create new project if not created yet
+        slug = createdProjectSlug;
+        if (!slug) {
+          const state = useBuilderStore.getState();
+          const res = await fetch('/api/builder/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(state),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: 'Ошибка создания' }));
+            throw new Error(err.error || 'Ошибка создания проекта');
+          }
+          const data = await res.json();
+          slug = data.slug;
+          useBuilderStore.getState().setCreatedProject(data.slug, data.password);
+        }
       }
 
       // Create payment

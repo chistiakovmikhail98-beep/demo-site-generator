@@ -45,6 +45,10 @@ export interface BuilderState {
   regEmail: string;
   regPhone: string;
 
+  // Existing project (editing mode via "Доработать")
+  existingProjectSlug: string | null;
+  existingProjectId: string | null;
+
   // Result
   createdProjectSlug: string | null;
   createdPassword: string | null;
@@ -74,6 +78,7 @@ export interface BuilderActions {
 
   setCreatedProject: (slug: string, password: string) => void;
 
+  loadFromProject: (state: Partial<BuilderState>, slug: string, projectId: string) => void;
   reset: () => void;
 }
 
@@ -96,6 +101,8 @@ const initialState: BuilderState = {
   typographyPresetId: 'modern',
   regEmail: '',
   regPhone: '',
+  existingProjectSlug: null,
+  existingProjectId: null,
   createdProjectSlug: null,
   createdPassword: null,
 };
@@ -147,6 +154,14 @@ export const useBuilderStore = create<BuilderState & BuilderActions>()(
       setCreatedProject: (slug, password) => set({
         createdProjectSlug: slug,
         createdPassword: password,
+      }),
+
+      loadFromProject: (state, slug, projectId) => set({
+        ...initialState,
+        ...state,
+        existingProjectSlug: slug,
+        existingProjectId: projectId,
+        step: state.step ?? 1,
       }),
 
       reset: () => set(initialState),

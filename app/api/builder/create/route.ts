@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
         typographyPresetId: 'modern',
         regEmail: '',
         regPhone: '',
+        existingProjectSlug: null,
+        existingProjectId: null,
         createdProjectSlug: null,
         createdPassword: null,
       };
