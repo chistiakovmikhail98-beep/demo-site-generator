@@ -125,24 +125,45 @@ export function builderToSiteConfig(state: BuilderState): SiteConfig {
 }
 
 function generateSlug(name: string, city: string): string {
-  const text = `${name} ${city}`.trim();
-  if (!text) return `studio-${Date.now().toString(36)}`;
+  const translitMap: Record<string, string> = {
+    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo',
+    'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+    'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+    'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+    'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+  };
 
-  return text
-    .toLowerCase()
-    .replace(/[а-яё]/g, (ch) => {
-      const map: Record<string, string> = {
-        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo',
-        'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
-        'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-        'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
-        'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
-      };
-      return map[ch] || ch;
-    })
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 30);
+  const skipWords = new Set([
+    'студия', 'школа', 'центр', 'клуб', 'зал', 'дом',
+    'фитнес', 'танцы', 'танца', 'йога', 'растяжка', 'спорт',
+    'dance', 'studio', 'fitness', 'yoga', 'stretch',
+    'для', 'детей', 'взрослых', 'и', 'в', 'на', 'г',
+  ]);
+
+  const fullText = `${name} ${city}`.trim().toLowerCase();
+  if (!fullText) return `studio-${Date.now().toString(36)}`;
+
+  const words = fullText
+    .replace(/[^a-zа-яё0-9\s]/gi, '')
+    .split(/\s+/)
+    .filter(w => w.length > 1 && !skipWords.has(w));
+
+  // Take brand word + city (if short enough)
+  let slug = '';
+  if (words.length >= 2) {
+    slug = `${words[0]}-${words[words.length - 1]}`; // brand + city
+  } else if (words.length === 1) {
+    slug = words[0];
+  } else {
+    slug = `studio-${Date.now().toString(36)}`;
+  }
+
+  return slug
+    .replace(/[а-яё]/g, ch => translitMap[ch] || ch)
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 20);
 }
 
 function parsePricingInfo(text: string): Array<{

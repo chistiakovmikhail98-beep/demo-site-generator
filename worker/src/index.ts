@@ -318,11 +318,40 @@ function generateSlug(name: string): string {
     'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
     'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
   };
-  return name.toLowerCase()
+
+  // Extract brand name: skip generic words (студия, школа, фитнес, танцы, etc.)
+  const skipWords = new Set([
+    'студия', 'школа', 'центр', 'клуб', 'зал', 'дом', 'мир',
+    'фитнес', 'танцы', 'танца', 'танцев', 'йога', 'йоги',
+    'растяжка', 'растяжки', 'спорт', 'спорта', 'велнес',
+    'dance', 'studio', 'fitness', 'yoga', 'stretch', 'sport', 'club',
+    'для', 'детей', 'взрослых', 'женщин', 'мужчин',
+    'и', 'в', 'на', 'г', 'город',
+  ]);
+
+  const words = name.toLowerCase()
     .replace(/[^a-zа-яё0-9\s]/gi, '')
-    .replace(/\s+/g, '-')
+    .split(/\s+/)
+    .filter(w => w.length > 1 && !skipWords.has(w));
+
+  // Take the first brand word, or first two short words
+  let brand = '';
+  if (words.length > 0) {
+    brand = words[0];
+    // If brand word is short (<5 chars) and there's a second word, combine
+    if (brand.length < 5 && words.length > 1 && !skipWords.has(words[1])) {
+      brand = `${words[0]}-${words[1]}`;
+    }
+  }
+
+  if (!brand) brand = `studio-${Date.now().toString(36)}`;
+
+  return brand
     .replace(/[а-яё]/g, char => translitMap[char] || char)
-    .substring(0, 30);
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 20);
 }
 
 // === Polling loop ===
