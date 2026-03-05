@@ -168,7 +168,7 @@ function buildUserPrompt(name: string, niche: Niche, description?: string): stri
 {"brand":{"name":"${name}","tagline":"Слоган","niche":"${niche}","city":"Город","heroTitle":"Заголовок","heroSubtitle":"Акцент","heroDescription":"Описание","heroImage":"","heroQuote":""},
 "sections":{"heroAdvantages":["...","...","..."],
 "directions":[{"id":"dir-0","title":"...","image":"","description":"...","tags":["..."],"level":"Все уровни","duration":"60 мин","category":"${niche}","complexity":3,"buttonText":"Записаться"}],
-"instructors":[{"name":"Имя Фамилия","image":"","specialties":["..."],"experience":"...","style":"..."}],
+"instructors":[{"name":"Имя","image":"","specialties":["..."],"experience":"...","style":"..."}],
 "stories":[{"beforeImg":"","afterImg":"","title":"...","description":"..."}],
 "faq":[{"question":"?","answer":"..."}],
 "requests":[{"image":"","text":"Запрос клиента"}],
@@ -186,6 +186,8 @@ function buildUserPrompt(name: string, niche: Niche, description?: string): stri
 "directionsTabs":[{"key":"all","label":"Все"},{"key":"group","label":"Групповые","category":"${niche}"}],
 "blockVariants":{"hero":1,"directions":1,"gallery":1,"instructors":1,"stories":1,"reviews":1,"director":1,"pricing":1,"faq":1,"objections":1,"requests":1,"advantages":1,"atmosphere":1}}}
 ТРЕБОВАНИЯ: directions:6-10, instructors:2-4, faq:5-6, requests:12, objections:3, advantages:4-6, pricing:4-6(один highlighted), reviews:6, quiz.steps:5-7, atmosphere:4, calculatorStages:4(ФИЗИЧЕСКИЙ прогресс!)
+ИНСТРУКТОРЫ: Используй ТОЛЬКО имена из описания. Если имён нет — пиши "Тренер 1", "Тренер 2" и т.д. НЕ выдумывай фамилии!
+ДИРЕКТОР: Если нет данных — пиши "Команда студии" вместо имени. НЕ выдумывай!
 blockVariants: разнообразие 1-3. ОТВЕТЬ ТОЛЬКО JSON!`;
   return text;
 }

@@ -302,11 +302,10 @@ function injectPhotos(config: SiteConfig, files: UploadedFile[]): void {
     config.sections.gallery = byBlock.gallery;
   }
 
-  // Instructors — dedicated photos, fallback to hero overflow, then gallery
-  if (Array.isArray(config.sections.instructors)) {
-    const instrPhotos = pool(byBlock.instructors || [], byBlock.hero?.slice(1), byBlock.gallery);
+  // Instructors — ONLY dedicated instructor photos, no random fallback
+  if (Array.isArray(config.sections.instructors) && byBlock.instructors?.length) {
     config.sections.instructors.forEach((inst: any, i: number) => {
-      if (instrPhotos[i]) inst.image = instrPhotos[i];
+      if (byBlock.instructors[i]) inst.image = byBlock.instructors[i];
     });
   }
 
@@ -326,9 +325,9 @@ function injectPhotos(config: SiteConfig, files: UploadedFile[]): void {
     });
   }
 
-  // Director — use first instructor photo, or hero[1], or first available
+  // Director — only use instructor portrait photos, not random
   if (config.sections.director && typeof config.sections.director === 'object') {
-    const directorPhoto = (byBlock.instructors?.[0]) || (byBlock.hero?.[1]) || allPhotos[0];
+    const directorPhoto = byBlock.instructors?.[0];
     if (directorPhoto) {
       (config.sections.director as any).image = directorPhoto;
     }

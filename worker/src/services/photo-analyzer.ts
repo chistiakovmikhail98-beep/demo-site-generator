@@ -212,6 +212,8 @@ export function distributePhotos(analyzed: AnalyzedPhoto[]): {
         else result.gallery.push(photo);
         break;
       case 'instructors':
+        // Skip child photos for instructors
+        if (photo.isChild) { result.gallery.push(photo); break; }
         if (result.instructors.length < 6) result.instructors.push(photo);
         else result.gallery.push(photo);
         break;
