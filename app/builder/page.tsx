@@ -43,6 +43,9 @@ function BuilderPageContent() {
   const existingSlug = useBuilderStore(s => s.existingProjectSlug);
   const loadFromProject = useBuilderStore(s => s.loadFromProject);
 
+  // All hooks must be called before any early return
+  const canGoNext = useCanGoNext(step);
+
   // Load existing project data if ?project=SLUG
   useEffect(() => {
     if (!projectSlug) return;
@@ -75,9 +78,6 @@ function BuilderPageContent() {
 
   const StepComponent = STEP_COMPONENTS[step];
   const isPreviewStep = step === 4;
-
-  // Validation per step
-  const canGoNext = useCanGoNext(step);
 
   return (
     <div className="flex min-h-screen flex-col">
