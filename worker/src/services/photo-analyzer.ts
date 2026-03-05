@@ -82,17 +82,25 @@ async function analyzeBatch(
     text: `Analyse ${photos.length} photos for a ${nicheContext[niche] || 'fitness studio'} website.
 
 For EACH photo determine:
-- category: hero (main banner - beautiful wide/landscape shot of studio), instructors (trainer portrait - one person posing), directions (group class in action showing a specific discipline), gallery (other good photos of classes/events), atmosphere (interior/space/equipment without people), stories (before/after transformation), skip (logos, flyers, text images, low quality)
+- category (choose ONE):
+  * "hero" — 1-2 best wide/landscape shots for main banner
+  * "instructors" — individual person posing alone (portrait/trainer)
+  * "directions" — ANY photo showing people training, dancing, exercising, stretching, in class, performing. This is the MOST COMMON category for fitness/dance photos!
+  * "atmosphere" — interior, space, equipment, room WITHOUT active training
+  * "stories" — before/after transformation photos
+  * "gallery" — ONLY for event photos, competitions, awards, group portraits. NOT training!
+  * "skip" — logos, flyers, text images, ads, low quality
 - confidence: 0-1
 - isChild: true/false
 - isGroup: true/false
 - quality: high/medium/low
 - description: 5-10 words in Russian
 
-IMPORTANT: Distribute photos across categories! Don't put everything into gallery. Prioritize: 1-2 hero, 2-4 instructors (individual portraits), 3-6 directions (group training shots), 2-4 atmosphere (interior).
+CRITICAL RULE: Photos showing people actively training/dancing/exercising = "directions", NOT "gallery"!
+Expected distribution: ~50% directions, ~15% instructors, ~15% atmosphere, ~10% hero, ~10% gallery.
 
 Answer is a JSON array (one object per photo, in same order):
-[{"category":"gallery","confidence":0.9,"isChild":false,"isGroup":true,"quality":"high","description":"групповое занятие по йоге"}]
+[{"category":"directions","confidence":0.9,"isChild":false,"isGroup":true,"quality":"high","description":"групповое занятие по танцам"}]
 
 JSON ONLY!`,
   });
